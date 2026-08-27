@@ -45,21 +45,27 @@ const navItems: (SidebarItem & { href: string })[] = [
   { id: "script", label: "Script", href: "/script", icon: <FileText className="size-full" /> },
   { id: "breakdown", label: "Breakdown", href: "/script", icon: <ListTree className="size-full" /> },
   { id: "schedule", label: "Schedule", href: "/schedule", icon: <CalendarDays className="size-full" /> },
-  { id: "cast", label: "Cast", href: "/overview", icon: <Users className="size-full" /> },
-  { id: "crew", label: "Crew", href: "/overview", icon: <HardHat className="size-full" /> },
-  { id: "locations", label: "Locations", href: "/overview", icon: <MapPin className="size-full" /> },
+  { id: "cast", label: "Cast", href: "/cast", icon: <Users className="size-full" /> },
+  { id: "crew", label: "Crew", href: "/crew", icon: <HardHat className="size-full" /> },
+  { id: "locations", label: "Locations", href: "/locations", icon: <MapPin className="size-full" /> },
   { id: "set", label: "Set", href: "/shoot-day", icon: <Building2 className="size-full" /> },
-  { id: "money", label: "Money", href: "/overview", icon: <Wallet className="size-full" /> },
-  { id: "documents", label: "Documents", href: "/overview", icon: <FolderOpen className="size-full" /> },
+  { id: "money", label: "Money", href: "/money", icon: <Wallet className="size-full" /> },
+  { id: "documents", label: "Documents", href: "/documents", icon: <FolderOpen className="size-full" /> },
 ];
 const aiItem: SidebarItem & { href: string } = { id: "ai", label: "FilmSet AI", href: "/ai", icon: <Sparkles className="size-full" /> };
-const settingsItem: SidebarItem = { id: "settings", label: "Settings", icon: <Settings className="size-full" /> };
+const settingsItem: SidebarItem & { href: string } = { id: "settings", label: "Settings", href: "/settings", icon: <Settings className="size-full" /> };
 
 function routeForActiveId(pathname: string): string {
   if (pathname.startsWith("/script")) return "script";
   if (pathname.startsWith("/schedule")) return "schedule";
   if (pathname.startsWith("/shoot-day")) return "set";
   if (pathname.startsWith("/ai")) return "ai";
+  if (pathname.startsWith("/cast")) return "cast";
+  if (pathname.startsWith("/crew")) return "crew";
+  if (pathname.startsWith("/locations")) return "locations";
+  if (pathname.startsWith("/money")) return "money";
+  if (pathname.startsWith("/documents")) return "documents";
+  if (pathname.startsWith("/settings")) return "settings";
   return "overview";
 }
 
@@ -217,7 +223,7 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
               items={navItems}
               activeId={routeForActiveId(pathname)}
               onNavigate={(id) => {
-                const item = [...navItems, aiItem].find((i) => i.id === id);
+                const item = [...navItems, aiItem, settingsItem].find((i) => i.id === id);
                 if (item) router.push(item.href);
               }}
               aiItem={aiItem}

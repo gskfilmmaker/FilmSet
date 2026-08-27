@@ -5,7 +5,7 @@ import { answerQuestion, suggestRecommendation, type SuggestedRecommendation } f
 import { getProductionSnapshot } from "@/lib/queries";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
 /**
  * The Suggest→Explain→Preview→Approve→Commit pipeline (FilmSet.pdf, AI
@@ -72,7 +72,7 @@ export async function approveSuggestion(productionId: string, logId: string, sug
       await tx
         .update(schema.aiSuggestionLog)
         .set({ status: "approved", decidedAt: new Date() })
-        .where(eq(schema.aiSuggestionLog.id, logId));
+        .where(and(eq(schema.aiSuggestionLog.id, logId), eq(schema.aiSuggestionLog.productionId, productionId)));
       await tx.insert(schema.activities).values({
         id: crypto.randomUUID(),
         productionId,
@@ -90,7 +90,10 @@ export async function rejectSuggestion(productionId: string, logId: string) {
   const user = await requireUser();
   await requireProductionMember(productionId);
   await runAsUser(user.id, (db) =>
-    db.update(schema.aiSuggestionLog).set({ status: "rejected", decidedAt: new Date() }).where(eq(schema.aiSuggestionLog.id, logId)),
+    db
+      .update(schema.aiSuggestionLog)
+      .set({ status: "rejected", decidedAt: new Date() })
+      .where(and(eq(schema.aiSuggestionLog.id, logId), eq(schema.aiSuggestionLog.productionId, productionId))),
   );
 }
 
@@ -100,7 +103,10 @@ export async function approveRecommendationOption(productionId: string, recommen
   const membership = await requireProductionMember(productionId);
   await runAsUser(user.id, (db) =>
     db.transaction(async (tx) => {
-      await tx.update(schema.aiRecommendations).set({ status: "resolved" }).where(eq(schema.aiRecommendations.id, recommendationId));
+      await tx
+        .update(schema.aiRecommendations)
+        .set({ status: "resolved" })
+        .where(and(eq(schema.aiRecommendations.id, recommendationId), eq(schema.aiRecommendations.productionId, productionId)));
       await tx.insert(schema.activities).values({
         id: crypto.randomUUID(),
         productionId,
@@ -116,7 +122,10 @@ export async function dismissRecommendation(productionId: string, recommendation
   const membership = await requireProductionMember(productionId);
   await runAsUser(user.id, (db) =>
     db.transaction(async (tx) => {
-      await tx.update(schema.aiRecommendations).set({ status: "dismissed" }).where(eq(schema.aiRecommendations.id, recommendationId));
+      await tx
+        .update(schema.aiRecommendations)
+        .set({ status: "dismissed" })
+        .where(and(eq(schema.aiRecommendations.id, recommendationId), eq(schema.aiRecommendations.productionId, productionId)));
       await tx.insert(schema.activities).values({
         id: crypto.randomUUID(),
         productionId,

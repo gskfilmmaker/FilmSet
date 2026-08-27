@@ -71,6 +71,16 @@ A signed-in user can belong to more than one production. `apps/web/app/productio
 
 `apps/web/lib/authz.ts`'s `requireCurrentProduction` — the function every protected page calls first — reads `active_production_id` and falls back to the caller's earliest membership if it's unset or points at a production they're no longer in (an account created before this preference existed, or a stale pointer). The switcher itself lives in `apps/web/components/shell.tsx`, opened from the production name in the global bar.
 
+## Cast, Crew, Locations, Settings
+
+Every sidebar item now goes somewhere real — no more silent bounces to `/overview`:
+
+- **`/cast`, `/crew`, `/locations`** — real CRUD (`apps/web/app/{cast,crew,locations}/`), each an inline list-with-edit-row page following `team-section.tsx`'s established pattern (server-fetched props from `getProductionSnapshot`, a client component, toasts, `router.refresh()` after every mutation) rather than a Dialog, per FRAME's own guidance to prefer inline editing over a modal for anything that isn't a focused/irreversible action. Cast members reference a `characters` row; `apps/web/app/cast/actions.ts`'s `findOrCreateCharacter` reuses an existing character with the same case-insensitive name in the production rather than creating a duplicate on every edit.
+- **`/settings`** — a real route at last (it fired `onNavigate` before but wasn't in the id lookup array, so nothing happened); minimal for now — edit your display name, a link to the existing password-reset flow.
+- **`/money`, `/documents`** — real routes with an honest "Coming soon" `EmptyState` rather than a dead link, per the audit's own recommendation: building the full budget/document workflows is future work, but a route that says so beats one that silently does nothing.
+
+**Also hardened while touching this code**: `persistBoard` (stripboard drag-drop), `addBreakdownTag`, and the AI approve/reject/dismiss actions previously updated rows by id alone, trusting RLS as the only production boundary. RLS still blocks true cross-tenant access, but Production Manager just made "a user who belongs to two productions" a real case — so these now also verify the id belongs to the `productionId` the caller claims before writing, closing an internal reassignment path RLS's `is_production_member(production_id)` check doesn't cover on its own (it checks the row's own production_id, not that a *referenced* row like a scene actually belongs there).
+
 ## Testing this locally
 
 After `db:migrate` (and optionally `db:seed`):
