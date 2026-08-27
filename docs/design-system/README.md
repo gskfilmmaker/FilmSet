@@ -88,6 +88,13 @@ A brand-new production (or one whose script hasn't been imported yet) has zero s
 - **`apps/web/lib/script-parser.ts`** — a pure, dependency-free heuristic parser (no DB/Next.js imports, so it's independently testable). Scene headings (`INT.`/`EXT.`/`INT/EXT.` followed by a set name, optionally `- DAY`/`- NIGHT`/etc.) start a new scene; inside one, an all-caps line under 40 chars is read as a character cue, a `(parenthetical)` as itself, and everything between a cue and the next blank line as dialogue — everything else is action. Known limitation: an all-caps *action* line (some writers use this for emphasis, e.g. "THE DOOR SLAMS SHUT.") gets misread as a character cue — acceptable for a first pass; standard formatting parses cleanly.
 - **`apps/web/app/script/import-actions.ts`**'s `importScript` finds-or-creates a `Location` per unique set name (case-insensitive) — `scenes.location_id` is `NOT NULL`, so this isn't optional, and it's also why importing a script populates `/locations` for free. New scenes are numbered and ordered after any the production already has, so importing is safe to do more than once.
 
+## Notifications and Overview health tiles
+
+Two more "displays a fixed number regardless of reality" gaps from the audit:
+
+- **Notifications** — the bell showed a hardcoded `3` with no click handler. `apps/web/app/notifications-actions.ts`'s `getNotifications()` returns pending AI recommendations and pending approvals for the current production; `Shell` fetches it on mount (and again whenever `production.id` changes, i.e. after switching productions) and renders a real count + a dropdown listing them, each linking to where it's actioned.
+- **Overview's Schedule and Script tiles** — previously hardcoded `"On Track"` and `"Blue Revision" / "Locked"` no matter what the data said. Schedule now reflects how many scenes have no `shoot_day_id` yet; Script reflects how many scenes have no `script_pages` row yet (i.e., weren't covered by an import) — both genuinely computable from data that exists, unlike a revision-tracking concept the schema doesn't have.
+
 ## Testing this locally
 
 After `db:migrate` (and optionally `db:seed`):

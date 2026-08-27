@@ -1,6 +1,7 @@
 "use client";
 
 import { createProduction, listMyProductions, switchActiveProduction, type MyProduction } from "@/app/production-actions";
+import { getNotifications, type NotificationItem } from "@/app/notifications-actions";
 import { getBrowserSupabase } from "@filmset/auth/browser";
 import type { Production, Scene } from "@filmset/core";
 import {
@@ -123,7 +124,23 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
   const [newName, setNewName] = React.useState("");
   const [creating, setCreating] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const [notifOpen, setNotifOpen] = React.useState(false);
+  const [notifications, setNotifications] = React.useState<NotificationItem[] | null>(null);
   const shortcuts = useKeyboardShortcutsOverlay();
+
+  React.useEffect(() => {
+    let cancelled = false;
+    getNotifications()
+      .then((items) => {
+        if (!cancelled) setNotifications(items);
+      })
+      .catch(() => {
+        if (!cancelled) setNotifications([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [production.id]);
 
   function openSwitcher() {
     setSwitcherOpen((open) => {
@@ -210,11 +227,12 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
             <GlobalBar
               productionName={production.name}
               phase={production.phase}
-              notificationCount={3}
+              notificationCount={notifications?.length ?? 0}
               userName={userEmail ?? "Priya Nair"}
               userInitials={initials}
               onOpenCommandPalette={() => setPaletteOpen(true)}
               onOpenProductionSwitcher={openSwitcher}
+              onOpenNotifications={() => setNotifOpen((open) => !open)}
               onOpenUserMenu={() => setUserMenuOpen((open) => !open)}
             />
           }
@@ -308,6 +326,47 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
                 </button>
               )}
             </div>
+          </div>
+        </>
+      )}
+
+      {notifOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close notifications"
+            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default"
+            onClick={() => setNotifOpen(false)}
+          />
+          <div className="fixed right-[56px] top-[52px] z-[var(--fs-z-dropdown)] w-[280px] rounded-md border border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] p-[var(--fs-space-8)] shadow-[var(--fs-shadow-md)]">
+            <p className="px-[var(--fs-space-8)] py-[4px] text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+              Notifications
+            </p>
+            {notifications === null ? (
+              <p className="px-[var(--fs-space-8)] py-[var(--fs-space-8)] text-[13px] text-[var(--color-text-tertiary)]">Loading…</p>
+            ) : notifications.length === 0 ? (
+              <p className="px-[var(--fs-space-8)] py-[var(--fs-space-8)] text-[13px] text-[var(--color-text-tertiary)]">
+                Nothing needs your attention.
+              </p>
+            ) : (
+              <ul className="flex max-h-[280px] flex-col gap-[2px] overflow-y-auto">
+                {notifications.map((n) => (
+                  <li key={n.id}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNotifOpen(false);
+                        router.push(n.href);
+                      }}
+                      className="flex w-full flex-col items-start gap-[2px] rounded-[4px] px-[var(--fs-space-8)] py-[6px] text-left outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+                    >
+                      <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">{n.title}</span>
+                      <span className="truncate text-[12px] text-[var(--color-text-tertiary)]">{n.description}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </>
       )}

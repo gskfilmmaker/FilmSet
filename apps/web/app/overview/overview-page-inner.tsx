@@ -50,7 +50,8 @@ export function OverviewPageInner({
   userId: string;
   myRole: ProductionRole;
 }) {
-  const { production, members, scenes, shootDays, locations, issues, approvals, documents, activities, budgetLines, castMembers } = snapshot;
+  const { production, members, scenes, scriptPages, shootDays, locations, issues, approvals, documents, activities, budgetLines, castMembers } =
+    snapshot;
 
   const today = shootDays.find((d) => d.status === "In Progress");
   const tomorrow = shootDays.find((d) => d.status === "Scheduled");
@@ -60,6 +61,14 @@ export function OverviewPageInner({
   const variance = camera && camera.budgeted > 0 ? (((camera.actual - camera.budgeted) / camera.budgeted) * 100).toFixed(1) : "0.0";
   const pendingPermits = locations.filter((l) => l.permitStatus !== "Confirmed").length;
   const unavailableCast = castMembers.filter((c) => c.status === "Unavailable").length;
+
+  const unscheduledScenes = scenes.filter((s) => !s.shootDayId && s.status !== "Omitted").length;
+  const scheduleValue = scenes.length === 0 ? "No scenes" : unscheduledScenes === 0 ? "On Track" : `${unscheduledScenes} Unscheduled`;
+  const scheduleTone = scenes.length === 0 ? "neutral" : unscheduledScenes === 0 ? "success" : "warning";
+
+  const scenesMissingPages = scenes.filter((s) => !scriptPages.some((p) => p.sceneId === s.id)).length;
+  const scriptValue = scenes.length === 0 ? "Not imported" : scenesMissingPages === 0 ? "Fully imported" : `${scenesMissingPages} Missing pages`;
+  const scriptTone = scenes.length === 0 ? "neutral" : scenesMissingPages === 0 ? "success" : "warning";
 
   function sceneLabel(id: string) {
     const scene = scenes.find((s) => s.id === id);
@@ -85,15 +94,19 @@ export function OverviewPageInner({
         <div className="grid grid-cols-4 gap-[var(--fs-space-24)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
           <StatusItem
             label="Schedule"
-            value="On Track"
-            badge={today && <StatusBadge tone="success">Day {today.dayNumber}/{today.totalDays}</StatusBadge>}
+            value={scheduleValue}
+            badge={
+              <StatusBadge tone={scheduleTone}>
+                {today ? `Day ${today.dayNumber}/${today.totalDays}` : unscheduledScenes === 0 ? "Clear" : "Attention"}
+              </StatusBadge>
+            }
           />
           <StatusItem
             label="Budget"
             value={`Camera ${Number(variance) >= 0 ? "+" : ""}${variance}%`}
             badge={<StatusBadge tone={Number(variance) > 0 ? "warning" : "success"}>{Number(variance) > 0 ? "Over" : "On Track"}</StatusBadge>}
           />
-          <StatusItem label="Script" value="Blue Revision" badge={<StatusBadge tone="neutral">Locked</StatusBadge>} />
+          <StatusItem label="Script" value={scriptValue} badge={<StatusBadge tone={scriptTone}>{scenes.length === 0 ? "Empty" : scenesMissingPages === 0 ? "Complete" : "Attention"}</StatusBadge>} />
           <StatusItem
             label="Cast"
             value={`${unavailableCast} Conflict${unavailableCast === 1 ? "" : "s"}`}
