@@ -1,6 +1,7 @@
 "use client";
 
-import { theBandProduction, theBandScenes } from "@filmset/db";
+import { getBrowserSupabase } from "@filmset/auth/browser";
+import type { Production, Scene } from "@filmset/core";
 import {
   AppShell,
   CommandDialog,
@@ -92,15 +93,28 @@ function PrototypeControls() {
 export interface ShellProps {
   children: React.ReactNode;
   inspector?: React.ReactNode;
+  userEmail?: string;
+  production: Pick<Production, "name" | "phase">;
+  scenes: Pick<Scene, "id" | "number" | "setName" | "dayNight" | "intExt" | "shootDayId">[];
 }
 
-export function Shell({ children, inspector }: ShellProps) {
+export function Shell({ children, inspector, userEmail, production, scenes }: ShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [expanded, setExpanded] = React.useState(true);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
+  const [userMenuOpen, setUserMenuOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const shortcuts = useKeyboardShortcutsOverlay();
+
+  async function handleSignOut() {
+    setUserMenuOpen(false);
+    await getBrowserSupabase().auth.signOut();
+    router.replace("/login");
+    router.refresh();
+  }
+
+  const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "PN";
 
   React.useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -118,8 +132,8 @@ export function Shell({ children, inspector }: ShellProps) {
     if (!trimmed) return null;
     const m = /(?:scene\s*)?(\d+)$/i.exec(trimmed);
     if (!m) return null;
-    return theBandScenes.find((s) => s.number === m[1]) ?? null;
-  }, [query]);
+    return scenes.find((s) => s.number === m[1]) ?? null;
+  }, [query, scenes]);
 
   function go(href: string) {
     setPaletteOpen(false);
@@ -127,18 +141,19 @@ export function Shell({ children, inspector }: ShellProps) {
   }
 
   return (
-    <div className="flex h-screen flex-col">
+    <div className="relative flex h-screen flex-col">
       <div className="min-h-0 flex-1">
         <AppShell
           globalBar={
             <GlobalBar
-              productionName={theBandProduction.name}
-              phase={theBandProduction.phase}
+              productionName={production.name}
+              phase={production.phase}
               notificationCount={3}
-              userName="Priya Nair"
-              userInitials="PN"
+              userName={userEmail ?? "Priya Nair"}
+              userInitials={initials}
               onOpenCommandPalette={() => setPaletteOpen(true)}
               onOpenProductionSwitcher={() => router.push("/overview")}
+              onOpenUserMenu={() => setUserMenuOpen((open) => !open)}
             />
           }
           sidebar={
@@ -161,6 +176,29 @@ export function Shell({ children, inspector }: ShellProps) {
         </AppShell>
       </div>
       <PrototypeControls />
+
+      {userMenuOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close user menu"
+            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default"
+            onClick={() => setUserMenuOpen(false)}
+          />
+          <div className="fixed right-[var(--fs-space-16)] top-[52px] z-[var(--fs-z-dropdown)] w-[220px] rounded-md border border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] p-[var(--fs-space-8)] shadow-[var(--fs-shadow-md)]">
+            {userEmail && (
+              <p className="truncate px-[var(--fs-space-8)] py-[4px] text-[12px] text-[var(--color-text-tertiary)]">{userEmail}</p>
+            )}
+            <button
+              type="button"
+              onClick={handleSignOut}
+              className="flex h-[32px] w-full items-center rounded-[4px] px-[var(--fs-space-8)] text-left text-[13px] text-[var(--color-status-danger)] outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+            >
+              Sign out
+            </button>
+          </div>
+        </>
+      )}
 
       <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
         <CommandInput placeholder="Search or run a command…" value={query} onValueChange={setQuery} />

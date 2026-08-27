@@ -2,7 +2,7 @@
 
 import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
-import type { Scene, ShootDay } from "@filmset/core";
+import type { Character, Scene, ShootDay } from "@filmset/core";
 import { StatusBadge } from "@filmset/ui";
 import { castNames, Strip } from "./strip";
 
@@ -20,6 +20,7 @@ export interface DayColumnProps {
   sceneIds: string[];
   scenesById: Map<string, Scene>;
   castMemberCharacterIds: Record<string, string>;
+  characters: Character[];
   selectedIds: Set<string>;
   conflictSceneIds: Set<string>;
   onSelect: (sceneId: string, additive: boolean) => void;
@@ -32,6 +33,7 @@ export function DayColumn({
   sceneIds,
   scenesById,
   castMemberCharacterIds,
+  characters,
   selectedIds,
   conflictSceneIds,
   onSelect,
@@ -69,7 +71,7 @@ export function DayColumn({
               <Strip
                 key={id}
                 scene={scene}
-                castLabel={castNames(scene, castMemberCharacterIds)}
+                castLabel={castNames(scene, castMemberCharacterIds, characters)}
                 selected={selectedIds.has(id)}
                 hasConflict={conflictSceneIds.has(id)}
                 onSelect={onSelect}

@@ -213,7 +213,10 @@ export const aiRecommendationSchema = z.object({
   title: z.string(),
   subject: z.string(),
   conflict: z.string(),
+  /** Why the model proposed this — populated for recommendations generated through the Suggest→Explain pipeline. */
+  explanation: z.string().optional(),
   affected: z.array(z.string()),
   options: z.array(aiRecommendationOptionSchema),
+  status: z.enum(["pending", "resolved", "dismissed"]).optional(),
 });
 export type AIRecommendation = z.infer<typeof aiRecommendationSchema>;

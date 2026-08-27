@@ -6,16 +6,37 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    }
+  },
   "scripts": {
-    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts src/server.ts --format esm,cjs --dts --clean",
     "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx scripts/seed.ts",
     "clean": "rm -rf dist"
   },
   "dependencies": {
-    "@filmset/core": "workspace:*"
+    "@filmset/core": "workspace:*",
+    "drizzle-orm": "^0.36.4",
+    "postgres": "^3.4.5",
+    "server-only": "^0.0.1"
   },
   "devDependencies": {
+    "@types/node": "^22.7.9",
+    "dotenv": "^16.4.5",
+    "drizzle-kit": "^0.28.1",
     "tsup": "^8.3.0",
+    "tsx": "^4.19.2",
     "typescript": "^5.6.3"
   }
 }

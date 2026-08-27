@@ -1,8 +1,7 @@
 /**
- * Role vocabulary only — no policy enforcement yet. Roles personalize
- * workspace emphasis (Constitution §79); they do not gate access in this
- * pass. Real RBAC, project isolation, and session handling belong to the
- * feature-implementation phase.
+ * Role vocabulary — safe to import from anywhere (client or server), no
+ * Supabase/Next dependency. Personalizes workspace emphasis (Constitution
+ * §79) and gates membership-scoped actions (see "./server").
  */
 export const PRODUCTION_ROLES = [
   "Producer",

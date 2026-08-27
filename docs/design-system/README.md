@@ -1,6 +1,6 @@
 # FRAME — FilmSet Design System
 
-Status: **Foundation complete** (Constitution §91, all 21 deliverables) **and all five canonical screens built** (§72–77) as high-fidelity, interactive prototypes on real fixture data. Not yet approved to proceed past prototype into real feature implementation — see the stop-and-present note at the bottom.
+Status: **Foundation complete** (Constitution §91, all 21 deliverables), **all five canonical screens built** (§72–77), and the prototype has since been wired to a **real backend**: Supabase Postgres + Auth, and a real Suggest→Explain→Preview→Approve→Commit AI pipeline against Anthropic's API. Fixture data ("THE BAND") is now a seed script rather than the only data source — see [Environment](#environment) to run it against a live database.
 
 ## Packages
 
@@ -8,19 +8,40 @@ Status: **Foundation complete** (Constitution §91, all 21 deliverables) **and a
 |---|---|
 | `packages/tokens` | Source of truth. TS token definitions (`src/semantic.ts`, `src/primitives.ts`) plus hand-authored motion keyframes (`src/motion.css`) compiled to CSS custom properties per theme (`dist/css/*.css`) by `scripts/build-css.ts`. Never hand-edit the generated CSS. |
 | `packages/ui` | FRAME components (`@filmset/ui`). Radix + cmdk + TanStack Table primitives restyled to FRAME; components reference semantic tokens only, never raw values. Storybook lives here. |
-| `packages/core` | Minimal production-graph shapes (Scene, Production) — typing only, no business logic. |
-| `packages/db` | Fixture data ("THE BAND") backing prototypes. No schema/migrations yet — deferred per brief §0. |
-| `packages/auth` | Role vocabulary only (§79). No RBAC enforcement yet — deferred per brief §0. |
-| `apps/web` | Next.js App Router shell proving the token/theme architecture end-to-end — including a real, working ⌘K command palette and keyboard shortcut overlay, not just Storybook demos. |
+| `packages/core` | Zod domain schemas (Scene, Production, AIRecommendation, etc.) — the shared type layer between the DB, server actions, and screens. |
+| `packages/db` | Drizzle ORM schema + Postgres client (`@filmset/db/server`), "THE BAND" fixture data (`@filmset/db`, client-safe) used by the seed script, and `scripts/seed.ts` to load it into a real database. |
+| `packages/auth` | Supabase Auth wiring: browser/server clients, session helpers, and the `ProductionRole` RBAC vocabulary (§79), enforced by `apps/web/lib/authz.ts`. |
+| `apps/web` | Next.js App Router app. Every screen is a Server Component that reads real data through `lib/queries.ts` and mutates it through per-route Server Actions (`app/*/actions.ts`) — no screen imports fixture data directly anymore. |
 
 ## Running it
 
 ```bash
 pnpm install
+cp apps/web/.env.example apps/web/.env.local   # fill in Supabase + Anthropic values, see Environment below
 pnpm --filter @filmset/tokens build   # generates CSS from TS token source
+pnpm --filter @filmset/db db:push     # creates the schema in your Supabase Postgres
 pnpm storybook                        # FRAME components, all states, 3 themes, 2 densities
-pnpm --filter @filmset/web dev        # app shell prototype — try ⌘K and "?"
+pnpm --filter @filmset/web dev        # the real app — sign up, then see Environment for demo data
 ```
+
+## Environment
+
+Four environment variables, set in `apps/web/.env.local` for local dev and in the Vercel project's Environment Variables for deploys:
+
+| Variable | Where to find it |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings → API → Project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same page → Project API keys → `anon` `public` |
+| `DATABASE_URL` | Project Settings → Database → Connection string → **Transaction pooler** (port 6543 — required for serverless/Vercel) |
+| `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys |
+
+First-time setup, once those are set:
+
+1. `pnpm --filter @filmset/db db:push` — creates every table from `packages/db/src/schema.ts` in your Supabase Postgres. Re-run any time the schema changes (there's no migration history yet, `db:push` diffs and applies directly — fine pre-launch, revisit with `db:generate` + real migrations before this has real users).
+2. Run the app (`pnpm --filter @filmset/web dev`) and sign up for an account at `/signup`. A brand-new account lands on `/onboarding` and gets an empty production.
+3. To load the full "THE BAND" demo dataset instead of starting empty: find your new user's id in Supabase → Authentication → Users, then run `SEED_OWNER_USER_ID=<that-uuid> pnpm --filter @filmset/db db:seed`. It's idempotent — safe to re-run after schema changes.
+
+No Supabase/Anthropic project available yet? The five screens still exist as pure UI — see git history before this environment section was added for the fixture-only prototype build.
 
 ## Token architecture
 
@@ -106,10 +127,13 @@ The a11y suite (`packages/ui/a11y-tests/frame.spec.ts`) runs all 38 stories × a
 5. **DataTable scope** — pin/reorder/resize/grouping/saved-views-persistence/export are all named explicitly in §23/§24 and are not yet built. None of the five canonical screens happened to need them yet, but Cast/Crew/Locations list views and a real Money/Budget screen will.
 6. **Stripboard is screen-specific, not a FRAME primitive** — `@dnd-kit` and the drag logic live in `apps/web/components/stripboard/`, not `packages/ui`. Deliberate: extracting a reusable "Stripboard" or generic "sortable board" component before a second consumer exists would be guessing at the wrong abstraction. Worth revisiting once, say, a shot list or a schedule-comparison view needs similar drag/drop.
 7. **Fixture depth beyond the five screens** — Cast, Crew, Locations, Money, Documents sidebar items currently all route to `/overview` (no dedicated screen exists for them). Fine for this pass since none of the five canonical screens needed them as destinations, but the sidebar will feel incomplete under real use.
-8. **Shoot Day's scene-progress state is hardcoded**, not derived from the current time — `SCENE_PROGRESS` in `apps/web/app/shoot-day/page.tsx` is a fixed map matching the fixture's "Day 18 in progress, Scene 48 now" narrative. Fine for a static prototype; a real implementation would derive this from actual production state.
+8. ~~**Shoot Day's scene-progress state is hardcoded**~~ — resolved: `sceneProgress()` in `apps/web/app/shoot-day/shoot-day-page-inner.tsx` now derives status from each scene's real `status` field instead of a fixed map.
+9. **Cast/Crew/Locations/Money/Documents still have no dedicated screens** — the sidebar items route to `/overview`. The real data for all of them already exists in `ProductionSnapshot` (`apps/web/lib/queries.ts`); building each screen is now "another DataTable view," not new plumbing.
+10. **`packages/db`'s schema has no migration history** — `drizzle-kit push` diffs the live database directly rather than generating versioned SQL migrations (`db:generate`). Fine pre-launch; switch before this has real production users, so schema changes are reviewable and reversible.
+11. **AI-approved schedule/budget options are logged, not executed** — approving an `AIRecommendation` option (`app/ai/actions.ts` → `approveRecommendationOption`) records the decision to `activities` but doesn't itself move the scene or adjust the budget line; a human still makes that specific change (e.g. on the Stripboard). Consistent with the governance model's "no direct writes," but worth deciding deliberately whether some options should auto-apply once approved.
 
-## Stop-and-present checkpoint
+## Stop-and-present checkpoint (superseded)
 
-This pass completes all 21 foundation deliverables from Constitution §91 (tokens, three themes, typography, spacing, icon strategy, core controls, sidebar, global bar, inspector, command palette, data-table foundation, status system, loading/empty/error states, toast system, dialog/drawer/popover primitives, keyboard navigation + shortcut overlay, focus management, accessibility tests, Storybook documentation) **and** all five canonical screens from §72–77, each interactively verified and re-checked across all three themes.
+This pass completed all 21 foundation deliverables from Constitution §91 and all five canonical screens from §72–77 as a fixture-only prototype, then stopped per Constitution §91 / brief §9 to await approval before real feature implementation.
 
-Per Constitution §91 and brief §9: **stop here**. Do not proceed to large-scale feature implementation (real persistence, real AI, real auth/RBAC enforcement, the deferred DataTable capabilities, screens for Cast/Crew/Locations/Money/Documents) until this prototype phase — the visual and interaction language it establishes — has been reviewed and approved.
+**That approval was given** — real feature implementation is now underway: Supabase Postgres (via Drizzle, `packages/db/src/schema.ts`) replaces fixtures as the data source (fixtures now seed the DB via `db:seed` instead of being imported by screens), Supabase Auth replaces the no-op auth stub (`packages/auth`, `apps/web/app/login`, `/signup`, `/onboarding`, `middleware.ts`), and a real Suggest→Explain→Preview→Approve→Commit pipeline against Anthropic's API replaces the AI screen's canned responses (`apps/web/lib/ai.ts`, `apps/web/app/ai/actions.ts`) — see [Environment](#environment) to run it. Remaining gaps are tracked in Open design questions #9–11 above, not hidden.

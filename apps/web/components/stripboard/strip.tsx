@@ -2,11 +2,10 @@
 
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import type { Scene } from "@filmset/core";
-import { characters } from "@filmset/db";
+import type { Character, Scene } from "@filmset/core";
 import { GripVertical, TriangleAlert } from "lucide-react";
 
-export function castNames(scene: Scene, castMemberCharacterIds: Record<string, string>): string {
+export function castNames(scene: Scene, castMemberCharacterIds: Record<string, string>, characters: Character[]): string {
   return scene.castIds
     .map((id) => {
       const charId = castMemberCharacterIds[id];
