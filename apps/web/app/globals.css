@@ -1,0 +1,33 @@
+@import "tailwindcss";
+@source "../../../packages/ui/src";
+
+/* Token layer — generated from packages/tokens (TS source of truth). Never hand-edit. */
+@import "@filmset/tokens/css/tokens.css";
+@import "@filmset/tokens/css/theme-light.css";
+@import "@filmset/tokens/css/theme-dark.css";
+@import "@filmset/tokens/css/theme-high-contrast.css";
+@import "@filmset/tokens/css/tailwind-theme.css";
+
+@theme inline {
+  --font-sans: var(--fs-font-family-ui);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background-color: var(--color-background-canvas);
+  color: var(--color-text-primary);
+  font-family: var(--fs-font-family-ui);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

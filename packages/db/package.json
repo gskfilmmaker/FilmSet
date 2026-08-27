@@ -1,0 +1,21 @@
+{
+  "name": "@filmset/db",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Drizzle schema, migrations, and fixtures. Boundary established now; the schema itself is intentionally deferred until after the FRAME prototype phase is approved (see build brief §0, §6).",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@filmset/core": "workspace:*"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.3"
+  }
+}
