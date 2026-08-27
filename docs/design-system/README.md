@@ -81,6 +81,13 @@ Every sidebar item now goes somewhere real — no more silent bounces to `/overv
 
 **Also hardened while touching this code**: `persistBoard` (stripboard drag-drop), `addBreakdownTag`, and the AI approve/reject/dismiss actions previously updated rows by id alone, trusting RLS as the only production boundary. RLS still blocks true cross-tenant access, but Production Manager just made "a user who belongs to two productions" a real case — so these now also verify the id belongs to the `productionId` the caller claims before writing, closing an internal reassignment path RLS's `is_production_member(production_id)` check doesn't cover on its own (it checks the row's own production_id, not that a *referenced* row like a scene actually belongs there).
 
+## Script Import
+
+A brand-new production (or one whose script hasn't been imported yet) has zero scenes, and `/script` couldn't do anything about that before this — `if (!scene) return ... "No scenes yet."`. It now renders `ImportScriptForm` (`apps/web/app/script/import-script-form.tsx`) in that spot: paste raw screenplay text, get back real scenes.
+
+- **`apps/web/lib/script-parser.ts`** — a pure, dependency-free heuristic parser (no DB/Next.js imports, so it's independently testable). Scene headings (`INT.`/`EXT.`/`INT/EXT.` followed by a set name, optionally `- DAY`/`- NIGHT`/etc.) start a new scene; inside one, an all-caps line under 40 chars is read as a character cue, a `(parenthetical)` as itself, and everything between a cue and the next blank line as dialogue — everything else is action. Known limitation: an all-caps *action* line (some writers use this for emphasis, e.g. "THE DOOR SLAMS SHUT.") gets misread as a character cue — acceptable for a first pass; standard formatting parses cleanly.
+- **`apps/web/app/script/import-actions.ts`**'s `importScript` finds-or-creates a `Location` per unique set name (case-insensitive) — `scenes.location_id` is `NOT NULL`, so this isn't optional, and it's also why importing a script populates `/locations` for free. New scenes are numbered and ordered after any the production already has, so importing is safe to do more than once.
+
 ## Testing this locally
 
 After `db:migrate` (and optionally `db:seed`):

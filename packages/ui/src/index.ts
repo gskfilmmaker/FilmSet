@@ -20,6 +20,7 @@ export * from "./components/sidebar/sidebar";
 export * from "./components/skeleton/skeleton";
 export * from "./components/status-badge/status-badge";
 export * from "./components/tabs/tabs";
+export * from "./components/textarea/textarea";
 export * from "./components/toast/toast";
 export * from "./components/toast/toaster";
 export * from "./components/toast/use-toast";

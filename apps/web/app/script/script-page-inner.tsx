@@ -13,9 +13,10 @@ import {
   useToast,
 } from "@filmset/ui";
 import { Check, Plus, X } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { addBreakdownTag, confirmAllBreakdownElements, confirmBreakdownElement, rejectBreakdownElement } from "./actions";
+import { ImportScriptForm } from "./import-script-form";
 
 const CATEGORIES: BreakdownElement["category"][] = [
   "Props",
@@ -200,6 +201,7 @@ function BreakdownRow({
 }
 
 function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapshot; userEmail: string | null }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialScene = searchParams.get("scene");
   const { production, scenes, scriptPages } = snapshot;
@@ -263,7 +265,9 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
   if (!scene) {
     return (
       <Shell production={production} scenes={scenes} userEmail={userEmail ?? undefined}>
-        <div className="flex flex-1 items-center justify-center text-[13px] text-[var(--color-text-tertiary)]">No scenes yet.</div>
+        <div className="flex flex-1 items-center justify-center overflow-y-auto">
+          <ImportScriptForm productionId={production.id} onImported={() => router.refresh()} />
+        </div>
       </Shell>
     );
   }
