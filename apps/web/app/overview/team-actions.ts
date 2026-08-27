@@ -4,7 +4,7 @@ import { requireProductionMember } from "@/lib/authz";
 import { PRODUCTION_ROLES, type ProductionRole } from "@filmset/auth";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 
 /**
  * Team management — the "production owners can invite/manage members"
@@ -13,6 +13,12 @@ import { and, eq } from "drizzle-orm";
  * and add a membership directly. There's no invite-by-email-before-signup
  * flow here — that would need the Supabase Admin API (a service-role
  * operation) and an email template, out of scope for this pass.
+ *
+ * The lookup goes through find_profile_for_invite (a security definer SQL
+ * function), not a plain `select from profiles` — the profiles RLS policies
+ * only let a caller see their own row or a *co-member's* row, which is
+ * exactly the row a fresh invitee doesn't have yet. The function bypasses
+ * that, gated on the caller already being a Producer of productionId.
  */
 
 export async function inviteMember(productionId: string, email: string, role: ProductionRole) {
@@ -24,11 +30,9 @@ export async function inviteMember(productionId: string, email: string, role: Pr
   if (!PRODUCTION_ROLES.includes(role)) throw new Error("Not a valid role.");
 
   await runAsUser(user.id, async (db) => {
-    const [profile] = await db
-      .select({ id: schema.profiles.id })
-      .from(schema.profiles)
-      .where(eq(schema.profiles.email, trimmedEmail))
-      .limit(1);
+    const [profile] = await db.execute<{ id: string }>(
+      sql`select id from public.find_profile_for_invite(${productionId}, ${trimmedEmail})`,
+    );
     if (!profile) {
       throw new Error(`No FilmSet account found for ${trimmedEmail} yet — ask them to sign up first, then invite them again.`);
     }
