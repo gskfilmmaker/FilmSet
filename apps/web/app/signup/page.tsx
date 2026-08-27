@@ -17,18 +17,23 @@ export default function SignupPage() {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    const supabase = getBrowserSupabase();
-    const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
-    setLoading(false);
-    if (signUpError) {
-      setError(signUpError.message);
-      return;
-    }
-    if (data.session) {
-      router.replace("/onboarding");
-      router.refresh();
-    } else {
-      setCheckEmail(true);
+    try {
+      const supabase = getBrowserSupabase();
+      const { data, error: signUpError } = await supabase.auth.signUp({ email, password });
+      if (signUpError) {
+        setError(signUpError.message);
+        return;
+      }
+      if (data.session) {
+        router.replace("/onboarding");
+        router.refresh();
+      } else {
+        setCheckEmail(true);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to create your account. Please try again.");
+    } finally {
+      setLoading(false);
     }
   }
 

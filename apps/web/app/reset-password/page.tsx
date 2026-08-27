@@ -14,37 +14,46 @@ export default function ResetPasswordPage() {
   const [hasRecoverySession, setHasRecoverySession] = React.useState(false);
 
   React.useEffect(() => {
-    const supabase = getBrowserSupabase();
+    try {
+      const supabase = getBrowserSupabase();
 
-    supabase.auth.getSession().then(({ data }) => {
-      setHasRecoverySession(Boolean(data.session));
-      setChecking(false);
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
-      if (event === "PASSWORD_RECOVERY") {
-        setHasRecoverySession(true);
+      supabase.auth.getSession().then(({ data }) => {
+        setHasRecoverySession(Boolean(data.session));
         setChecking(false);
-      }
-    });
-    return () => subscription.unsubscribe();
+      });
+
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event) => {
+        if (event === "PASSWORD_RECOVERY") {
+          setHasRecoverySession(true);
+          setChecking(false);
+        }
+      });
+      return () => subscription.unsubscribe();
+    } catch {
+      setChecking(false);
+    }
   }, []);
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
     setLoading(true);
     setError(null);
-    const supabase = getBrowserSupabase();
-    const { error: updateError } = await supabase.auth.updateUser({ password });
-    setLoading(false);
-    if (updateError) {
-      setError(updateError.message);
-      return;
+    try {
+      const supabase = getBrowserSupabase();
+      const { error: updateError } = await supabase.auth.updateUser({ password });
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      router.replace("/overview");
+      router.refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to update password. Please try again.");
+    } finally {
+      setLoading(false);
     }
-    router.replace("/overview");
-    router.refresh();
   }
 
   if (checking) return null;

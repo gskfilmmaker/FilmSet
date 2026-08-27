@@ -109,9 +109,12 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
 
   async function handleSignOut() {
     setUserMenuOpen(false);
-    await getBrowserSupabase().auth.signOut();
-    router.replace("/login");
-    router.refresh();
+    try {
+      await getBrowserSupabase().auth.signOut();
+    } finally {
+      router.replace("/login");
+      router.refresh();
+    }
   }
 
   const initials = userEmail ? userEmail.slice(0, 2).toUpperCase() : "PN";
