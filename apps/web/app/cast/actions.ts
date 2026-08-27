@@ -1,10 +1,11 @@
 "use server";
 
 import { requireProductionMember } from "@/lib/authz";
+import { findOrCreateCharacter } from "@/lib/find-or-create";
 import type { CastMember } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
-import { runAsUser, schema, type Tx } from "@filmset/db/server";
-import { and, eq, ilike } from "drizzle-orm";
+import { runAsUser, schema } from "@filmset/db/server";
+import { and, eq } from "drizzle-orm";
 
 export interface CastMemberInput {
   characterName: string;
@@ -19,20 +20,6 @@ function validate(input: CastMemberInput) {
   if (!characterName) throw new Error("Character name is required.");
   if (!actorName) throw new Error("Actor name is required.");
   return { characterName, actorName, status: input.status, contract: input.contract };
-}
-
-/** Reuses an existing character with the same (case-insensitive) name in this production, or creates one. */
-async function findOrCreateCharacter(tx: Tx, productionId: string, name: string): Promise<string> {
-  const [existing] = await tx
-    .select({ id: schema.characters.id })
-    .from(schema.characters)
-    .where(and(eq(schema.characters.productionId, productionId), ilike(schema.characters.name, name)))
-    .limit(1);
-  if (existing) return existing.id;
-
-  const id = crypto.randomUUID();
-  await tx.insert(schema.characters).values({ id, productionId, name });
-  return id;
 }
 
 export async function createCastMember(productionId: string, input: CastMemberInput) {

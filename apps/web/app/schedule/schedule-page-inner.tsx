@@ -17,11 +17,109 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { Button, Inspector, InspectorSection, StatusBadge, useToast } from "@filmset/ui";
-import { Sparkles, Undo2 } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import type { ShootDay } from "@filmset/core";
+import {
+  Button,
+  Input,
+  Inspector,
+  InspectorSection,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+  useToast,
+} from "@filmset/ui";
+import { Plus, Sparkles, Undo2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { persistBoard, type Board } from "./actions";
+import { createShootDay, updateShootDay, type ShootDayInput } from "./shoot-day-actions";
+
+const UNITS: ShootDay["unit"][] = ["Main Unit", "Second Unit"];
+const DAY_STATUSES: ShootDay["status"][] = ["Unconfirmed", "Scheduled", "In Progress", "Wrapped"];
+
+function blankShootDayInput(): ShootDayInput {
+  return { date: "", callTime: "", wrapTime: "", locationId: "", unit: "Main Unit", status: "Unconfirmed" };
+}
+
+function ShootDayForm({
+  value,
+  onChange,
+  locations,
+}: {
+  value: ShootDayInput;
+  onChange: (next: ShootDayInput) => void;
+  locations: ProductionSnapshot["locations"];
+}) {
+  return (
+    <div className="flex flex-col gap-[var(--fs-space-12)]">
+      <Input label="Date" placeholder="e.g. 2026-03-14" value={value.date} onChange={(e) => onChange({ ...value, date: e.target.value })} />
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Location</label>
+        <Select value={value.locationId} onValueChange={(v) => onChange({ ...value, locationId: v })}>
+          <SelectTrigger>
+            <SelectValue placeholder="Select a location" />
+          </SelectTrigger>
+          <SelectContent>
+            {locations.map((l) => (
+              <SelectItem key={l.id} value={l.id}>
+                {l.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex gap-[var(--fs-space-8)]">
+        <Input
+          label="Call time"
+          placeholder="e.g. 06:00"
+          value={value.callTime}
+          onChange={(e) => onChange({ ...value, callTime: e.target.value })}
+          containerClassName="flex-1"
+        />
+        <Input
+          label="Wrap time"
+          placeholder="Optional"
+          value={value.wrapTime}
+          onChange={(e) => onChange({ ...value, wrapTime: e.target.value })}
+          containerClassName="flex-1"
+        />
+      </div>
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Unit</label>
+        <Select value={value.unit} onValueChange={(v) => onChange({ ...value, unit: v as ShootDay["unit"] })}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {UNITS.map((u) => (
+              <SelectItem key={u} value={u}>
+                {u}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Status</label>
+        <Select value={value.status} onValueChange={(v) => onChange({ ...value, status: v as ShootDay["status"] })}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {DAY_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
 
 function findContainer(board: Board, itemId: string): string | undefined {
   if (itemId in board) return itemId;
@@ -29,8 +127,14 @@ function findContainer(board: Board, itemId: string): string | undefined {
 }
 
 function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapshot; userEmail: string | null }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const { production, scenes, shootDays, locations, issues, castMembers, characters } = snapshot;
+
+  const [dayFormMode, setDayFormMode] = React.useState<"none" | "edit" | "create">("none");
+  const [dayFormValue, setDayFormValue] = React.useState<ShootDayInput>(blankShootDayInput());
+  const [editingDayId, setEditingDayId] = React.useState<string | null>(null);
+  const [savingDay, setSavingDay] = React.useState(false);
 
   const castMemberCharacterIds = React.useMemo(() => Object.fromEntries(castMembers.map((c) => [c.id, c.characterId])), [castMembers]);
   const scenesById = React.useMemo(() => new Map(scenes.map((s) => [s.id, s])), [scenes]);
@@ -71,6 +175,44 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
       }
       return new Set([sceneId]);
     });
+  }
+
+  function startCreateDay() {
+    setSelectedIds(new Set());
+    setDayFormValue(blankShootDayInput());
+    setDayFormMode("create");
+  }
+
+  function startEditDay(day: ShootDay) {
+    setSelectedIds(new Set());
+    setEditingDayId(day.id);
+    setDayFormValue({
+      date: day.date,
+      callTime: day.callTime,
+      wrapTime: day.wrapTime ?? "",
+      locationId: day.locationId,
+      unit: day.unit,
+      status: day.status,
+    });
+    setDayFormMode("edit");
+  }
+
+  async function saveDay() {
+    setSavingDay(true);
+    try {
+      if (dayFormMode === "create") {
+        await createShootDay(production.id, dayFormValue);
+      } else if (editingDayId) {
+        await updateShootDay(production.id, editingDayId, dayFormValue);
+      }
+      setDayFormMode("none");
+      setEditingDayId(null);
+      router.refresh();
+    } catch (err) {
+      toast({ title: "Couldn't save shoot day", description: err instanceof Error ? err.message : "Please try again.", tone: "danger" });
+    } finally {
+      setSavingDay(false);
+    }
   }
 
   function persist(nextBoard: Board, fallbackBoard: Board) {
@@ -159,7 +301,23 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
       scenes={scenes}
       userEmail={userEmail ?? undefined}
       inspector={
-        primarySelected ? (
+        dayFormMode !== "none" ? (
+          <Inspector
+            objectType="Shoot Day"
+            title={dayFormMode === "create" ? "New Shoot Day" : `Edit Day ${shootDays.find((d) => d.id === editingDayId)?.dayNumber ?? ""}`}
+            onClose={() => setDayFormMode("none")}
+          >
+            <ShootDayForm value={dayFormValue} onChange={setDayFormValue} locations={locations} />
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Button onClick={saveDay} loading={savingDay} disabled={savingDay}>
+                Save
+              </Button>
+              <Button variant="secondary" onClick={() => setDayFormMode("none")} disabled={savingDay}>
+                Cancel
+              </Button>
+            </div>
+          </Inspector>
+        ) : primarySelected ? (
           <Inspector
             objectType="Scene"
             title={`Scene ${primarySelected.number}`}
@@ -199,6 +357,15 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
             <Button variant="secondary" icon={<Undo2 className="size-[14px]" aria-hidden="true" />} onClick={undo} disabled={history.length === 0}>
               Undo
             </Button>
+            <Button
+              variant="secondary"
+              icon={<Plus className="size-[14px]" aria-hidden="true" />}
+              onClick={startCreateDay}
+              disabled={locations.length === 0}
+              title={locations.length === 0 ? "Add a location first" : undefined}
+            >
+              Add Shoot Day
+            </Button>
             <Button icon={<Sparkles className="size-[14px]" aria-hidden="true" />} onClick={() => (window.location.href = "/ai")}>
               Ask FilmSet AI to optimize
             </Button>
@@ -227,6 +394,7 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
                 selectedIds={selectedIds}
                 conflictSceneIds={conflictSceneIds}
                 onSelect={select}
+                onEdit={startEditDay}
               />
             ))}
             <DayColumn

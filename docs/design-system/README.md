@@ -95,6 +95,14 @@ Two more "displays a fixed number regardless of reality" gaps from the audit:
 - **Notifications** — the bell showed a hardcoded `3` with no click handler. `apps/web/app/notifications-actions.ts`'s `getNotifications()` returns pending AI recommendations and pending approvals for the current production; `Shell` fetches it on mount (and again whenever `production.id` changes, i.e. after switching productions) and renders a real count + a dropdown listing them, each linking to where it's actioned.
 - **Overview's Schedule and Script tiles** — previously hardcoded `"On Track"` and `"Blue Revision" / "Locked"` no matter what the data said. Schedule now reflects how many scenes have no `shoot_day_id` yet; Script reflects how many scenes have no `script_pages` row yet (i.e., weren't covered by an import) — both genuinely computable from data that exists, unlike a revision-tracking concept the schema doesn't have.
 
+## Manual Scene and Shoot Day editing
+
+Script Import (above) covers the bulk case; these cover the one-off case — adding or fixing a single scene or shoot day without re-pasting the whole script:
+
+- **`/script`** — "+ New Scene" in the scene nav, and a pencil icon on the Inspector header when a scene is selected, both open the same `SceneForm` (`apps/web/app/script/script-page-inner.tsx`): number, location (find-or-creates via the same helper Script Import uses), int/ext, day/night, status, synopsis, and which cast members are in the scene (writes `scene_cast` directly).
+- **`/schedule`** — "Add Shoot Day" in the toolbar (disabled with a tooltip if there are no locations yet — a shoot day's `location_id` is `NOT NULL`) and a pencil icon on each day's header both open `ShootDayForm`. `createShootDay`/`updateShootDay` (`apps/web/app/schedule/shoot-day-actions.ts`) keep every shoot day's `totalDays` in sync when one is added, so "Day X of N" stays correct everywhere it's shown.
+- `apps/web/lib/find-or-create.ts` now holds the shared `findOrCreateLocation`/`findOrCreateCharacter` helpers — Script Import, Cast CRUD, and Scene CRUD all go through the same two functions rather than three copies of the same case-insensitive lookup.
+
 ## Testing this locally
 
 After `db:migrate` (and optionally `db:seed`):

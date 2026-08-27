@@ -4,6 +4,7 @@ import { useDroppable } from "@dnd-kit/core";
 import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import type { Character, Scene, ShootDay } from "@filmset/core";
 import { StatusBadge } from "@filmset/ui";
+import { Pencil } from "lucide-react";
 import { castNames, Strip } from "./strip";
 
 const dayStatusTone = {
@@ -24,6 +25,7 @@ export interface DayColumnProps {
   selectedIds: Set<string>;
   conflictSceneIds: Set<string>;
   onSelect: (sceneId: string, additive: boolean) => void;
+  onEdit?: (day: ShootDay) => void;
 }
 
 export function DayColumn({
@@ -37,6 +39,7 @@ export function DayColumn({
   selectedIds,
   conflictSceneIds,
   onSelect,
+  onEdit,
 }: DayColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: containerId });
   const totalPages = sceneIds.length;
@@ -55,6 +58,16 @@ export function DayColumn({
         <div className="flex items-center gap-[var(--fs-space-8)]">
           <span className="text-[11px] tabular-nums text-[var(--color-text-tertiary)]">{totalPages} scenes</span>
           {day && <StatusBadge tone={dayStatusTone[day.status]}>{day.status}</StatusBadge>}
+          {day && onEdit && (
+            <button
+              type="button"
+              onClick={() => onEdit(day)}
+              aria-label={`Edit Day ${day.dayNumber}`}
+              className="flex size-[24px] items-center justify-center rounded-md text-[var(--color-text-tertiary)] outline-none hover:bg-[var(--color-background-surface)] hover:text-[var(--color-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+            >
+              <Pencil className="size-[13px]" aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
       <SortableContext id={containerId} items={sceneIds} strategy={verticalListSortingStrategy}>

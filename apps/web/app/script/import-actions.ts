@@ -1,24 +1,11 @@
 "use server";
 
 import { requireProductionMember } from "@/lib/authz";
+import { findOrCreateLocation } from "@/lib/find-or-create";
 import { parseScreenplay } from "@/lib/script-parser";
 import { requireUser } from "@filmset/auth/server";
-import { runAsUser, schema, type Tx } from "@filmset/db/server";
-import { and, count, eq, ilike } from "drizzle-orm";
-
-/** Reuses an existing location with the same (case-insensitive) name in this production, or creates a bare one — permit status starts "Missing" since nothing about it is confirmed yet. */
-async function findOrCreateLocation(tx: Tx, productionId: string, name: string): Promise<string> {
-  const [existing] = await tx
-    .select({ id: schema.locations.id })
-    .from(schema.locations)
-    .where(and(eq(schema.locations.productionId, productionId), ilike(schema.locations.name, name)))
-    .limit(1);
-  if (existing) return existing.id;
-
-  const id = crypto.randomUUID();
-  await tx.insert(schema.locations).values({ id, productionId, name, address: "", permitStatus: "Missing" });
-  return id;
-}
+import { runAsUser, schema } from "@filmset/db/server";
+import { count, eq } from "drizzle-orm";
 
 export interface ImportScriptResult {
   sceneCount: number;

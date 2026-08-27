@@ -1,0 +1,90 @@
+"use server";
+
+import { requireProductionMember } from "@/lib/authz";
+import { findOrCreateLocation } from "@/lib/find-or-create";
+import type { Scene } from "@filmset/core";
+import { requireUser } from "@filmset/auth/server";
+import { runAsUser, schema, type Tx } from "@filmset/db/server";
+import { and, count, eq } from "drizzle-orm";
+
+export interface SceneInput {
+  number: string;
+  intExt: Scene["intExt"];
+  setName: string;
+  dayNight: Scene["dayNight"];
+  synopsis: string;
+  status: Scene["status"];
+  castMemberIds: string[];
+}
+
+function validate(input: SceneInput) {
+  const number = input.number.trim();
+  const setName = input.setName.trim();
+  if (!number) throw new Error("Scene number is required.");
+  if (!setName) throw new Error("Location is required.");
+  return { ...input, number, setName, synopsis: input.synopsis.trim() };
+}
+
+async function setSceneCast(tx: Tx, sceneId: string, castMemberIds: string[]) {
+  await tx.delete(schema.sceneCast).where(eq(schema.sceneCast.sceneId, sceneId));
+  if (castMemberIds.length > 0) {
+    await tx.insert(schema.sceneCast).values(castMemberIds.map((castMemberId) => ({ sceneId, castMemberId })));
+  }
+}
+
+/** New scenes start unscheduled (shootDayId null) — the stripboard is where a scene gets a shoot day. */
+export async function createScene(productionId: string, input: SceneInput) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const values = validate(input);
+  const id = crypto.randomUUID();
+
+  await runAsUser(user.id, (db) =>
+    db.transaction(async (tx) => {
+      const [existing] = await tx.select({ total: count() }).from(schema.scenes).where(eq(schema.scenes.productionId, productionId));
+      const locationId = await findOrCreateLocation(tx, productionId, values.setName);
+
+      await tx.insert(schema.scenes).values({
+        id,
+        productionId,
+        number: values.number,
+        intExt: values.intExt,
+        setName: values.setName,
+        dayNight: values.dayNight,
+        synopsis: values.synopsis,
+        status: values.status,
+        locationId,
+        scheduleOrder: existing?.total ?? 0,
+      });
+
+      await setSceneCast(tx, id, values.castMemberIds);
+    }),
+  );
+  return id;
+}
+
+export async function updateScene(productionId: string, sceneId: string, input: SceneInput) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const values = validate(input);
+
+  await runAsUser(user.id, (db) =>
+    db.transaction(async (tx) => {
+      const locationId = await findOrCreateLocation(tx, productionId, values.setName);
+      await tx
+        .update(schema.scenes)
+        .set({
+          number: values.number,
+          intExt: values.intExt,
+          setName: values.setName,
+          dayNight: values.dayNight,
+          synopsis: values.synopsis,
+          status: values.status,
+          locationId,
+        })
+        .where(and(eq(schema.scenes.id, sceneId), eq(schema.scenes.productionId, productionId)));
+
+      await setSceneCast(tx, sceneId, values.castMemberIds);
+    }),
+  );
+}
