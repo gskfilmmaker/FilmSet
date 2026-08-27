@@ -1,6 +1,6 @@
 # FRAME — FilmSet Design System
 
-Status: **Foundation complete** (Constitution §91, all 21 deliverables), **all five canonical screens built** (§72–77), and the prototype has since been wired to a **real backend**: Supabase Postgres + Auth, and a real Suggest→Explain→Preview→Approve→Commit AI pipeline against Anthropic's API. Fixture data ("THE BAND") is now a seed script rather than the only data source — see [Environment](#environment) to run it against a live database.
+Status: **Foundation complete** (Constitution §91, all 21 deliverables), **all five canonical screens built** (§72–77), and wired to a **real backend**: Supabase Postgres + Auth with real Row Level Security, and a real Suggest→Explain→Preview→Approve→Commit AI pipeline against Anthropic's API. Fixture data ("THE BAND") is now a seed script rather than the only data source — see [Environment](#environment) to run it against a live database.
 
 ## Packages
 
@@ -9,39 +9,62 @@ Status: **Foundation complete** (Constitution §91, all 21 deliverables), **all 
 | `packages/tokens` | Source of truth. TS token definitions (`src/semantic.ts`, `src/primitives.ts`) plus hand-authored motion keyframes (`src/motion.css`) compiled to CSS custom properties per theme (`dist/css/*.css`) by `scripts/build-css.ts`. Never hand-edit the generated CSS. |
 | `packages/ui` | FRAME components (`@filmset/ui`). Radix + cmdk + TanStack Table primitives restyled to FRAME; components reference semantic tokens only, never raw values. Storybook lives here. |
 | `packages/core` | Zod domain schemas (Scene, Production, AIRecommendation, etc.) — the shared type layer between the DB, server actions, and screens. |
-| `packages/db` | Drizzle ORM schema + Postgres client (`@filmset/db/server`), "THE BAND" fixture data (`@filmset/db`, client-safe) used by the seed script, and `scripts/seed.ts` to load it into a real database. |
-| `packages/auth` | Supabase Auth wiring: browser/server clients, session helpers, and the `ProductionRole` RBAC vocabulary (§79), enforced by `apps/web/lib/authz.ts`. |
+| `packages/db` | Drizzle ORM schema (`src/schema.ts`), versioned SQL migrations (`migrations/*.sql`, including RLS policies), a server-only Postgres client (`@filmset/db/server`), "THE BAND" fixture data (`@filmset/db`, client-safe) used by the seed script, and `scripts/{seed,migrate}.ts`. |
+| `packages/auth` | Supabase Auth wiring: browser/server clients, middleware session refresh, and the `ProductionRole` RBAC vocabulary (§79), enforced both at the app layer (`apps/web/lib/authz.ts`) and by Postgres RLS. |
 | `apps/web` | Next.js App Router app. Every screen is a Server Component that reads real data through `lib/queries.ts` and mutates it through per-route Server Actions (`app/*/actions.ts`) — no screen imports fixture data directly anymore. |
 
 ## Running it
 
 ```bash
 pnpm install
-cp apps/web/.env.example apps/web/.env.local   # fill in Supabase + Anthropic values, see Environment below
-pnpm --filter @filmset/tokens build   # generates CSS from TS token source
-pnpm --filter @filmset/db db:push     # creates the schema in your Supabase Postgres
-pnpm storybook                        # FRAME components, all states, 3 themes, 2 densities
-pnpm --filter @filmset/web dev        # the real app — sign up, then see Environment for demo data
+cp apps/web/.env.example apps/web/.env.local        # fill in Supabase + Anthropic values, see Environment below
+pnpm --filter @filmset/tokens build                 # generates CSS from TS token source
+pnpm --filter @filmset/db db:migrate                # applies every migration (schema + RLS) to your Supabase Postgres
+pnpm storybook                                       # FRAME components, all states, 3 themes, 2 densities
+pnpm --filter @filmset/web dev                       # the real app — sign up, then see Environment for demo data
 ```
 
 ## Environment
 
-Four environment variables, set in `apps/web/.env.local` for local dev and in the Vercel project's Environment Variables for deploys:
+Four environment variables, set in `apps/web/.env.local` for local dev and in the Vercel project's Environment Variables for deploys (`apps/web/.env.example` mirrors this list):
 
 | Variable | Where to find it |
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase dashboard → Project Settings → API → Project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Same page → Project API keys → `anon` `public` |
-| `DATABASE_URL` | Project Settings → Database → Connection string → **Transaction pooler** (port 6543 — required for serverless/Vercel) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Same page → Project API keys → `anon` `public` (Supabase's current name for what used to be called the "anon key") |
+| `DATABASE_URL` | Project Settings → Database → Connection string. Use the **Transaction pooler** (port 6543) for the running app (`apps/web/vercel` and local dev) — the **Session pooler** or direct connection (port 5432) for `db:migrate`, since migrations need a non-pooled connection. |
 | `ANTHROPIC_API_KEY` | console.anthropic.com → API Keys |
 
-First-time setup, once those are set:
+None of these are ever hard-coded — every value is read from `process.env` (see `packages/auth/src/{browser,server,middleware}.ts` and `packages/db/src/client.ts`), and the service-role key is never used anywhere, including server-side: the app always connects as `authenticated` (see [Row Level Security](#row-level-security) below), and migrations run as the plain `postgres` role from `DATABASE_URL`.
 
-1. `pnpm --filter @filmset/db db:push` — creates every table from `packages/db/src/schema.ts` in your Supabase Postgres. Re-run any time the schema changes (there's no migration history yet, `db:push` diffs and applies directly — fine pre-launch, revisit with `db:generate` + real migrations before this has real users).
-2. Run the app (`pnpm --filter @filmset/web dev`) and sign up for an account at `/signup`. A brand-new account lands on `/onboarding` and gets an empty production.
-3. To load the full "THE BAND" demo dataset instead of starting empty: find your new user's id in Supabase → Authentication → Users, then run `SEED_OWNER_USER_ID=<that-uuid> pnpm --filter @filmset/db db:seed`. It's idempotent — safe to re-run after schema changes.
+### First-time setup
+
+1. `pnpm --filter @filmset/db db:migrate` — applies `packages/db/migrations/0000_init.sql` (every table) and `0001_rls_and_auth_trigger.sql` (RLS policies, the `profiles`-on-signup trigger, and grants) to your Supabase Postgres, in order, tracked so re-running is safe.
+2. Run the app (`pnpm --filter @filmset/web dev`) and sign up for an account at `/signup`. Signing up auto-creates a `profiles` row (via the Postgres trigger, not app code); a brand-new account then lands on `/onboarding` and gets an empty production with you as its `Producer`.
+3. To load the full "THE BAND" demo dataset instead of starting empty: find your new user's id in Supabase → Authentication → Users, then run `SEED_OWNER_USER_ID=<that-uuid> pnpm --filter @filmset/db db:seed`. It's idempotent — safe to re-run after schema changes. (The seed script connects with the plain `postgres` role and bypasses RLS by design — it's a trusted, developer-run operation, not something end users trigger.)
+
+If the schema ever changes: edit `packages/db/src/schema.ts`, run `pnpm --filter @filmset/db db:generate` to produce a new versioned `.sql` file under `migrations/`, review it, commit it, then `db:migrate` to apply it. RLS/trigger/grant changes are hand-written SQL (Drizzle doesn't generate policy syntax) — use `drizzle-kit generate --custom --name <description>` to get a new empty numbered file to write them into, the same way `0001_rls_and_auth_trigger.sql` was created.
 
 No Supabase/Anthropic project available yet? The five screens still exist as pure UI — see git history before this environment section was added for the fixture-only prototype build.
+
+## Row Level Security
+
+Every table has RLS enabled (`packages/db/migrations/0001_rls_and_auth_trigger.sql`) and it is the **real** enforcement boundary, not a formality alongside app-layer checks:
+
+- **The problem**: `DATABASE_URL` authenticates as the `postgres` role, which owns every table and bypasses RLS by default — so naively turning RLS on wouldn't actually restrict anything the app does.
+- **The fix**: `runAsUser(userId, fn)` (`packages/db/src/client.ts`) wraps every user-facing query in a transaction that runs `SET LOCAL ROLE authenticated` plus `set_config('request.jwt.claims', ...)`, so for the duration of that transaction Postgres treats the connection exactly as it would treat a request through Supabase's own API — Supabase's `auth.uid()` resolves to the real signed-in user, and the RLS policies apply for real. Every Server Action and every Server Component's data fetch (`apps/web/lib/queries.ts`, `apps/web/lib/authz.ts`, every `app/*/actions.ts`) goes through `runAsUser`; only the seed script and migrations use the unwrapped, privileged connection.
+- **The policies**: keyed off `production_members` — a user can read/write a row if they're a member of that row's production (via a `security definer` helper, `is_production_member`, that avoids infinite recursion). `productions` and `production_members` themselves have narrower policies: only a `Producer` can update/delete a production or manage other members' roles; anyone can see and remove their own membership.
+- **`anon` gets nothing**: no `GRANT` is issued to the `anon` role, so an unauthenticated request can't read or write any application table regardless of RLS — authentication is required before RLS is even reached.
+
+## Testing this locally
+
+After `db:migrate` (and optionally `db:seed`):
+
+1. **Sign-in / sign-up** — visit `/signup`, create an account, confirm you land on `/onboarding` (not stuck in a redirect loop), name a production, confirm you land on `/overview` with that production's name in the top bar. Sign out (top-right user menu), confirm you're bounced to `/login`. Sign back in.
+2. **Create data** — on `/schedule`, drag a strip between days and confirm the change survives a page refresh (it's now in Postgres, not just React state). On `/script`, confirm/reject an AI-suggested breakdown element and refresh — it should stay confirmed.
+3. **Password reset** — from `/login`, click "Forgot password?", request a reset for your email, follow the link Supabase emails you, set a new password, confirm you land on `/overview`.
+4. **Team management** — as the Producer, open the Team section on `/overview`, add a second account by email (sign up a second test account first so a `profiles` row exists for it), confirm it appears with a role selector. Change its role; remove it.
+5. **Verify access control (the important one)** — sign up a *third*, unrelated account and do **not** add it to the first account's production. Signed in as that third account: it should land on `/onboarding` (no existing membership), and if you note the first production's id and try to hit its data, RLS should return nothing — there is no UI path to type a production id manually, but you can confirm this directly in the Supabase SQL Editor: `select * from productions;` run as the `postgres` role shows all productions (expected, RLS doesn't apply to migrations), while the app itself only ever shows the signed-in user's own production because every query runs through `runAsUser`.
 
 ## Token architecture
 
@@ -129,8 +152,9 @@ The a11y suite (`packages/ui/a11y-tests/frame.spec.ts`) runs all 38 stories × a
 7. **Fixture depth beyond the five screens** — Cast, Crew, Locations, Money, Documents sidebar items currently all route to `/overview` (no dedicated screen exists for them). Fine for this pass since none of the five canonical screens needed them as destinations, but the sidebar will feel incomplete under real use.
 8. ~~**Shoot Day's scene-progress state is hardcoded**~~ — resolved: `sceneProgress()` in `apps/web/app/shoot-day/shoot-day-page-inner.tsx` now derives status from each scene's real `status` field instead of a fixed map.
 9. **Cast/Crew/Locations/Money/Documents still have no dedicated screens** — the sidebar items route to `/overview`. The real data for all of them already exists in `ProductionSnapshot` (`apps/web/lib/queries.ts`); building each screen is now "another DataTable view," not new plumbing.
-10. **`packages/db`'s schema has no migration history** — `drizzle-kit push` diffs the live database directly rather than generating versioned SQL migrations (`db:generate`). Fine pre-launch; switch before this has real production users, so schema changes are reviewable and reversible.
+10. ~~**`packages/db`'s schema has no migration history**~~ — resolved: `packages/db/migrations/*.sql` are versioned, committed, and applied via `db:migrate` (see [Row Level Security](#row-level-security) and the testing checklist below).
 11. **AI-approved schedule/budget options are logged, not executed** — approving an `AIRecommendation` option (`app/ai/actions.ts` → `approveRecommendationOption`) records the decision to `activities` but doesn't itself move the scene or adjust the budget line; a human still makes that specific change (e.g. on the Stripboard). Consistent with the governance model's "no direct writes," but worth deciding deliberately whether some options should auto-apply once approved.
+12. **Team invites require the invitee to have already signed up** — `inviteMember` (`apps/web/app/overview/team-actions.ts`) looks up an existing `profiles` row by email; there's no invite-before-signup flow (that needs the Supabase Admin API — a service-role operation — plus an email template, deliberately out of scope here since the brief says never to use the service-role key from this app).
 
 ## Stop-and-present checkpoint (superseded)
 

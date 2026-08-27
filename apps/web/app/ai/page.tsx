@@ -4,6 +4,6 @@ import { AIPageInner } from "./ai-page-inner";
 
 export default async function AIPage() {
   const { user, production } = await requireCurrentProduction();
-  const snapshot = await getProductionSnapshot(production.id);
+  const snapshot = await getProductionSnapshot(user.id, production.id);
   return <AIPageInner snapshot={snapshot} userEmail={user.email} />;
 }

@@ -18,7 +18,7 @@ function requireEnv(name: string): string {
  */
 export async function getServerSupabase() {
   const cookieStore = await cookies();
-  return createServerClient(requireEnv("NEXT_PUBLIC_SUPABASE_URL"), requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"), {
+  return createServerClient(requireEnv("NEXT_PUBLIC_SUPABASE_URL"), requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"), {
     cookies: {
       getAll() {
         return cookieStore.getAll();

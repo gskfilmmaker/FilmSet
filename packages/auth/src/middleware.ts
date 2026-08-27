@@ -16,7 +16,7 @@ function requireEnv(name: string): string {
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(requireEnv("NEXT_PUBLIC_SUPABASE_URL"), requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"), {
+  const supabase = createServerClient(requireEnv("NEXT_PUBLIC_SUPABASE_URL"), requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"), {
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -33,16 +33,23 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const isPublicRoute = request.nextUrl.pathname.startsWith("/login") || request.nextUrl.pathname.startsWith("/signup");
+  const pathname = request.nextUrl.pathname;
+  // Bounces to /overview when already signed in (a normal "public" route).
+  const isAuthOnlyRoute = pathname.startsWith("/login") || pathname.startsWith("/signup") || pathname.startsWith("/forgot-password");
+  // /reset-password is reachable either way: the recovery link lands here
+  // with no session cookie yet (the token only arrives via URL, processed
+  // client-side after this response), and once that recovery session
+  // exists we must NOT bounce the user away before they set a new password.
+  const isResetPasswordRoute = pathname.startsWith("/reset-password");
 
-  if (!user && !isPublicRoute) {
+  if (!user && !isAuthOnlyRoute && !isResetPasswordRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
-    url.searchParams.set("next", request.nextUrl.pathname);
+    url.searchParams.set("next", pathname);
     return NextResponse.redirect(url);
   }
 
-  if (user && isPublicRoute) {
+  if (user && isAuthOnlyRoute) {
     const url = request.nextUrl.clone();
     url.pathname = "/overview";
     url.search = "";

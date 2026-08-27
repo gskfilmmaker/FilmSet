@@ -14,7 +14,7 @@ let client: ReturnType<typeof createBrowserClient> | undefined;
 export function getBrowserSupabase() {
   client ??= createBrowserClient(
     requireEnv("NEXT_PUBLIC_SUPABASE_URL"),
-    requireEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY"),
+    requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"),
   );
   return client;
 }

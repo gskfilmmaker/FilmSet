@@ -19,8 +19,16 @@ import type {
   ScriptPage,
   ShootDay,
 } from "@filmset/core";
-import { getDb, schema } from "@filmset/db/server";
+import type { ProductionRole } from "@filmset/auth";
+import { runAsUser, schema } from "@filmset/db/server";
 import { and, asc, eq } from "drizzle-orm";
+
+export interface TeamMember {
+  userId: string;
+  role: ProductionRole;
+  email: string;
+  fullName: string | null;
+}
 
 /**
  * Reshapes the relational schema back into the same shapes the FRAME
@@ -30,6 +38,7 @@ import { and, asc, eq } from "drizzle-orm";
  */
 export interface ProductionSnapshot {
   production: Production;
+  members: TeamMember[];
   characters: Character[];
   castMembers: CastMember[];
   crewMembers: CrewMember[];
@@ -49,11 +58,18 @@ export interface ProductionSnapshot {
   aiRecommendations: AIRecommendation[];
 }
 
-export async function getProductionSnapshot(productionId: string): Promise<ProductionSnapshot> {
-  const db = getDb();
-
+/**
+ * Runs entirely inside runAsUser(userId, ...) — every SELECT here is
+ * subject to the production_members-based RLS policies in
+ * packages/db/migrations/0001_rls_and_auth_trigger.sql, so a user who
+ * isn't a member of `productionId` gets empty results (and the
+ * `production` guard below throws) regardless of what this function asks
+ * for.
+ */
+export async function getProductionSnapshot(userId: string, productionId: string): Promise<ProductionSnapshot> {
   const [
     productionRow,
+    memberRows,
     characterRows,
     castRows,
     crewRows,
@@ -75,33 +91,48 @@ export async function getProductionSnapshot(productionId: string): Promise<Produ
     callSheetRows,
     callSheetEventRows,
     aiRecommendationRows,
-  ] = await Promise.all([
-    db.select().from(schema.productions).where(eq(schema.productions.id, productionId)).limit(1),
-    db.select().from(schema.characters).where(eq(schema.characters.productionId, productionId)),
-    db.select().from(schema.castMembers).where(eq(schema.castMembers.productionId, productionId)),
-    db.select().from(schema.crewMembers).where(eq(schema.crewMembers.productionId, productionId)),
-    db.select().from(schema.locations).where(eq(schema.locations.productionId, productionId)),
-    db.select().from(schema.props).where(eq(schema.props.productionId, productionId)),
-    db.select().from(schema.propScenes),
-    db.select().from(schema.scenes).where(eq(schema.scenes.productionId, productionId)).orderBy(asc(schema.scenes.scheduleOrder)),
-    db.select().from(schema.sceneCast),
-    db.select().from(schema.shootDays).where(eq(schema.shootDays.productionId, productionId)).orderBy(asc(schema.shootDays.dayNumber)),
-    db.select().from(schema.breakdownElements).where(eq(schema.breakdownElements.productionId, productionId)),
-    db.select().from(schema.scriptPages).where(eq(schema.scriptPages.productionId, productionId)),
-    db.select().from(schema.issues).where(eq(schema.issues.productionId, productionId)),
-    db.select().from(schema.issueScenes),
-    db.select().from(schema.approvals).where(eq(schema.approvals.productionId, productionId)),
-    db.select().from(schema.documents).where(eq(schema.documents.productionId, productionId)),
-    db.select().from(schema.expenses).where(eq(schema.expenses.productionId, productionId)),
-    db.select().from(schema.budgetLines).where(eq(schema.budgetLines.productionId, productionId)),
-    db.select().from(schema.activities).where(eq(schema.activities.productionId, productionId)).orderBy(asc(schema.activities.timestamp)),
-    db.select().from(schema.callSheets).where(eq(schema.callSheets.productionId, productionId)),
-    db.select().from(schema.callSheetTimelineEvents).orderBy(asc(schema.callSheetTimelineEvents.sortOrder)),
-    db
-      .select()
-      .from(schema.aiRecommendations)
-      .where(and(eq(schema.aiRecommendations.productionId, productionId), eq(schema.aiRecommendations.status, "pending"))),
-  ]);
+  ] = await runAsUser(userId, (db) =>
+    Promise.all([
+      db.select().from(schema.productions).where(eq(schema.productions.id, productionId)).limit(1),
+      db
+        .select({
+          userId: schema.productionMembers.userId,
+          role: schema.productionMembers.role,
+          email: schema.profiles.email,
+          fullName: schema.profiles.fullName,
+        })
+        .from(schema.productionMembers)
+        .innerJoin(schema.profiles, eq(schema.profiles.id, schema.productionMembers.userId))
+        .where(eq(schema.productionMembers.productionId, productionId)),
+      db.select().from(schema.characters).where(eq(schema.characters.productionId, productionId)),
+      db.select().from(schema.castMembers).where(eq(schema.castMembers.productionId, productionId)),
+      db.select().from(schema.crewMembers).where(eq(schema.crewMembers.productionId, productionId)),
+      db.select().from(schema.locations).where(eq(schema.locations.productionId, productionId)),
+      db.select().from(schema.props).where(eq(schema.props.productionId, productionId)),
+      // No production_id on join tables — RLS (via the row they attach to)
+      // is what scopes these, not this query. Fine today since a user
+      // belongs to exactly one production; revisit if that changes.
+      db.select().from(schema.propScenes),
+      db.select().from(schema.scenes).where(eq(schema.scenes.productionId, productionId)).orderBy(asc(schema.scenes.scheduleOrder)),
+      db.select().from(schema.sceneCast),
+      db.select().from(schema.shootDays).where(eq(schema.shootDays.productionId, productionId)).orderBy(asc(schema.shootDays.dayNumber)),
+      db.select().from(schema.breakdownElements).where(eq(schema.breakdownElements.productionId, productionId)),
+      db.select().from(schema.scriptPages).where(eq(schema.scriptPages.productionId, productionId)),
+      db.select().from(schema.issues).where(eq(schema.issues.productionId, productionId)),
+      db.select().from(schema.issueScenes),
+      db.select().from(schema.approvals).where(eq(schema.approvals.productionId, productionId)),
+      db.select().from(schema.documents).where(eq(schema.documents.productionId, productionId)),
+      db.select().from(schema.expenses).where(eq(schema.expenses.productionId, productionId)),
+      db.select().from(schema.budgetLines).where(eq(schema.budgetLines.productionId, productionId)),
+      db.select().from(schema.activities).where(eq(schema.activities.productionId, productionId)).orderBy(asc(schema.activities.timestamp)),
+      db.select().from(schema.callSheets).where(eq(schema.callSheets.productionId, productionId)),
+      db.select().from(schema.callSheetTimelineEvents).orderBy(asc(schema.callSheetTimelineEvents.sortOrder)),
+      db
+        .select()
+        .from(schema.aiRecommendations)
+        .where(and(eq(schema.aiRecommendations.productionId, productionId), eq(schema.aiRecommendations.status, "pending"))),
+    ]),
+  );
 
   const production = productionRow[0];
   if (!production) throw new Error(`Production ${productionId} not found.`);
@@ -144,6 +175,7 @@ export async function getProductionSnapshot(productionId: string): Promise<Produ
 
   return {
     production: { id: production.id, name: production.name, phase: production.phase as Production["phase"] },
+    members: memberRows.map((m) => ({ userId: m.userId, role: m.role as ProductionRole, email: m.email, fullName: m.fullName })),
     characters: characterRows.map((c) => ({ id: c.id, name: c.name })),
     castMembers: castRows.map((c) => ({
       id: c.id,

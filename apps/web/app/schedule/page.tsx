@@ -4,6 +4,6 @@ import { StripboardPageInner } from "./schedule-page-inner";
 
 export default async function SchedulePage() {
   const { user, production } = await requireCurrentProduction();
-  const snapshot = await getProductionSnapshot(production.id);
+  const snapshot = await getProductionSnapshot(user.id, production.id);
   return <StripboardPageInner snapshot={snapshot} userEmail={user.email} />;
 }

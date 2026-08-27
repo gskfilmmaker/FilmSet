@@ -3,6 +3,7 @@ import {
   integer,
   jsonb,
   numeric,
+  pgSchema,
   pgTable,
   primaryKey,
   text,
@@ -13,22 +14,46 @@ import {
 /**
  * Relational schema — the persistence-layer counterpart to the shapes in
  * packages/core. Every production-scoped table carries productionId so one
- * database serves many productions; every server query additionally checks
- * production_members before returning rows (see apps/web/lib/authz.ts) —
- * there is no Postgres RLS layer in this pass.
+ * database serves many productions; Postgres Row Level Security (see
+ * packages/db/drizzle/*.sql) is the real enforcement boundary, keyed off
+ * production_members — apps/web/lib/authz.ts adds a fast app-layer check
+ * on top for friendlier errors, but RLS is what actually stops a query.
  *
  * Entity ids are `text`, not `uuid`: fixture/seed rows use readable slugs
  * ("cast_farid", "loc_highway-agra") reproduced from the Constitution's
  * worked examples, while rows created through the app get a
  * crypto.randomUUID() string at write time. Only columns that reference a
- * Supabase Auth user (auth.users.id) are real `uuid`.
+ * Supabase Auth user (via `profiles`) are real `uuid`.
  */
+
+/** Supabase-managed schema — declared only so FK references type-check; never migrated by us. */
+const authSchema = pgSchema("auth");
+const authUsers = authSchema.table("users", { id: uuid("id").primaryKey() });
+
+/**
+ * One row per Supabase Auth user, auto-created by a trigger on
+ * `auth.users` insert (see packages/db/drizzle/*.sql — `handle_new_user`).
+ * Every user-id column elsewhere in this schema points here instead of at
+ * `auth.users` directly, since app code can join/select against `profiles`
+ * but not against the `auth` schema.
+ */
+export const profiles = pgTable("profiles", {
+  id: uuid("id")
+    .primaryKey()
+    .references(() => authUsers.id, { onDelete: "cascade" }),
+  email: text("email").notNull().unique(),
+  fullName: text("full_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const productions = pgTable("productions", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
   phase: text("phase").notNull().default("Development"),
-  createdBy: uuid("created_by").notNull(),
+  createdBy: uuid("created_by")
+    .notNull()
+    .references(() => profiles.id, { onDelete: "restrict" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -38,7 +63,9 @@ export const productionMembers = pgTable(
     productionId: text("production_id")
       .notNull()
       .references(() => productions.id, { onDelete: "cascade" }),
-    userId: uuid("user_id").notNull(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     role: text("role").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -390,7 +417,9 @@ export const aiSuggestionLog = pgTable(
     productionId: text("production_id")
       .notNull()
       .references(() => productions.id, { onDelete: "cascade" }),
-    requestedBy: uuid("requested_by").notNull(),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
     kind: text("kind").notNull(),
     input: jsonb("input").notNull(),
     suggestion: jsonb("suggestion").notNull(),

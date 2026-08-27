@@ -4,6 +4,6 @@ import { ShootDayPageInner } from "./shoot-day-page-inner";
 
 export default async function ShootDayPage() {
   const { user, production } = await requireCurrentProduction();
-  const snapshot = await getProductionSnapshot(production.id);
+  const snapshot = await getProductionSnapshot(user.id, production.id);
   return <ShootDayPageInner snapshot={snapshot} userEmail={user.email} />;
 }

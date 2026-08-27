@@ -1,7 +1,8 @@
 "use server";
 
 import { requireProductionMember } from "@/lib/authz";
-import { getDb, schema } from "@filmset/db/server";
+import { requireUser } from "@filmset/auth/server";
+import { runAsUser, schema } from "@filmset/db/server";
 import { eq } from "drizzle-orm";
 
 export type Board = Record<string, string[]>;
@@ -13,17 +14,19 @@ export type Board = Record<string, string[]>;
  * partial write can never leave the board inconsistent.
  */
 export async function persistBoard(productionId: string, board: Board) {
+  const user = await requireUser();
   await requireProductionMember(productionId);
-  const db = getDb();
-  await db.transaction(async (tx) => {
-    for (const [containerId, sceneIds] of Object.entries(board)) {
-      const shootDayId = containerId === "unscheduled" ? null : containerId;
-      for (let index = 0; index < sceneIds.length; index += 1) {
-        await tx
-          .update(schema.scenes)
-          .set({ shootDayId, scheduleOrder: index })
-          .where(eq(schema.scenes.id, sceneIds[index]!));
+  await runAsUser(user.id, (db) =>
+    db.transaction(async (tx) => {
+      for (const [containerId, sceneIds] of Object.entries(board)) {
+        const shootDayId = containerId === "unscheduled" ? null : containerId;
+        for (let index = 0; index < sceneIds.length; index += 1) {
+          await tx
+            .update(schema.scenes)
+            .set({ shootDayId, scheduleOrder: index })
+            .where(eq(schema.scenes.id, sceneIds[index]!));
+        }
       }
-    }
-  });
+    }),
+  );
 }

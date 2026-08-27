@@ -4,8 +4,10 @@ import { Shell } from "@/components/shell";
 import type { ProductionSnapshot } from "@/lib/queries";
 import { Button, StatusBadge } from "@filmset/ui";
 import type { IssueSeverity } from "@filmset/core";
+import type { ProductionRole } from "@filmset/auth";
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
+import { TeamSection } from "./team-section";
 
 const severityTone: Record<IssueSeverity, "danger" | "warning" | "info"> = {
   high: "danger",
@@ -37,8 +39,18 @@ function StatusItem({ label, value, badge }: { label: string; value: string; bad
   );
 }
 
-export function OverviewPageInner({ snapshot, userEmail }: { snapshot: ProductionSnapshot; userEmail: string | null }) {
-  const { production, scenes, shootDays, locations, issues, approvals, documents, activities, budgetLines, castMembers } = snapshot;
+export function OverviewPageInner({
+  snapshot,
+  userEmail,
+  userId,
+  myRole,
+}: {
+  snapshot: ProductionSnapshot;
+  userEmail: string | null;
+  userId: string;
+  myRole: ProductionRole;
+}) {
+  const { production, members, scenes, shootDays, locations, issues, approvals, documents, activities, budgetLines, castMembers } = snapshot;
 
   const today = shootDays.find((d) => d.status === "In Progress");
   const tomorrow = shootDays.find((d) => d.status === "Scheduled");
@@ -138,6 +150,10 @@ export function OverviewPageInner({ snapshot, userEmail }: { snapshot: Productio
             <StatusItem label="Location Permits" value={String(pendingPermits)} />
             <StatusItem label="Purchase Orders" value={String(snapshot.expenses.filter((e) => e.status === "Pending").length)} />
           </div>
+        </SectionCard>
+
+        <SectionCard title="Team">
+          <TeamSection productionId={production.id} members={members} myUserId={userId} myRole={myRole} />
         </SectionCard>
 
         <SectionCard title="Issues" action={<Link href="/ai" className="text-[12px] text-[var(--color-action-primary)]">Ask FilmSet AI →</Link>}>

@@ -4,6 +4,6 @@ import { ScriptPageInner } from "./script-page-inner";
 
 export default async function ScriptPage() {
   const { user, production } = await requireCurrentProduction();
-  const snapshot = await getProductionSnapshot(production.id);
+  const snapshot = await getProductionSnapshot(user.id, production.id);
   return <ScriptPageInner snapshot={snapshot} userEmail={user.email} />;
 }
