@@ -37,26 +37,26 @@ export function GlobalBar({
   return (
     <header
       className={cn(
-        "flex h-[var(--fs-control-height)] items-center justify-between gap-16",
+        "flex h-[var(--fs-control-height)] items-center justify-between gap-[var(--fs-space-16)]",
         "border-b border-[var(--color-border-subtle)] bg-[var(--color-background-canvas)]",
         "px-[var(--fs-space-16)]",
         className,
       )}
     >
-      <div className="flex items-center gap-12">
+      <div className="flex items-center gap-[var(--fs-space-12)]">
         <FrameMark className="size-[18px] text-[var(--color-text-primary)]" />
         <button
           type="button"
           onClick={onOpenProductionSwitcher}
           className={cn(
-            "flex items-center gap-4 rounded-md px-[var(--fs-space-8)] py-4 text-[13px] font-medium",
+            "flex items-center gap-[var(--fs-space-4)] rounded-md px-[var(--fs-space-8)] py-[var(--fs-space-4)] text-[13px] font-medium",
             "text-[var(--color-text-primary)] hover:bg-[var(--color-background-elevated)]",
             "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
           )}
         >
           {productionName}
           {phase && (
-            <span className="ml-4 rounded-sm bg-[var(--color-background-elevated)] px-[6px] py-[1px] text-[11px] font-medium text-[var(--color-text-tertiary)]">
+            <span className="ml-[var(--fs-space-4)] rounded-sm bg-[var(--color-background-elevated)] px-[6px] py-[1px] text-[11px] font-medium text-[var(--color-text-tertiary)]">
               {phase}
             </span>
           )}
@@ -68,7 +68,7 @@ export function GlobalBar({
         type="button"
         onClick={onOpenCommandPalette}
         className={cn(
-          "flex w-full max-w-[420px] items-center gap-8 rounded-md border border-[var(--color-border-standard)]",
+          "flex w-full max-w-[420px] items-center gap-[var(--fs-space-8)] rounded-md border border-[var(--color-border-standard)]",
           "bg-[var(--color-background-surface)] px-[var(--fs-space-12)] py-[6px] text-[13px] text-[var(--color-text-tertiary)]",
           "hover:border-[var(--color-border-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
         )}
@@ -80,7 +80,7 @@ export function GlobalBar({
         </kbd>
       </button>
 
-      <div className="flex items-center gap-8">
+      <div className="flex items-center gap-[var(--fs-space-8)]">
         <button
           type="button"
           onClick={onOpenNotifications}

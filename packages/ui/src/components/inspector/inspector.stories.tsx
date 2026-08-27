@@ -21,7 +21,7 @@ export const Scene: Story = {
         <InspectorSection label="Pages">2 1/8 pages</InspectorSection>
         <InspectorSection label="Shoot Day">Day 18</InspectorSection>
         <InspectorSection label="Cast">
-          <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-[var(--fs-space-4)]">
             <span>Abraham</span>
             <span>Aisha</span>
           </div>

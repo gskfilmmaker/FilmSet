@@ -19,7 +19,7 @@ type Story = StoryObj<typeof Button>;
 
 export const Hierarchy: Story = {
   render: () => (
-    <div className="flex gap-16">
+    <div className="flex gap-[var(--fs-space-16)]">
       <Button variant="primary">Publish Schedule</Button>
       <Button variant="secondary">Save Draft</Button>
       <Button variant="tertiary">Compare</Button>
@@ -31,7 +31,7 @@ export const Hierarchy: Story = {
 
 export const WithIcon: Story = {
   render: () => (
-    <div className="flex gap-16">
+    <div className="flex gap-[var(--fs-space-16)]">
       <Button icon={<Plus className="size-[14px]" aria-hidden="true" />}>Add Scene</Button>
       <Button variant="destructive" icon={<Trash2 className="size-[14px]" aria-hidden="true" />}>
         Delete
@@ -48,7 +48,7 @@ export const IconOnly: Story = {
 
 export const States: Story = {
   render: () => (
-    <div className="flex gap-16">
+    <div className="flex gap-[var(--fs-space-16)]">
       <Button>Default</Button>
       <Button loading>Loading</Button>
       <Button disabled>Disabled</Button>
@@ -58,11 +58,11 @@ export const States: Story = {
 
 export const Density: Story = {
   render: () => (
-    <div className="flex items-center gap-16">
-      <div data-density="comfortable" className="flex gap-8">
+    <div className="flex items-center gap-[var(--fs-space-16)]">
+      <div data-density="comfortable" className="flex gap-[var(--fs-space-8)]">
         <Button>Comfortable</Button>
       </div>
-      <div data-density="compact" className="flex gap-8">
+      <div data-density="compact" className="flex gap-[var(--fs-space-8)]">
         <Button>Compact</Button>
       </div>
     </div>

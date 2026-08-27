@@ -71,7 +71,7 @@ export function Sidebar({
         onClick={() => onNavigate(item.id)}
         onKeyDown={(e) => handleKeyDown(e, item.id)}
         className={cn(
-          "group flex items-center gap-8 rounded-md px-[var(--fs-space-8)]",
+          "group flex items-center gap-[var(--fs-space-8)] rounded-md px-[var(--fs-space-8)]",
           "h-[var(--fs-control-height)] text-[13px] font-medium leading-none",
           "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)] focus-visible:ring-offset-1 focus-visible:ring-offset-[var(--color-background-canvas)]",
           "transition-colors duration-[var(--fs-motion-duration-fast)] ease-[var(--fs-motion-easing-standard)]",
@@ -107,8 +107,8 @@ export function Sidebar({
       )}
       style={{ width: expanded ? "var(--fs-panel-sidebar-expanded)" : "var(--fs-panel-sidebar-collapsed)" }}
     >
-      <div className="flex flex-col gap-4">{items.map(renderItem)}</div>
-      <div className="flex flex-col gap-4 border-t border-[var(--color-border-subtle)] pt-[var(--fs-space-8)]">
+      <div className="flex flex-col gap-[var(--fs-space-4)]">{items.map(renderItem)}</div>
+      <div className="flex flex-col gap-[var(--fs-space-4)] border-t border-[var(--color-border-subtle)] pt-[var(--fs-space-8)]">
         {renderItem(aiItem)}
         {renderItem(settingsItem)}
         <button
@@ -116,7 +116,7 @@ export function Sidebar({
           onClick={onToggleExpanded}
           aria-label={expanded ? "Collapse sidebar" : "Expand sidebar"}
           className={cn(
-            "flex h-[var(--fs-control-height)] items-center gap-8 rounded-md px-[var(--fs-space-8)]",
+            "flex h-[var(--fs-control-height)] items-center gap-[var(--fs-space-8)] rounded-md px-[var(--fs-space-8)]",
             "text-[var(--color-text-tertiary)] hover:bg-[var(--color-background-elevated)] hover:text-[var(--color-text-primary)]",
             "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
             !expanded && "justify-center px-0",

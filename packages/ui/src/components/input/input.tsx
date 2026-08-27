@@ -23,11 +23,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const errorId = error ? `${inputId}-error` : undefined;
 
     return (
-      <div className={cn("flex flex-col gap-4", containerClassName)}>
+      <div className={cn("flex flex-col gap-[var(--fs-space-4)]", containerClassName)}>
         {label && (
           <label
             htmlFor={inputId}
-            className="text-[13px] font-medium leading-4 text-[var(--color-text-secondary)]"
+            className="text-[13px] font-medium leading-[16px] text-[var(--color-text-secondary)]"
           >
             {label}
           </label>
@@ -39,7 +39,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           aria-describedby={cn(descriptionId, errorId) || undefined}
           className={cn(
             "h-[var(--fs-control-height)] rounded-md border bg-[var(--color-background-surface)]",
-            "px-[var(--fs-space-12)] text-[14px] leading-5 text-[var(--color-text-primary)]",
+            "px-[var(--fs-space-12)] text-[14px] leading-[20px] text-[var(--color-text-primary)]",
             "border-[var(--color-border-standard)] placeholder:text-[var(--color-text-tertiary)]",
             "transition-colors duration-[var(--fs-motion-duration-fast)] ease-[var(--fs-motion-easing-standard)]",
             "outline-none focus-visible:border-[var(--color-action-primary)]",
@@ -52,11 +52,11 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
           {...props}
         />
         {error ? (
-          <p id={errorId} role="alert" className="text-[12px] leading-4 text-[var(--color-status-danger)]">
+          <p id={errorId} role="alert" className="text-[12px] leading-[16px] text-[var(--color-status-danger)]">
             {error}
           </p>
         ) : description ? (
-          <p id={descriptionId} className="text-[12px] leading-4 text-[var(--color-text-tertiary)]">
+          <p id={descriptionId} className="text-[12px] leading-[16px] text-[var(--color-text-tertiary)]">
             {description}
           </p>
         ) : null}

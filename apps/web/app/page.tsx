@@ -3,11 +3,20 @@
 import { theBandProduction, theBandScenes } from "@filmset/db";
 import {
   AppShell,
+  CommandDialog,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
   GlobalBar,
   Inspector,
   InspectorSection,
+  KeyboardShortcutsOverlay,
   Sidebar,
   StatusBadge,
+  useKeyboardShortcutsOverlay,
   useTheme,
   type SidebarItem,
 } from "@filmset/ui";
@@ -25,7 +34,7 @@ import {
   Users,
   Wallet,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 const items: SidebarItem[] = [
   { id: "overview", label: "Overview", icon: <LayoutDashboard className="size-full" /> },
@@ -45,26 +54,26 @@ const settingsItem: SidebarItem = { id: "settings", label: "Settings", icon: <Se
 function PrototypeControls() {
   const { theme, setTheme, density, setDensity } = useTheme();
   return (
-    <div className="flex items-center gap-8 border-t border-[var(--color-border-subtle)] bg-[var(--color-background-canvas)] px-[var(--fs-space-16)] py-[var(--fs-space-8)] text-[12px] text-[var(--color-text-tertiary)]">
+    <div className="flex items-center gap-[var(--fs-space-8)] border-t border-[var(--color-border-subtle)] bg-[var(--color-background-canvas)] px-[var(--fs-space-16)] py-[var(--fs-space-8)] text-[12px] text-[var(--color-text-tertiary)]">
       <span>Prototype controls —</span>
-      <label className="flex items-center gap-4">
+      <label className="flex items-center gap-[var(--fs-space-4)]">
         Theme
         <select
           value={theme}
           onChange={(e) => setTheme(e.target.value as typeof theme)}
-          className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-4 py-[2px] text-[var(--color-text-primary)]"
+          className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-4)] py-[2px] text-[var(--color-text-primary)]"
         >
           <option value="dark">Dark</option>
           <option value="light">Light</option>
           <option value="high-contrast">High Contrast</option>
         </select>
       </label>
-      <label className="flex items-center gap-4">
+      <label className="flex items-center gap-[var(--fs-space-4)]">
         Density
         <select
           value={density}
           onChange={(e) => setDensity(e.target.value as typeof density)}
-          className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-4 py-[2px] text-[var(--color-text-primary)]"
+          className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-4)] py-[2px] text-[var(--color-text-primary)]"
         >
           <option value="comfortable">Comfortable</option>
           <option value="compact">Compact</option>
@@ -77,7 +86,23 @@ function PrototypeControls() {
 export default function Home() {
   const [active, setActive] = useState("schedule");
   const [expanded, setExpanded] = useState(true);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const shortcuts = useKeyboardShortcutsOverlay();
   const scene = theBandScenes[0];
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+        e.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, []);
+
+  const matchesScene = scene && new RegExp(`scene\\s*${scene.number}|^${scene.number}$`, "i").test(query.trim());
 
   return (
     <div className="flex h-screen flex-col">
@@ -90,7 +115,7 @@ export default function Home() {
               notificationCount={3}
               userName="Priya Nair"
               userInitials="PN"
-              onOpenCommandPalette={() => {}}
+              onOpenCommandPalette={() => setPaletteOpen(true)}
             />
           }
           sidebar={
@@ -133,6 +158,54 @@ export default function Home() {
         </AppShell>
       </div>
       <PrototypeControls />
+      <CommandDialog open={paletteOpen} onOpenChange={setPaletteOpen}>
+        <CommandInput placeholder="Search or run a command…" value={query} onValueChange={setQuery} />
+        <CommandList>
+          <CommandEmpty>No results for &quot;{query}&quot;.</CommandEmpty>
+          {matchesScene && scene && (
+            <>
+              <CommandGroup heading={`Scene ${scene.number} — ${scene.setName}, ${scene.dayNight}`}>
+                <CommandItem value={`scene-${scene.id}-open`} onSelect={() => setPaletteOpen(false)}>
+                  Open Scene
+                </CommandItem>
+                <CommandItem value={`scene-${scene.id}-breakdown`} onSelect={() => setPaletteOpen(false)}>
+                  Open Breakdown
+                </CommandItem>
+                <CommandItem value={`scene-${scene.id}-stripboard`} onSelect={() => setPaletteOpen(false)}>
+                  Show in Stripboard
+                </CommandItem>
+                <CommandItem value={`scene-${scene.id}-shootday`} onSelect={() => setPaletteOpen(false)}>
+                  Show Shoot Day
+                </CommandItem>
+              </CommandGroup>
+              <CommandSeparator />
+            </>
+          )}
+          <CommandGroup heading="Navigate">
+            {items.map((item) => (
+              <CommandItem
+                key={item.id}
+                value={item.label}
+                onSelect={() => {
+                  setActive(item.id);
+                  setPaletteOpen(false);
+                }}
+              >
+                {item.icon}
+                {item.label}
+              </CommandItem>
+            ))}
+          </CommandGroup>
+          <CommandSeparator />
+          <CommandGroup heading="FilmSet AI">
+            <CommandItem value="ask-ai" onSelect={() => setPaletteOpen(false)}>
+              <Sparkles className="size-[14px] text-[var(--color-action-primary)]" aria-hidden="true" />
+              Ask FilmSet AI: &quot;{query || "What's at risk this week?"}&quot;
+            </CommandItem>
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+      <KeyboardShortcutsOverlay open={shortcuts.open} onOpenChange={shortcuts.setOpen} />
     </div>
   );
 }

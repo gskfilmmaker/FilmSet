@@ -16,7 +16,7 @@ import { cn } from "../../lib/cn";
  */
 const buttonVariants = cva(
   [
-    "inline-flex items-center justify-center gap-8",
+    "inline-flex items-center justify-center gap-[var(--fs-space-8)]",
     "rounded-md font-ui text-[13px] font-medium leading-none",
     "transition-colors duration-[var(--fs-motion-duration-fast)] ease-[var(--fs-motion-easing-standard)]",
     "disabled:pointer-events-none disabled:opacity-[var(--fs-opacity-disabled)]",

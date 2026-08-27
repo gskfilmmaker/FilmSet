@@ -40,7 +40,7 @@ export const Disabled: Story = {
 
 export const Density: Story = {
   render: () => (
-    <div className="flex items-end gap-16">
+    <div className="flex items-end gap-[var(--fs-space-16)]">
       <div data-density="comfortable">
         <Input label="Comfortable" placeholder="36px" />
       </div>

@@ -29,7 +29,7 @@ export function Inspector({ objectType, title, subtitle, onClose, headerActions,
       )}
       style={{ width: "var(--fs-panel-inspector-default)" }}
     >
-      <div className="flex items-start justify-between gap-8 border-b border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
+      <div className="flex items-start justify-between gap-[var(--fs-space-8)] border-b border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
             {objectType}
@@ -41,7 +41,7 @@ export function Inspector({ objectType, title, subtitle, onClose, headerActions,
             <p className="mt-[2px] truncate text-[13px] leading-[16px] text-[var(--color-text-secondary)]">{subtitle}</p>
           )}
         </div>
-        <div className="flex shrink-0 items-center gap-4">
+        <div className="flex shrink-0 items-center gap-[var(--fs-space-4)]">
           {headerActions}
           {onClose && (
             <button
@@ -74,7 +74,7 @@ export interface InspectorSectionProps {
 
 export function InspectorSection({ label, action, children }: InspectorSectionProps) {
   return (
-    <section className="flex flex-col gap-8">
+    <section className="flex flex-col gap-[var(--fs-space-8)]">
       <div className="flex items-center justify-between">
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
           {label}

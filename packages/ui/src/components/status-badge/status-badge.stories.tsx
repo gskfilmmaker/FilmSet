@@ -12,7 +12,7 @@ type Story = StoryObj<typeof StatusBadge>;
 
 export const ProductionStatuses: Story = {
   render: () => (
-    <div className="flex flex-wrap gap-8">
+    <div className="flex flex-wrap gap-[var(--fs-space-8)]">
       <StatusBadge tone="info">Draft</StatusBadge>
       <StatusBadge tone="warning">Review</StatusBadge>
       <StatusBadge tone="success">Approved</StatusBadge>
@@ -30,7 +30,7 @@ export const ProductionStatuses: Story = {
 
 export const AllTones: Story = {
   render: () => (
-    <div className="flex flex-wrap gap-8">
+    <div className="flex flex-wrap gap-[var(--fs-space-8)]">
       <StatusBadge tone="success">Success</StatusBadge>
       <StatusBadge tone="warning">Warning</StatusBadge>
       <StatusBadge tone="danger">Danger</StatusBadge>

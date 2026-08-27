@@ -10,7 +10,7 @@ import { cn } from "../../lib/cn";
  * the visual tone, not the vocabulary.
  */
 const statusBadgeVariants = cva(
-  "inline-flex items-center gap-4 rounded-md px-[var(--fs-space-8)] py-[2px] text-[12px] font-medium leading-4 border",
+  "inline-flex items-center gap-[var(--fs-space-4)] rounded-md px-[var(--fs-space-8)] py-[2px] text-[12px] font-medium leading-[16px] border",
   {
     variants: {
       tone: {

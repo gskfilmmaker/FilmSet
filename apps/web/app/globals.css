@@ -7,6 +7,7 @@
 @import "@filmset/tokens/css/theme-dark.css";
 @import "@filmset/tokens/css/theme-high-contrast.css";
 @import "@filmset/tokens/css/tailwind-theme.css";
+@import "@filmset/tokens/css/motion.css";
 
 @theme inline {
   --font-sans: var(--fs-font-family-ui);

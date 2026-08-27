@@ -3,7 +3,7 @@
  * TS stays the single source of truth; CSS output is derived, never hand-edited.
  * Run via `pnpm --filter @filmset/tokens build`.
  */
-import { mkdirSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -129,9 +129,13 @@ const colorNames = colorEntries("light").map(([name]) => name);
 for (const name of colorNames) {
   twLines.push(`  --color-${name}: var(--fs-color-${name});`);
 }
-for (const key of Object.keys(spacing)) {
-  twLines.push(`  --spacing-${key}: var(--fs-space-${key});`);
-}
+// Deliberately NOT overriding --spacing-<N> here: Tailwind v4 reuses that
+// same numbered scale for other utility families (leading-<N>, tracking-<N>,
+// etc.), so redefining individual keys to raw pixel values silently breaks
+// those unrelated utilities too (e.g. leading-4 resolved to 4px instead of
+// 1rem). Components reference spacing tokens via arbitrary values —
+// gap-[var(--fs-space-8)] — rather than bare gap-8, so nothing here depends
+// on Tailwind's native spacing scale at all.
 for (const key of Object.keys(radius)) {
   twLines.push(`  --radius-${kebab(key)}: var(--fs-radius-${kebab(key)});`);
 }
@@ -142,5 +146,8 @@ twLines.push(`  --font-ui: var(--fs-font-family-ui);`);
 twLines.push(`  --font-mono: var(--fs-font-family-mono);`);
 twLines.push("}");
 writeFileSync(join(outDir, "tailwind-theme.css"), HEADER + twLines.join("\n") + "\n", "utf8");
+
+// --- Motion keyframes: hand-authored (structural CSS, not TS tokens), copied verbatim ---
+copyFileSync(join(__dirname, "..", "src", "motion.css"), join(outDir, "motion.css"));
 
 console.log("[@filmset/tokens] CSS generated in dist/css/");
