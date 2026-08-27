@@ -47,6 +47,8 @@ If the schema ever changes: edit `packages/db/src/schema.ts`, run `pnpm --filter
 
 No Supabase/Anthropic project available yet? The five screens still exist as pure UI — see git history before this environment section was added for the fixture-only prototype build.
 
+**Status**: both migrations have been applied to the live GSK PRODUCTIONS INC. FilmSet Supabase project — `0000_init.sql` (all 25 tables) and `0001_rls_and_auth_trigger.sql`, verified by Supabase reporting exactly 33 active RLS policies (3 on `profiles` + 4 on `productions` + 4 on `production_members` + 18 one-per-table on the remaining production-scoped tables + 4 on the join tables — matching the policy count written in the migration file). Applied via the Supabase SQL Editor rather than `db:migrate`, since this sandbox's network policy only permits outbound HTTPS and can't open a raw Postgres connection.
+
 ## Row Level Security
 
 Every table has RLS enabled (`packages/db/migrations/0001_rls_and_auth_trigger.sql`) and it is the **real** enforcement boundary, not a formality alongside app-layer checks:
