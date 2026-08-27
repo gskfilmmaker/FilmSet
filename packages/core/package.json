@@ -1,0 +1,21 @@
+{
+  "name": "@filmset/core",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Domain models and the production graph. Boundary established now; deep logic intentionally deferred until the FRAME prototype phase is approved.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "typescript": "^5.6.3"
+  }
+}

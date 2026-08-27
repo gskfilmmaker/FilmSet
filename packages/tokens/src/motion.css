@@ -1,0 +1,58 @@
+/*
+ * Hand-authored motion primitives — keyframes are structural CSS, not
+ * simple key/value tokens, so they live here rather than in semantic.ts.
+ * Durations and easings still come from the generated --fs-motion-* vars;
+ * components apply these via the native CSS `animation` property (as a
+ * Tailwind arbitrary-property utility), which Radix's Presence component
+ * detects natively to defer unmount until animationend — no animation
+ * library dependency needed (§34: motion communicates state, 120-240ms).
+ */
+
+@keyframes fs-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes fs-fade-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes fs-dialog-in {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes fs-dialog-out {
+  from { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(0.96); }
+}
+@keyframes fs-slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes fs-slide-out-right {
+  from { transform: translateX(0); }
+  to { transform: translateX(100%); }
+}
+@keyframes fs-slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes fs-slide-out-left {
+  from { transform: translateX(0); }
+  to { transform: translateX(-100%); }
+}
+@keyframes fs-toast-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fs-toast-swipe-out {
+  from { opacity: 1; transform: translateX(var(--radix-toast-swipe-end-x, 0)); }
+  to { opacity: 0; transform: translateX(calc(var(--radix-toast-swipe-end-x, 0) + 100%)); }
+}
+@keyframes fs-collapsible-down {
+  from { height: 0; }
+  to { height: var(--radix-collapsible-content-height); }
+}
+@keyframes fs-collapsible-up {
+  from { height: var(--radix-collapsible-content-height); }
+  to { height: 0; }
+}

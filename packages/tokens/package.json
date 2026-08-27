@@ -1,0 +1,30 @@
+{
+  "name": "@filmset/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "FRAME design tokens — the single source of truth for FilmSet's visual language.",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./css/*": "./dist/css/*"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm,cjs --dts --clean && tsx scripts/build-css.ts",
+    "dev": "tsup src/index.ts --format esm,cjs --dts --watch",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "devDependencies": {
+    "tsup": "^8.3.0",
+    "tsx": "^4.19.1",
+    "typescript": "^5.6.3"
+  }
+}

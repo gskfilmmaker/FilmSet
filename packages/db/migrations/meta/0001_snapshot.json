@@ -1,0 +1,2095 @@
+{
+  "id": "eb02a238-8f2f-44ba-b361-9f2f64e6ff01",
+  "prevId": "0ed5ef38-13b7-4183-99da-8e6b22fc2b5e",
+  "version": "7",
+  "dialect": "postgresql",
+  "tables": {
+    "public.activities": {
+      "name": "activities",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "timestamp": {
+          "name": "timestamp",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "actor": {
+          "name": "actor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "activities_production_idx": {
+          "name": "activities_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "activities_production_id_productions_id_fk": {
+          "name": "activities_production_id_productions_id_fk",
+          "tableFrom": "activities",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ai_recommendations": {
+      "name": "ai_recommendations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "severity": {
+          "name": "severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "subject": {
+          "name": "subject",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "conflict": {
+          "name": "conflict",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "explanation": {
+          "name": "explanation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "affected": {
+          "name": "affected",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "options": {
+          "name": "options",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'pending'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "ai_recommendations_production_idx": {
+          "name": "ai_recommendations_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "ai_recommendations_production_id_productions_id_fk": {
+          "name": "ai_recommendations_production_id_productions_id_fk",
+          "tableFrom": "ai_recommendations",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.ai_suggestion_log": {
+      "name": "ai_suggestion_log",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_by": {
+          "name": "requested_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "input": {
+          "name": "input",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "suggestion": {
+          "name": "suggestion",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "explanation": {
+          "name": "explanation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'suggested'"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "decided_at": {
+          "name": "decided_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "ai_suggestion_log_production_idx": {
+          "name": "ai_suggestion_log_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "ai_suggestion_log_production_id_productions_id_fk": {
+          "name": "ai_suggestion_log_production_id_productions_id_fk",
+          "tableFrom": "ai_suggestion_log",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "ai_suggestion_log_requested_by_profiles_id_fk": {
+          "name": "ai_suggestion_log_requested_by_profiles_id_fk",
+          "tableFrom": "ai_suggestion_log",
+          "columnsFrom": [
+            "requested_by"
+          ],
+          "tableTo": "profiles",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.approvals": {
+      "name": "approvals",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "requested_by": {
+          "name": "requested_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Pending'"
+        }
+      },
+      "indexes": {
+        "approvals_production_idx": {
+          "name": "approvals_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "approvals_production_id_productions_id_fk": {
+          "name": "approvals_production_id_productions_id_fk",
+          "tableFrom": "approvals",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.breakdown_elements": {
+      "name": "breakdown_elements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "source": {
+          "name": "source",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'confirmed'"
+        }
+      },
+      "indexes": {
+        "breakdown_elements_scene_idx": {
+          "name": "breakdown_elements_scene_idx",
+          "columns": [
+            {
+              "expression": "scene_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "breakdown_elements_production_id_productions_id_fk": {
+          "name": "breakdown_elements_production_id_productions_id_fk",
+          "tableFrom": "breakdown_elements",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "breakdown_elements_scene_id_scenes_id_fk": {
+          "name": "breakdown_elements_scene_id_scenes_id_fk",
+          "tableFrom": "breakdown_elements",
+          "columnsFrom": [
+            "scene_id"
+          ],
+          "tableTo": "scenes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.budget_lines": {
+      "name": "budget_lines",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "department": {
+          "name": "department",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "budgeted": {
+          "name": "budgeted",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actual": {
+          "name": "actual",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'0'"
+        }
+      },
+      "indexes": {
+        "budget_lines_production_idx": {
+          "name": "budget_lines_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "budget_lines_production_id_productions_id_fk": {
+          "name": "budget_lines_production_id_productions_id_fk",
+          "tableFrom": "budget_lines",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.call_sheet_timeline_events": {
+      "name": "call_sheet_timeline_events",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "shoot_day_id": {
+          "name": "shoot_day_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "time": {
+          "name": "time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "label": {
+          "name": "label",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "sort_order": {
+          "name": "sort_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "call_sheet_timeline_shoot_day_idx": {
+          "name": "call_sheet_timeline_shoot_day_idx",
+          "columns": [
+            {
+              "expression": "shoot_day_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "call_sheet_timeline_events_shoot_day_id_call_sheets_shoot_day_id_fk": {
+          "name": "call_sheet_timeline_events_shoot_day_id_call_sheets_shoot_day_id_fk",
+          "tableFrom": "call_sheet_timeline_events",
+          "columnsFrom": [
+            "shoot_day_id"
+          ],
+          "tableTo": "call_sheets",
+          "columnsTo": [
+            "shoot_day_id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.call_sheets": {
+      "name": "call_sheets",
+      "schema": "",
+      "columns": {
+        "shoot_day_id": {
+          "name": "shoot_day_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "weather": {
+          "name": "weather",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "sunrise": {
+          "name": "sunrise",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "sunset": {
+          "name": "sunset",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "hospital": {
+          "name": "hospital",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "parking": {
+          "name": "parking",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "basecamp": {
+          "name": "basecamp",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "notes": {
+          "name": "notes",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "call_sheets_shoot_day_id_shoot_days_id_fk": {
+          "name": "call_sheets_shoot_day_id_shoot_days_id_fk",
+          "tableFrom": "call_sheets",
+          "columnsFrom": [
+            "shoot_day_id"
+          ],
+          "tableTo": "shoot_days",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "call_sheets_production_id_productions_id_fk": {
+          "name": "call_sheets_production_id_productions_id_fk",
+          "tableFrom": "call_sheets",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.cast_members": {
+      "name": "cast_members",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "character_id": {
+          "name": "character_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "actor_name": {
+          "name": "actor_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "contract": {
+          "name": "contract",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "cast_members_production_idx": {
+          "name": "cast_members_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "cast_members_production_id_productions_id_fk": {
+          "name": "cast_members_production_id_productions_id_fk",
+          "tableFrom": "cast_members",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "cast_members_character_id_characters_id_fk": {
+          "name": "cast_members_character_id_characters_id_fk",
+          "tableFrom": "cast_members",
+          "columnsFrom": [
+            "character_id"
+          ],
+          "tableTo": "characters",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.characters": {
+      "name": "characters",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "characters_production_idx": {
+          "name": "characters_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "characters_production_id_productions_id_fk": {
+          "name": "characters_production_id_productions_id_fk",
+          "tableFrom": "characters",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.crew_members": {
+      "name": "crew_members",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "department": {
+          "name": "department",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "crew_members_production_idx": {
+          "name": "crew_members_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "crew_members_production_id_productions_id_fk": {
+          "name": "crew_members_production_id_productions_id_fk",
+          "tableFrom": "crew_members",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.documents": {
+      "name": "documents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "type": {
+          "name": "type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "documents_production_idx": {
+          "name": "documents_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "documents_production_id_productions_id_fk": {
+          "name": "documents_production_id_productions_id_fk",
+          "tableFrom": "documents",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.expenses": {
+      "name": "expenses",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "vendor": {
+          "name": "vendor",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "department": {
+          "name": "department",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "amount": {
+          "name": "amount",
+          "type": "numeric(12, 2)",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Pending'"
+        }
+      },
+      "indexes": {
+        "expenses_production_idx": {
+          "name": "expenses_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "expenses_production_id_productions_id_fk": {
+          "name": "expenses_production_id_productions_id_fk",
+          "tableFrom": "expenses",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.issue_scenes": {
+      "name": "issue_scenes",
+      "schema": "",
+      "columns": {
+        "issue_id": {
+          "name": "issue_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "issue_scenes_issue_id_issues_id_fk": {
+          "name": "issue_scenes_issue_id_issues_id_fk",
+          "tableFrom": "issue_scenes",
+          "columnsFrom": [
+            "issue_id"
+          ],
+          "tableTo": "issues",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "issue_scenes_scene_id_scenes_id_fk": {
+          "name": "issue_scenes_scene_id_scenes_id_fk",
+          "tableFrom": "issue_scenes",
+          "columnsFrom": [
+            "scene_id"
+          ],
+          "tableTo": "scenes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "issue_scenes_issue_id_scene_id_pk": {
+          "name": "issue_scenes_issue_id_scene_id_pk",
+          "columns": [
+            "issue_id",
+            "scene_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.issues": {
+      "name": "issues",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "severity": {
+          "name": "severity",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "description": {
+          "name": "description",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "affected_shoot_day_id": {
+          "name": "affected_shoot_day_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "issues_production_idx": {
+          "name": "issues_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "issues_production_id_productions_id_fk": {
+          "name": "issues_production_id_productions_id_fk",
+          "tableFrom": "issues",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "issues_affected_shoot_day_id_shoot_days_id_fk": {
+          "name": "issues_affected_shoot_day_id_shoot_days_id_fk",
+          "tableFrom": "issues",
+          "columnsFrom": [
+            "affected_shoot_day_id"
+          ],
+          "tableTo": "shoot_days",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.locations": {
+      "name": "locations",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "address": {
+          "name": "address",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permit_status": {
+          "name": "permit_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "permit_expiry": {
+          "name": "permit_expiry",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "locations_production_idx": {
+          "name": "locations_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "locations_production_id_productions_id_fk": {
+          "name": "locations_production_id_productions_id_fk",
+          "tableFrom": "locations",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.production_members": {
+      "name": "production_members",
+      "schema": "",
+      "columns": {
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "production_members_production_id_productions_id_fk": {
+          "name": "production_members_production_id_productions_id_fk",
+          "tableFrom": "production_members",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "production_members_user_id_profiles_id_fk": {
+          "name": "production_members_user_id_profiles_id_fk",
+          "tableFrom": "production_members",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "tableTo": "profiles",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "production_members_production_id_user_id_pk": {
+          "name": "production_members_production_id_user_id_pk",
+          "columns": [
+            "production_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.productions": {
+      "name": "productions",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "phase": {
+          "name": "phase",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Development'"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "productions_created_by_profiles_id_fk": {
+          "name": "productions_created_by_profiles_id_fk",
+          "tableFrom": "productions",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "tableTo": "profiles",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "restrict"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.profiles": {
+      "name": "profiles",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "email": {
+          "name": "email",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "profiles_id_users_id_fk": {
+          "name": "profiles_id_users_id_fk",
+          "tableFrom": "profiles",
+          "columnsFrom": [
+            "id"
+          ],
+          "tableTo": "users",
+          "schemaTo": "auth",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "profiles_email_unique": {
+          "name": "profiles_email_unique",
+          "columns": [
+            "email"
+          ],
+          "nullsNotDistinct": false
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.prop_scenes": {
+      "name": "prop_scenes",
+      "schema": "",
+      "columns": {
+        "prop_id": {
+          "name": "prop_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "prop_scenes_prop_id_props_id_fk": {
+          "name": "prop_scenes_prop_id_props_id_fk",
+          "tableFrom": "prop_scenes",
+          "columnsFrom": [
+            "prop_id"
+          ],
+          "tableTo": "props",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "prop_scenes_scene_id_scenes_id_fk": {
+          "name": "prop_scenes_scene_id_scenes_id_fk",
+          "tableFrom": "prop_scenes",
+          "columnsFrom": [
+            "scene_id"
+          ],
+          "tableTo": "scenes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "prop_scenes_prop_id_scene_id_pk": {
+          "name": "prop_scenes_prop_id_scene_id_pk",
+          "columns": [
+            "prop_id",
+            "scene_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.props": {
+      "name": "props",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "props_production_idx": {
+          "name": "props_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "props_production_id_productions_id_fk": {
+          "name": "props_production_id_productions_id_fk",
+          "tableFrom": "props",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scene_cast": {
+      "name": "scene_cast",
+      "schema": "",
+      "columns": {
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "cast_member_id": {
+          "name": "cast_member_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "scene_cast_scene_id_scenes_id_fk": {
+          "name": "scene_cast_scene_id_scenes_id_fk",
+          "tableFrom": "scene_cast",
+          "columnsFrom": [
+            "scene_id"
+          ],
+          "tableTo": "scenes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "scene_cast_cast_member_id_cast_members_id_fk": {
+          "name": "scene_cast_cast_member_id_cast_members_id_fk",
+          "tableFrom": "scene_cast",
+          "columnsFrom": [
+            "cast_member_id"
+          ],
+          "tableTo": "cast_members",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {
+        "scene_cast_scene_id_cast_member_id_pk": {
+          "name": "scene_cast_scene_id_cast_member_id_pk",
+          "columns": [
+            "scene_id",
+            "cast_member_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.scenes": {
+      "name": "scenes",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "number": {
+          "name": "number",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "int_ext": {
+          "name": "int_ext",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "set_name": {
+          "name": "set_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day_night": {
+          "name": "day_night",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "synopsis": {
+          "name": "synopsis",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "page_count": {
+          "name": "page_count",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "''"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Draft'"
+        },
+        "shoot_day_id": {
+          "name": "shoot_day_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "schedule_order": {
+          "name": "schedule_order",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "scenes_production_idx": {
+          "name": "scenes_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        },
+        "scenes_shoot_day_idx": {
+          "name": "scenes_shoot_day_idx",
+          "columns": [
+            {
+              "expression": "shoot_day_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "scenes_production_id_productions_id_fk": {
+          "name": "scenes_production_id_productions_id_fk",
+          "tableFrom": "scenes",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "scenes_shoot_day_id_shoot_days_id_fk": {
+          "name": "scenes_shoot_day_id_shoot_days_id_fk",
+          "tableFrom": "scenes",
+          "columnsFrom": [
+            "shoot_day_id"
+          ],
+          "tableTo": "shoot_days",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "set null"
+        },
+        "scenes_location_id_locations_id_fk": {
+          "name": "scenes_location_id_locations_id_fk",
+          "tableFrom": "scenes",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "tableTo": "locations",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.script_pages": {
+      "name": "script_pages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "scene_id": {
+          "name": "scene_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "elements": {
+          "name": "elements",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "script_pages_scene_idx": {
+          "name": "script_pages_scene_idx",
+          "columns": [
+            {
+              "expression": "scene_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "script_pages_production_id_productions_id_fk": {
+          "name": "script_pages_production_id_productions_id_fk",
+          "tableFrom": "script_pages",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "script_pages_scene_id_scenes_id_fk": {
+          "name": "script_pages_scene_id_scenes_id_fk",
+          "tableFrom": "script_pages",
+          "columnsFrom": [
+            "scene_id"
+          ],
+          "tableTo": "scenes",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.shoot_days": {
+      "name": "shoot_days",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "production_id": {
+          "name": "production_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "day_number": {
+          "name": "day_number",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "total_days": {
+          "name": "total_days",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "date": {
+          "name": "date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "location_id": {
+          "name": "location_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "call_time": {
+          "name": "call_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "wrap_time": {
+          "name": "wrap_time",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "unit": {
+          "name": "unit",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'Main Unit'"
+        }
+      },
+      "indexes": {
+        "shoot_days_production_idx": {
+          "name": "shoot_days_production_idx",
+          "columns": [
+            {
+              "expression": "production_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "btree",
+          "concurrently": false
+        }
+      },
+      "foreignKeys": {
+        "shoot_days_production_id_productions_id_fk": {
+          "name": "shoot_days_production_id_productions_id_fk",
+          "tableFrom": "shoot_days",
+          "columnsFrom": [
+            "production_id"
+          ],
+          "tableTo": "productions",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
+        "shoot_days_location_id_locations_id_fk": {
+          "name": "shoot_days_location_id_locations_id_fk",
+          "tableFrom": "shoot_days",
+          "columnsFrom": [
+            "location_id"
+          ],
+          "tableTo": "locations",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    }
+  },
+  "enums": {},
+  "schemas": {},
+  "views": {},
+  "sequences": {},
+  "roles": {},
+  "policies": {},
+  "_meta": {
+    "columns": {},
+    "schemas": {},
+    "tables": {}
+  }
+}
