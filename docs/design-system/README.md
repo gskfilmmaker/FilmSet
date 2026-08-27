@@ -39,7 +39,7 @@ None of these are ever hard-coded — every value is read from `process.env` (se
 
 ### First-time setup
 
-1. `pnpm --filter @filmset/db db:migrate` — applies `packages/db/migrations/0000_init.sql` (every table) and `0001_rls_and_auth_trigger.sql` (RLS policies, the `profiles`-on-signup trigger, and grants) to your Supabase Postgres, in order, tracked so re-running is safe.
+1. `pnpm --filter @filmset/db db:migrate` — applies every file under `packages/db/migrations/` in order (tables, RLS/trigger/grants, then later hardening/feature migrations) to your Supabase Postgres, tracked so re-running is safe.
 2. Run the app (`pnpm --filter @filmset/web dev`) and sign up for an account at `/signup`. Signing up auto-creates a `profiles` row (via the Postgres trigger, not app code); a brand-new account then lands on `/onboarding` and gets an empty production with you as its `Producer`.
 3. To load the full "THE BAND" demo dataset instead of starting empty: find your new user's id in Supabase → Authentication → Users, then run `SEED_OWNER_USER_ID=<that-uuid> pnpm --filter @filmset/db db:seed`. It's idempotent — safe to re-run after schema changes. (The seed script connects with the plain `postgres` role and bypasses RLS by design — it's a trusted, developer-run operation, not something end users trigger.)
 
@@ -47,7 +47,10 @@ If the schema ever changes: edit `packages/db/src/schema.ts`, run `pnpm --filter
 
 No Supabase/Anthropic project available yet? The five screens still exist as pure UI — see git history before this environment section was added for the fixture-only prototype build.
 
-**Status**: both migrations have been applied to the live GSK PRODUCTIONS INC. FilmSet Supabase project — `0000_init.sql` (all 25 tables) and `0001_rls_and_auth_trigger.sql`, verified by Supabase reporting exactly 33 active RLS policies (3 on `profiles` + 4 on `productions` + 4 on `production_members` + 18 one-per-table on the remaining production-scoped tables + 4 on the join tables — matching the policy count written in the migration file). Applied via the Supabase SQL Editor rather than `db:migrate`, since this sandbox's network policy only permits outbound HTTPS and can't open a raw Postgres connection.
+**Status**: `0000_init.sql` (all 25 tables) and `0001_rls_and_auth_trigger.sql` have been applied to the live GSK PRODUCTIONS INC. FilmSet Supabase project, verified by Supabase reporting exactly 33 active RLS policies (3 on `profiles` + 4 on `productions` + 4 on `production_members` + 18 one-per-table on the remaining production-scoped tables + 4 on the join tables). `0002_cross_production_guards.sql` and `0003_active_production.sql` (below) still need to be applied the same way. All were applied via the Supabase SQL Editor rather than `db:migrate`, since this sandbox's network policy only permits outbound HTTPS and can't open a raw Postgres connection.
+
+- **`0002_cross_production_guards.sql`** — closes two gaps found in a manual security audit of the live Preview: (1) the Team invite flow's "look up an invitee by email" query was silently blocked by `profiles`' own RLS (which correctly hides a stranger's row, but a fresh invitee isn't a co-member yet either) — fixed with a `security definer` `find_profile_for_invite(production_id, email)` function gated on the caller already being that production's Producer; (2) `prop_scenes`/`scene_cast`/`issue_scenes` policies only checked the *scene* side's production membership, so a user in two productions could attach a prop/cast member/issue from one production onto a scene in the other — fixed by requiring both linked rows to share a `production_id`.
+- **`0003_active_production.sql`** — adds `profiles.active_production_id`, the persisted pointer behind the project switcher (see [Production Manager](#production-manager) below).
 
 ## Row Level Security
 
@@ -58,6 +61,16 @@ Every table has RLS enabled (`packages/db/migrations/0001_rls_and_auth_trigger.s
 - **The policies**: keyed off `production_members` — a user can read/write a row if they're a member of that row's production (via a `security definer` helper, `is_production_member`, that avoids infinite recursion). `productions` and `production_members` themselves have narrower policies: only a `Producer` can update/delete a production or manage other members' roles; anyone can see and remove their own membership.
 - **`anon` gets nothing**: no `GRANT` is issued to the `anon` role, so an unauthenticated request can't read or write any application table regardless of RLS — authentication is required before RLS is even reached.
 
+## Production Manager
+
+A signed-in user can belong to more than one production. `apps/web/app/production-actions.ts` holds the three server actions this needs:
+
+- `createProduction(formData)` — creates a production, makes the caller its Producer, and makes it their active production. Used by both `/onboarding` (a brand-new account's first production) and the project switcher's "New production" form.
+- `listMyProductions()` — every production the caller belongs to, for the switcher.
+- `switchActiveProduction(productionId)` — re-validates membership (never trust a client-supplied id blindly) and updates `profiles.active_production_id`.
+
+`apps/web/lib/authz.ts`'s `requireCurrentProduction` — the function every protected page calls first — reads `active_production_id` and falls back to the caller's earliest membership if it's unset or points at a production they're no longer in (an account created before this preference existed, or a stale pointer). The switcher itself lives in `apps/web/components/shell.tsx`, opened from the production name in the global bar.
+
 ## Testing this locally
 
 After `db:migrate` (and optionally `db:seed`):
@@ -67,6 +80,7 @@ After `db:migrate` (and optionally `db:seed`):
 3. **Password reset** — from `/login`, click "Forgot password?", request a reset for your email, follow the link Supabase emails you, set a new password, confirm you land on `/overview`.
 4. **Team management** — as the Producer, open the Team section on `/overview`, add a second account by email (sign up a second test account first so a `profiles` row exists for it), confirm it appears with a role selector. Change its role; remove it.
 5. **Verify access control (the important one)** — sign up a *third*, unrelated account and do **not** add it to the first account's production. Signed in as that third account: it should land on `/onboarding` (no existing membership), and if you note the first production's id and try to hit its data, RLS should return nothing — there is no UI path to type a production id manually, but you can confirm this directly in the Supabase SQL Editor: `select * from productions;` run as the `postgres` role shows all productions (expected, RLS doesn't apply to migrations), while the app itself only ever shows the signed-in user's own production because every query runs through `runAsUser`.
+6. **Production Manager** — from `/overview`, click the production name in the global bar; the switcher should list every production you're a member of with a checkmark on the current one. Use "New production" to create a second one — you should land on `/overview` showing the new production instead. Reopen the switcher and click back to the first one; confirm its data (not the new production's) is what renders. Invite a second real (already-signed-up) account by email in Team — this exercises `find_profile_for_invite`, the `0002` migration fix for the RLS gap that used to make every invite of a non-co-member fail with "no account found."
 
 ## Token architecture
 

@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   index,
   integer,
   jsonb,
@@ -43,6 +44,15 @@ export const profiles = pgTable("profiles", {
     .references(() => authUsers.id, { onDelete: "cascade" }),
   email: text("email").notNull().unique(),
   fullName: text("full_name"),
+  /**
+   * Which production `requireCurrentProduction` (apps/web/lib/authz.ts)
+   * loads for this user — the persisted counterpart to the project
+   * switcher. Forward reference to `productions` (declared below): fine at
+   * runtime since `.references()` takes a thunk, not the table itself, but
+   * needs the explicit AnyPgColumn return type to break TS's circular
+   * inference between the two tables.
+   */
+  activeProductionId: text("active_production_id").references((): AnyPgColumn => productions.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });

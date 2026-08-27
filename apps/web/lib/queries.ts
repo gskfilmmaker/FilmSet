@@ -109,24 +109,46 @@ export async function getProductionSnapshot(userId: string, productionId: string
       db.select().from(schema.crewMembers).where(eq(schema.crewMembers.productionId, productionId)),
       db.select().from(schema.locations).where(eq(schema.locations.productionId, productionId)),
       db.select().from(schema.props).where(eq(schema.props.productionId, productionId)),
-      // No production_id on join tables — RLS (via the row they attach to)
-      // is what scopes these, not this query. Fine today since a user
-      // belongs to exactly one production; revisit if that changes.
-      db.select().from(schema.propScenes),
+      // No production_id column on join tables — scope by joining through
+      // the scene they attach to, which does have one. Now that a user can
+      // belong to more than one production (see production-actions.ts), an
+      // unscoped select here would pull in every production's join rows;
+      // RLS still keeps a stranger's rows out, but not a co-member's other
+      // production's rows.
+      db
+        .select({ propId: schema.propScenes.propId, sceneId: schema.propScenes.sceneId })
+        .from(schema.propScenes)
+        .innerJoin(schema.scenes, and(eq(schema.scenes.id, schema.propScenes.sceneId), eq(schema.scenes.productionId, productionId))),
       db.select().from(schema.scenes).where(eq(schema.scenes.productionId, productionId)).orderBy(asc(schema.scenes.scheduleOrder)),
-      db.select().from(schema.sceneCast),
+      db
+        .select({ sceneId: schema.sceneCast.sceneId, castMemberId: schema.sceneCast.castMemberId })
+        .from(schema.sceneCast)
+        .innerJoin(schema.scenes, and(eq(schema.scenes.id, schema.sceneCast.sceneId), eq(schema.scenes.productionId, productionId))),
       db.select().from(schema.shootDays).where(eq(schema.shootDays.productionId, productionId)).orderBy(asc(schema.shootDays.dayNumber)),
       db.select().from(schema.breakdownElements).where(eq(schema.breakdownElements.productionId, productionId)),
       db.select().from(schema.scriptPages).where(eq(schema.scriptPages.productionId, productionId)),
       db.select().from(schema.issues).where(eq(schema.issues.productionId, productionId)),
-      db.select().from(schema.issueScenes),
+      db
+        .select({ issueId: schema.issueScenes.issueId, sceneId: schema.issueScenes.sceneId })
+        .from(schema.issueScenes)
+        .innerJoin(schema.scenes, and(eq(schema.scenes.id, schema.issueScenes.sceneId), eq(schema.scenes.productionId, productionId))),
       db.select().from(schema.approvals).where(eq(schema.approvals.productionId, productionId)),
       db.select().from(schema.documents).where(eq(schema.documents.productionId, productionId)),
       db.select().from(schema.expenses).where(eq(schema.expenses.productionId, productionId)),
       db.select().from(schema.budgetLines).where(eq(schema.budgetLines.productionId, productionId)),
       db.select().from(schema.activities).where(eq(schema.activities.productionId, productionId)).orderBy(asc(schema.activities.timestamp)),
       db.select().from(schema.callSheets).where(eq(schema.callSheets.productionId, productionId)),
-      db.select().from(schema.callSheetTimelineEvents).orderBy(asc(schema.callSheetTimelineEvents.sortOrder)),
+      db
+        .select({
+          id: schema.callSheetTimelineEvents.id,
+          shootDayId: schema.callSheetTimelineEvents.shootDayId,
+          time: schema.callSheetTimelineEvents.time,
+          label: schema.callSheetTimelineEvents.label,
+          sortOrder: schema.callSheetTimelineEvents.sortOrder,
+        })
+        .from(schema.callSheetTimelineEvents)
+        .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.callSheetTimelineEvents.shootDayId), eq(schema.shootDays.productionId, productionId)))
+        .orderBy(asc(schema.callSheetTimelineEvents.sortOrder)),
       db
         .select()
         .from(schema.aiRecommendations)

@@ -1,9 +1,12 @@
 "use client";
 
+import { createProduction, listMyProductions, switchActiveProduction, type MyProduction } from "@/app/production-actions";
 import { getBrowserSupabase } from "@filmset/auth/browser";
 import type { Production, Scene } from "@filmset/core";
 import {
   AppShell,
+  Button,
+  cn,
   CommandDialog,
   CommandEmpty,
   CommandGroup,
@@ -21,12 +24,14 @@ import {
 import {
   Building2,
   CalendarDays,
+  Check,
   FileText,
   FolderOpen,
   HardHat,
   LayoutDashboard,
   ListTree,
   MapPin,
+  Plus,
   Settings,
   Sparkles,
   Users,
@@ -94,7 +99,7 @@ export interface ShellProps {
   children: React.ReactNode;
   inspector?: React.ReactNode;
   userEmail?: string;
-  production: Pick<Production, "name" | "phase">;
+  production: Pick<Production, "id" | "name" | "phase">;
   scenes: Pick<Scene, "id" | "number" | "setName" | "dayNight" | "intExt" | "shootDayId">[];
 }
 
@@ -104,8 +109,56 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
   const [expanded, setExpanded] = React.useState(true);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
+  const [switcherOpen, setSwitcherOpen] = React.useState(false);
+  const [productions, setProductions] = React.useState<MyProduction[] | null>(null);
+  const [productionsLoading, setProductionsLoading] = React.useState(false);
+  const [switching, setSwitching] = React.useState<string | null>(null);
+  const [creatingOpen, setCreatingOpen] = React.useState(false);
+  const [newName, setNewName] = React.useState("");
+  const [creating, setCreating] = React.useState(false);
   const [query, setQuery] = React.useState("");
   const shortcuts = useKeyboardShortcutsOverlay();
+
+  function openSwitcher() {
+    setSwitcherOpen((open) => {
+      const next = !open;
+      if (next && productions === null && !productionsLoading) {
+        setProductionsLoading(true);
+        listMyProductions()
+          .then(setProductions)
+          .catch(() => setProductions([]))
+          .finally(() => setProductionsLoading(false));
+      }
+      return next;
+    });
+  }
+
+  async function onSwitch(productionId: string) {
+    if (productionId === production.id) {
+      setSwitcherOpen(false);
+      return;
+    }
+    setSwitching(productionId);
+    try {
+      await switchActiveProduction(productionId);
+    } finally {
+      setSwitching(null);
+      setSwitcherOpen(false);
+    }
+  }
+
+  async function onCreate(e: React.FormEvent) {
+    e.preventDefault();
+    if (!newName.trim()) return;
+    setCreating(true);
+    const formData = new FormData();
+    formData.set("name", newName);
+    try {
+      await createProduction(formData);
+    } finally {
+      setCreating(false);
+    }
+  }
 
   async function handleSignOut() {
     setUserMenuOpen(false);
@@ -155,7 +208,7 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
               userName={userEmail ?? "Priya Nair"}
               userInitials={initials}
               onOpenCommandPalette={() => setPaletteOpen(true)}
-              onOpenProductionSwitcher={() => router.push("/overview")}
+              onOpenProductionSwitcher={openSwitcher}
               onOpenUserMenu={() => setUserMenuOpen((open) => !open)}
             />
           }
@@ -179,6 +232,79 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
         </AppShell>
       </div>
       <PrototypeControls />
+
+      {switcherOpen && (
+        <>
+          <button
+            type="button"
+            aria-label="Close production switcher"
+            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default"
+            onClick={() => {
+              setSwitcherOpen(false);
+              setCreatingOpen(false);
+            }}
+          />
+          <div className="fixed left-[var(--fs-space-16)] top-[52px] z-[var(--fs-z-dropdown)] w-[280px] rounded-md border border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] p-[var(--fs-space-8)] shadow-[var(--fs-shadow-md)]">
+            <p className="px-[var(--fs-space-8)] py-[4px] text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
+              Productions
+            </p>
+            {productionsLoading && (
+              <p className="px-[var(--fs-space-8)] py-[var(--fs-space-8)] text-[13px] text-[var(--color-text-tertiary)]">Loading…</p>
+            )}
+            {!productionsLoading && (
+              <ul className="flex max-h-[240px] flex-col gap-[2px] overflow-y-auto">
+                {(productions ?? []).map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      onClick={() => onSwitch(p.id)}
+                      disabled={switching !== null}
+                      className={cn(
+                        "flex w-full items-center justify-between gap-[var(--fs-space-8)] rounded-[4px] px-[var(--fs-space-8)] py-[6px] text-left text-[13px] outline-none",
+                        "hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
+                        p.id === production.id ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]",
+                      )}
+                    >
+                      <span className="truncate">{p.name}</span>
+                      {p.id === production.id ? (
+                        <Check className="size-[14px] shrink-0 text-[var(--color-action-primary)]" aria-hidden="true" />
+                      ) : switching === p.id ? (
+                        <span className="shrink-0 text-[11px] text-[var(--color-text-tertiary)]">Switching…</span>
+                      ) : null}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-[var(--fs-space-8)] border-t border-[var(--color-border-subtle)] pt-[var(--fs-space-8)]">
+              {creatingOpen ? (
+                <form onSubmit={onCreate} className="flex flex-col gap-[var(--fs-space-8)]">
+                  <input
+                    autoFocus
+                    value={newName}
+                    onChange={(e) => setNewName(e.target.value)}
+                    placeholder="Production name"
+                    className="h-[28px] rounded-[4px] border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-8)] text-[13px] text-[var(--color-text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+                  />
+                  <Button type="submit" loading={creating} disabled={creating || !newName.trim()}>
+                    Create
+                  </Button>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setCreatingOpen(true)}
+                  className="flex h-[32px] w-full items-center gap-[var(--fs-space-8)] rounded-[4px] px-[var(--fs-space-8)] text-left text-[13px] text-[var(--color-action-primary)] outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+                >
+                  <Plus className="size-[14px]" aria-hidden="true" />
+                  New production
+                </button>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       {userMenuOpen && (
         <>
