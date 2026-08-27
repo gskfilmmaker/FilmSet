@@ -125,13 +125,26 @@ export function DataTable<TData>({
   const selectedRows = table.getSelectedRowModel().rows.map((r) => r.original);
   const hideableColumns = table.getAllColumns().filter((c) => c.getCanHide());
 
+  function focusRowByModelIndex(index: number) {
+    const clamped = Math.max(0, Math.min(rows.length - 1, index));
+    // With virtualization, only a window of rows exists in the DOM (plus
+    // spacer rows), so raw `children[index]` doesn't correspond to the
+    // row-model index. Ask the virtualizer to render the target row first,
+    // then focus it by its stable data-index once the DOM catches up.
+    virtualizer.scrollToIndex(clamped, { align: "auto" });
+    requestAnimationFrame(() => {
+      const el = scrollRef.current?.querySelector<HTMLElement>(`tr[data-index="${clamped}"]`);
+      el?.focus();
+    });
+  }
+
   function handleRowKeyDown(event: React.KeyboardEvent<HTMLTableRowElement>, index: number) {
     if (event.key === "ArrowDown") {
       event.preventDefault();
-      (event.currentTarget.parentElement?.children[index + 2] as HTMLElement | undefined)?.focus();
+      focusRowByModelIndex(index + 1);
     } else if (event.key === "ArrowUp") {
       event.preventDefault();
-      (event.currentTarget.parentElement?.children[index] as HTMLElement | undefined)?.focus();
+      focusRowByModelIndex(index - 1);
     } else if (event.key === "Enter" && onRowClick) {
       onRowClick(rows[index]!.original);
     }

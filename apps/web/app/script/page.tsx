@@ -106,10 +106,19 @@ function Screenplay({ sceneId, onTagSelection }: { sceneId: string; onTagSelecti
       setSelection(null);
       return;
     }
+    const container = containerRef.current;
+    if (!container) return;
     const rect = sel.getRangeAt(0).getBoundingClientRect();
-    const containerRect = containerRef.current?.getBoundingClientRect();
-    if (!containerRect) return;
-    setSelection({ text, x: rect.left - containerRect.left + rect.width / 2, y: rect.top - containerRect.top });
+    const containerRect = container.getBoundingClientRect();
+    // rect/containerRect are viewport-relative; the popover is absolutely
+    // positioned inside this scrolling container, so its coordinate space is
+    // the container's unscrolled content box — add the scroll offset back in,
+    // otherwise the popover drifts above the selection as the page scrolls.
+    setSelection({
+      text,
+      x: rect.left - containerRect.left + rect.width / 2 + container.scrollLeft,
+      y: rect.top - containerRect.top + container.scrollTop,
+    });
   }
 
   if (pages.length === 0) {

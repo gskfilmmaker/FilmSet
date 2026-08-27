@@ -51,6 +51,7 @@ function StripboardPageInner() {
     new Set(searchParams.get("scene") ? [searchParams.get("scene")!] : []),
   );
   const [activeId, setActiveId] = React.useState<string | null>(null);
+  const dragStartBoardRef = React.useRef<Board | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -69,10 +70,6 @@ function StripboardPageInner() {
     });
   }
 
-  function pushHistory() {
-    setHistory((prev) => [...prev.slice(-9), board]);
-  }
-
   function undo() {
     setHistory((prev) => {
       if (prev.length === 0) return prev;
@@ -84,6 +81,9 @@ function StripboardPageInner() {
 
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id));
+    // Snapshot before any dragOver mutation so cross-day drags are undoable
+    // and a drag cancelled outside a valid target can be restored (§3 reversibility).
+    dragStartBoardRef.current = board;
   }
 
   function handleDragOver(event: DragOverEvent) {
@@ -96,7 +96,6 @@ function StripboardPageInner() {
     setBoard((prev) => {
       const activeItems = prev[activeContainer]!;
       const overItems = prev[overContainer]!;
-      const activeIndex = activeItems.indexOf(String(active.id));
       const overIndex = overItems.indexOf(String(over.id));
       const newIndex = overIndex >= 0 ? overIndex : overItems.length;
 
@@ -111,15 +110,34 @@ function StripboardPageInner() {
   function handleDragEnd(event: DragEndEvent) {
     const { active, over } = event;
     setActiveId(null);
-    if (!over) return;
+    const startBoard = dragStartBoardRef.current;
+    dragStartBoardRef.current = null;
+    if (!startBoard) return;
+
+    if (!over) {
+      // Dropped outside any valid target — restore pre-drag state rather than
+      // leaving whatever handleDragOver last moved it to.
+      setBoard(startBoard);
+      return;
+    }
+
     const container = findContainer(board, String(active.id));
-    if (!container) return;
+    if (!container) {
+      setBoard(startBoard);
+      return;
+    }
+
     const items = board[container]!;
     const oldIndex = items.indexOf(String(active.id));
-    const newIndex = items.indexOf(String(over.id));
-    if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
-      pushHistory();
-      setBoard((prev) => ({ ...prev, [container]: arrayMove(items, oldIndex, newIndex) }));
+    const overIndex = items.indexOf(String(over.id));
+    const finalBoard: Board =
+      oldIndex !== -1 && overIndex !== -1 && oldIndex !== overIndex
+        ? { ...board, [container]: arrayMove(items, oldIndex, overIndex) }
+        : board;
+
+    if (JSON.stringify(finalBoard) !== JSON.stringify(startBoard)) {
+      setHistory((prev) => [...prev.slice(-9), startBoard]);
+      setBoard(finalBoard);
     }
   }
 

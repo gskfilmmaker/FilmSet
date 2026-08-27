@@ -19,6 +19,7 @@ function genId(): string {
 
 type Action =
   | { type: "ADD_TOAST"; toast: ToasterToast }
+  | { type: "UPDATE_TOAST"; toast: Partial<ToasterToast> & { id: string } }
   | { type: "DISMISS_TOAST"; toastId?: string }
   | { type: "REMOVE_TOAST"; toastId?: string };
 
@@ -41,6 +42,10 @@ function reducer(state: State, action: Action, dispatch: (action: Action) => voi
   switch (action.type) {
     case "ADD_TOAST":
       return { toasts: [action.toast, ...state.toasts].slice(0, TOAST_LIMIT) };
+    case "UPDATE_TOAST":
+      return {
+        toasts: state.toasts.map((t) => (t.id === action.toast.id ? { ...t, ...action.toast } : t)),
+      };
     case "DISMISS_TOAST": {
       if (action.toastId) queueRemoval(action.toastId, dispatch);
       else state.toasts.forEach((t) => queueRemoval(t.id, dispatch));
@@ -69,7 +74,7 @@ type ToastInput = Omit<ToasterToast, "id">;
 /** Fire a toast from anywhere — no provider lookup needed. Render <Toaster /> once, near the app root. */
 export function toast(props: ToastInput) {
   const id = genId();
-  const update = (next: ToastInput) => dispatch({ type: "ADD_TOAST", toast: { ...next, id, open: true } });
+  const update = (next: ToastInput) => dispatch({ type: "UPDATE_TOAST", toast: { ...next, id } });
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id });
 
   dispatch({
