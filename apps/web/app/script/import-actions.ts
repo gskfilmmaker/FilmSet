@@ -142,6 +142,7 @@ export async function importRevision(productionId: string, rawText: string): Pro
       const pagesBySceneId = new Map(existingPages.map((p) => [p.sceneId, p.elements as ParsedElement[]]));
 
       const updates: { sceneId: string; scene: (typeof parsed)[number] }[] = [];
+      const unchanged: { sceneId: string; scene: (typeof parsed)[number] }[] = [];
       const newScenes: (typeof parsed)[number][] = [];
 
       for (let i = 0; i < parsed.length; i++) {
@@ -149,7 +150,9 @@ export async function importRevision(productionId: string, rawText: string): Pro
         const existing = existingScenes[i];
         if (existing) {
           const existingElements = pagesBySceneId.get(existing.id) ?? [];
-          if (!sameContent(existingElements, parsedScene.elements)) {
+          if (sameContent(existingElements, parsedScene.elements)) {
+            unchanged.push({ sceneId: existing.id, scene: parsedScene });
+          } else {
             updates.push({ sceneId: existing.id, scene: parsedScene });
           }
         } else {
@@ -157,12 +160,21 @@ export async function importRevision(productionId: string, rawText: string): Pro
         }
       }
 
+      const castIds = new Set<string>();
+
+      // Cast linking runs for every scene in the parsed script, changed or not — a scene's dialogue
+      // not having changed doesn't mean its characters were already backfilled onto /cast (e.g. this
+      // is the first re-import since Cast auto-population shipped). Idempotent (onConflictDoNothing),
+      // so re-running it on unchanged scenes is always safe.
+      for (const { sceneId, scene } of unchanged) {
+        await linkSceneCast(tx, productionId, sceneId, scene, castIds);
+      }
+
       if (updates.length === 0 && newScenes.length === 0) {
-        return { changedCount: 0, newCount: 0, revisionColor: production.scriptRevisionColor, castCount: 0 };
+        return { changedCount: 0, newCount: 0, revisionColor: production.scriptRevisionColor, castCount: castIds.size };
       }
 
       const revisionColor = nextRevisionColor(production.scriptRevisionColor);
-      const castIds = new Set<string>();
 
       for (const { sceneId, scene } of updates) {
         const locationId = await findOrCreateLocation(tx, productionId, scene.setName);

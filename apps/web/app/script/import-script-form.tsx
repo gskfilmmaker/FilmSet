@@ -50,7 +50,14 @@ export function ImportScriptForm({
       if (mode === "revision") {
         const result = await importRevision(productionId, text);
         if (result.changedCount === 0 && result.newCount === 0) {
-          toast({ tone: "info", title: "No changes found", description: "This matches the script already on file." });
+          toast({
+            tone: result.castCount > 0 ? "success" : "info",
+            title: result.castCount > 0 ? `${result.castCount} cast slot${result.castCount === 1 ? "" : "s"} linked` : "No changes found",
+            description:
+              result.castCount > 0
+                ? "Script content matches what's on file — no revision needed, but Cast is now caught up with it."
+                : "This matches the script already on file.",
+          });
         } else {
           const parts = [
             result.changedCount > 0 ? `${result.changedCount} scene${result.changedCount === 1 ? "" : "s"} updated` : null,
