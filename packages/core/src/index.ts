@@ -80,6 +80,8 @@ export const crewMemberSchema = z
     name: z.string(),
     department: z.string(),
     role: z.string(),
+    /** Head of department — sorts first within their department and is called out on the Contact Sheet. */
+    isHod: z.boolean(),
   })
   .extend(contactInfoSchema.shape);
 export type CrewMember = z.infer<typeof crewMemberSchema>;

@@ -223,6 +223,7 @@ export async function getProductionSnapshot(userId: string, productionId: string
       name: c.name,
       department: c.department,
       role: c.role,
+      isHod: c.isHod,
       email: c.email,
       phone: c.phone,
       emergencyContactName: c.emergencyContactName,

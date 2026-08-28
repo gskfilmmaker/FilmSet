@@ -32,3 +32,10 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* Printable documents (e.g. the Contact Sheet) opt out of the app chrome via data-print-hide on Shell's own wrapper — see apps/web/components/shell.tsx. */
+@media print {
+  [data-print-hide] {
+    display: none !important;
+  }
+}

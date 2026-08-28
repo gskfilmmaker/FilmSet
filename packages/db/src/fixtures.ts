@@ -75,18 +75,18 @@ export const castMembers: CastMember[] = [
 ];
 
 export const crewMembers: CrewMember[] = [
-  { id: "crew_1ad", name: "Rakesh Mehta", department: "Production", role: "1st AD", ...noContactInfo },
-  { id: "crew_2ad", name: "Ayesha Sheikh", department: "Production", role: "2nd AD", ...noContactInfo },
-  { id: "crew_dp", name: "Vivek Chandran", department: "Camera", role: "Director of Photography", ...noContactInfo },
-  { id: "crew_gaffer", name: "Suresh Iyer", department: "Electric", role: "Gaffer", ...noContactInfo },
-  { id: "crew_sound", name: "Neha Kulkarni", department: "Sound", role: "Sound Mixer", ...noContactInfo },
-  { id: "crew_script", name: "Pooja Bhatia", department: "Production", role: "Script Supervisor", ...noContactInfo },
-  { id: "crew_pd", name: "Aditya Rao", department: "Art", role: "Production Designer", ...noContactInfo },
-  { id: "crew_costume", name: "Simran Kaur", department: "Wardrobe", role: "Costume Designer", ...noContactInfo },
-  { id: "crew_makeup", name: "Farah Ali", department: "Hair & Makeup", role: "Makeup Head", ...noContactInfo },
-  { id: "crew_lp", name: "Manoj Tiwari", department: "Production", role: "Line Producer", ...noContactInfo },
-  { id: "crew_locations", name: "Rajesh Pillai", department: "Locations", role: "Location Manager", ...noContactInfo },
-  { id: "crew_stunts", name: "Vikas Oberoi", department: "Stunts", role: "Stunt Coordinator", ...noContactInfo },
+  { id: "crew_1ad", name: "Rakesh Mehta", department: "Production", role: "1st AD", isHod: false, ...noContactInfo },
+  { id: "crew_2ad", name: "Ayesha Sheikh", department: "Production", role: "2nd AD", isHod: false, ...noContactInfo },
+  { id: "crew_dp", name: "Vivek Chandran", department: "Camera", role: "Director of Photography", isHod: true, ...noContactInfo },
+  { id: "crew_gaffer", name: "Suresh Iyer", department: "Electric", role: "Gaffer", isHod: true, ...noContactInfo },
+  { id: "crew_sound", name: "Neha Kulkarni", department: "Sound", role: "Sound Mixer", isHod: true, ...noContactInfo },
+  { id: "crew_script", name: "Pooja Bhatia", department: "Production", role: "Script Supervisor", isHod: false, ...noContactInfo },
+  { id: "crew_pd", name: "Aditya Rao", department: "Art", role: "Production Designer", isHod: true, ...noContactInfo },
+  { id: "crew_costume", name: "Simran Kaur", department: "Wardrobe", role: "Costume Designer", isHod: true, ...noContactInfo },
+  { id: "crew_makeup", name: "Farah Ali", department: "Hair & Makeup", role: "Makeup Head", isHod: true, ...noContactInfo },
+  { id: "crew_lp", name: "Manoj Tiwari", department: "Production", role: "Line Producer", isHod: true, ...noContactInfo },
+  { id: "crew_locations", name: "Rajesh Pillai", department: "Locations", role: "Location Manager", isHod: true, ...noContactInfo },
+  { id: "crew_stunts", name: "Vikas Oberoi", department: "Stunts", role: "Stunt Coordinator", isHod: true, ...noContactInfo },
 ];
 
 // --- Places & things ---

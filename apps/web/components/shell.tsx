@@ -26,6 +26,7 @@ import {
   Building2,
   CalendarDays,
   Check,
+  Contact,
   FileText,
   FolderOpen,
   HardHat,
@@ -48,6 +49,7 @@ const navItems: (SidebarItem & { href: string })[] = [
   { id: "schedule", label: "Schedule", href: "/schedule", icon: <CalendarDays className="size-full" /> },
   { id: "cast", label: "Cast", href: "/cast", icon: <Users className="size-full" /> },
   { id: "crew", label: "Crew", href: "/crew", icon: <HardHat className="size-full" /> },
+  { id: "contact-sheet", label: "Contact Sheet", href: "/contact-sheet", icon: <Contact className="size-full" /> },
   { id: "locations", label: "Locations", href: "/locations", icon: <MapPin className="size-full" /> },
   { id: "set", label: "Set", href: "/shoot-day", icon: <Building2 className="size-full" /> },
   { id: "money", label: "Money", href: "/money", icon: <Wallet className="size-full" /> },
@@ -63,6 +65,7 @@ function routeForActiveId(pathname: string): string {
   if (pathname.startsWith("/ai")) return "ai";
   if (pathname.startsWith("/cast")) return "cast";
   if (pathname.startsWith("/crew")) return "crew";
+  if (pathname.startsWith("/contact-sheet")) return "contact-sheet";
   if (pathname.startsWith("/locations")) return "locations";
   if (pathname.startsWith("/money")) return "money";
   if (pathname.startsWith("/documents")) return "documents";
@@ -247,38 +250,44 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
       <div className="min-h-0 flex-1">
         <AppShell
           globalBar={
-            <GlobalBar
-              productionName={production.name}
-              phase={production.phase}
-              notificationCount={notifications?.length ?? 0}
-              userName={userEmail ?? "Priya Nair"}
-              userInitials={initials}
-              onOpenCommandPalette={() => setPaletteOpen(true)}
-              onOpenProductionSwitcher={openSwitcher}
-              onOpenNotifications={() => setNotifOpen((open) => !open)}
-              onOpenUserMenu={() => setUserMenuOpen((open) => !open)}
-            />
+            <div data-print-hide>
+              <GlobalBar
+                productionName={production.name}
+                phase={production.phase}
+                notificationCount={notifications?.length ?? 0}
+                userName={userEmail ?? "Priya Nair"}
+                userInitials={initials}
+                onOpenCommandPalette={() => setPaletteOpen(true)}
+                onOpenProductionSwitcher={openSwitcher}
+                onOpenNotifications={() => setNotifOpen((open) => !open)}
+                onOpenUserMenu={() => setUserMenuOpen((open) => !open)}
+              />
+            </div>
           }
           sidebar={
-            <Sidebar
-              items={navItems}
-              activeId={routeForActiveId(pathname)}
-              onNavigate={(id) => {
-                const item = [...navItems, aiItem, settingsItem].find((i) => i.id === id);
-                if (item) router.push(item.href);
-              }}
-              aiItem={aiItem}
-              settingsItem={settingsItem}
-              expanded={expanded}
-              onToggleExpanded={() => setExpanded((e) => !e)}
-            />
+            <div data-print-hide>
+              <Sidebar
+                items={navItems}
+                activeId={routeForActiveId(pathname)}
+                onNavigate={(id) => {
+                  const item = [...navItems, aiItem, settingsItem].find((i) => i.id === id);
+                  if (item) router.push(item.href);
+                }}
+                aiItem={aiItem}
+                settingsItem={settingsItem}
+                expanded={expanded}
+                onToggleExpanded={() => setExpanded((e) => !e)}
+              />
+            </div>
           }
           inspector={inspector}
         >
           {children}
         </AppShell>
       </div>
-      <PrototypeControls />
+      <div data-print-hide>
+        <PrototypeControls />
+      </div>
 
       {switcherOpen && (
         <>

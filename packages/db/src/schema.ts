@@ -1,5 +1,6 @@
 import {
   type AnyPgColumn,
+  boolean,
   index,
   integer,
   jsonb,
@@ -135,6 +136,7 @@ export const crewMembers = pgTable(
     name: text("name").notNull(),
     department: text("department").notNull(),
     role: text("role").notNull(),
+    isHod: boolean("is_hod").notNull().default(false),
     ...contactColumns,
   },
   (t) => [index("crew_members_production_idx").on(t.productionId)],

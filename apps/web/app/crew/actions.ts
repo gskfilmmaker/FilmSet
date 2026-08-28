@@ -9,6 +9,7 @@ export interface CrewMemberInput {
   name: string;
   department: string;
   role: string;
+  isHod: boolean;
   email: string;
   phone: string;
   emergencyContactName: string;
@@ -35,6 +36,7 @@ function validate(input: CrewMemberInput) {
     name,
     department,
     role,
+    isHod: input.isHod,
     email: toNullable(input.email),
     phone: toNullable(input.phone),
     emergencyContactName: toNullable(input.emergencyContactName),

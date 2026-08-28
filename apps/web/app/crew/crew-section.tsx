@@ -1,7 +1,7 @@
 "use client";
 
 import type { CrewMember } from "@filmset/core";
-import { Button, EmptyState, Input, ToastAction, useToast } from "@filmset/ui";
+import { Button, Checkbox, EmptyState, Input, StatusBadge, ToastAction, useToast } from "@filmset/ui";
 import { ChevronDown, ChevronRight, HardHat, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -11,6 +11,7 @@ const emptyForm: CrewMemberInput = {
   name: "",
   department: "",
   role: "",
+  isHod: false,
   email: "",
   phone: "",
   emergencyContactName: "",
@@ -52,6 +53,10 @@ function CrewForm({ value, onChange }: { value: CrewMemberInput; onChange: (next
           onChange={(e) => onChange({ ...value, role: e.target.value })}
           containerClassName="min-w-[140px]"
         />
+        <label className="flex items-center gap-[6px] pb-[8px] text-[13px] text-[var(--color-text-secondary)]">
+          <Checkbox checked={value.isHod} onCheckedChange={(checked) => onChange({ ...value, isHod: checked === true })} />
+          Head of department
+        </label>
       </div>
 
       <button
@@ -128,6 +133,19 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
   const [editForm, setEditForm] = React.useState<CrewMemberInput>(emptyForm);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
 
+  const departments = React.useMemo(() => {
+    const byDepartment = new Map<string, CrewMember[]>();
+    for (const member of crewMembers) {
+      const list = byDepartment.get(member.department) ?? [];
+      list.push(member);
+      byDepartment.set(member.department, list);
+    }
+    for (const list of byDepartment.values()) {
+      list.sort((a, b) => (a.isHod === b.isHod ? a.name.localeCompare(b.name) : a.isHod ? -1 : 1));
+    }
+    return [...byDepartment.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [crewMembers]);
+
   async function onAdd(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -150,6 +168,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
       name: member.name,
       department: member.department,
       role: member.role,
+      isHod: member.isHod,
       email: member.email ?? "",
       phone: member.phone ?? "",
       emergencyContactName: member.emergencyContactName ?? "",
@@ -180,6 +199,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
       name: member.name,
       department: member.department,
       role: member.role,
+      isHod: member.isHod,
       email: member.email ?? "",
       phone: member.phone ?? "",
       emergencyContactName: member.emergencyContactName ?? "",
@@ -228,54 +248,60 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
         />
       )}
 
-      {crewMembers.length > 0 && (
-        <ul className="flex flex-col divide-y divide-[var(--color-border-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
-          {crewMembers.map((member) =>
-            editingId === member.id ? (
-              <li key={member.id} className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
-                <form onSubmit={(e) => onSaveEdit(e, member.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
-                  <CrewForm value={editForm} onChange={setEditForm} />
-                  <Button type="submit" loading={pendingId === member.id} disabled={pendingId !== null}>
-                    Save
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={() => setEditingId(null)} disabled={pendingId !== null}>
-                    Cancel
-                  </Button>
-                </form>
-              </li>
-            ) : (
-              <li key={member.id} className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">{member.name}</p>
-                  <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
-                    {member.department} — {member.role}
-                    {(member.phone || member.email) && ` · ${[member.phone, member.email].filter(Boolean).join(" · ")}`}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
-                  <Button
-                    variant="quiet"
-                    iconOnly
-                    icon={<Pencil className="size-[14px]" aria-hidden="true" />}
-                    aria-label={`Edit ${member.name}`}
-                    onClick={() => startEdit(member)}
-                    disabled={pendingId !== null}
-                  />
-                  <Button
-                    variant="quiet"
-                    iconOnly
-                    icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
-                    aria-label={`Remove ${member.name}`}
-                    loading={pendingId === member.id}
-                    disabled={pendingId !== null}
-                    onClick={() => onDelete(member)}
-                  />
-                </div>
-              </li>
-            ),
-          )}
-        </ul>
-      )}
+      {departments.map(([department, members]) => (
+        <div key={department} className="flex flex-col gap-[var(--fs-space-8)]">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">{department}</h2>
+          <ul className="flex flex-col divide-y divide-[var(--color-border-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
+            {members.map((member) =>
+              editingId === member.id ? (
+                <li key={member.id} className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
+                  <form onSubmit={(e) => onSaveEdit(e, member.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
+                    <CrewForm value={editForm} onChange={setEditForm} />
+                    <Button type="submit" loading={pendingId === member.id} disabled={pendingId !== null}>
+                      Save
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => setEditingId(null)} disabled={pendingId !== null}>
+                      Cancel
+                    </Button>
+                  </form>
+                </li>
+              ) : (
+                <li key={member.id} className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-[6px] truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                      {member.name}
+                      {member.isHod && <StatusBadge tone="info">HOD</StatusBadge>}
+                    </p>
+                    <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
+                      {member.role}
+                      {(member.phone || member.email) && ` · ${[member.phone, member.email].filter(Boolean).join(" · ")}`}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
+                    <Button
+                      variant="quiet"
+                      iconOnly
+                      icon={<Pencil className="size-[14px]" aria-hidden="true" />}
+                      aria-label={`Edit ${member.name}`}
+                      onClick={() => startEdit(member)}
+                      disabled={pendingId !== null}
+                    />
+                    <Button
+                      variant="quiet"
+                      iconOnly
+                      icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
+                      aria-label={`Remove ${member.name}`}
+                      loading={pendingId === member.id}
+                      disabled={pendingId !== null}
+                      onClick={() => onDelete(member)}
+                    />
+                  </div>
+                </li>
+              ),
+            )}
+          </ul>
+        </div>
+      ))}
 
       {crewMembers.length > 0 && !adding && (
         <Button variant="secondary" onClick={() => setAdding(true)} className="self-start">

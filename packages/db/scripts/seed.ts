@@ -87,8 +87,11 @@ async function main() {
 
   await db
     .insert(schema.crewMembers)
-    .values(crewMembers.map((c) => ({ id: c.id, productionId: theBandProduction.id, name: c.name, department: c.department, role: c.role })))
-    .onConflictDoUpdate({ target: schema.crewMembers.id, set: { name: schema.crewMembers.name, department: schema.crewMembers.department, role: schema.crewMembers.role } });
+    .values(crewMembers.map((c) => ({ id: c.id, productionId: theBandProduction.id, name: c.name, department: c.department, role: c.role, isHod: c.isHod })))
+    .onConflictDoUpdate({
+      target: schema.crewMembers.id,
+      set: { name: schema.crewMembers.name, department: schema.crewMembers.department, role: schema.crewMembers.role, isHod: schema.crewMembers.isHod },
+    });
 
   await db
     .insert(schema.locations)
