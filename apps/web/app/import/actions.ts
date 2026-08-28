@@ -5,7 +5,8 @@ import { createCrewMember, updateCrewMember, type CrewMemberInput } from "@/app/
 import { createLocation, updateLocation, type LocationInput } from "@/app/locations/actions";
 import { createExpense, type ExpenseInput } from "@/app/money/actions";
 import { requireProductionMember } from "@/lib/authz";
-import { extractCastCandidates, extractLocationCandidates } from "@/lib/ai";
+import { extractCastCandidates, extractCrewCandidates, extractLocationCandidates } from "@/lib/ai";
+import { parseDocxText } from "@/lib/import/parse-docx";
 import { parsePdfText } from "@/lib/import/parse-pdf";
 import { candidatesFromTabular, parseTabular } from "@/lib/import/parse-tabular";
 import type { ImportCandidate, ImportEntityType, ImportPreviewResult } from "@/lib/import/types";
@@ -60,10 +61,11 @@ export async function previewTabularImport(productionId: string, entityType: Imp
 
 const DOCUMENT_EXTRACTORS: Partial<Record<ImportEntityType, (text: string) => Promise<{ fields: Record<string, string> }[]>>> = {
   cast: async (text) => (await extractCastCandidates(text)).map((r) => ({ fields: { characterName: r.characterName, actorName: r.actorName, notes: r.notes } })),
+  crew: async (text) => (await extractCrewCandidates(text)).map((r) => ({ fields: { name: r.name, department: r.department, role: r.role, notes: r.notes } })),
   location: async (text) => (await extractLocationCandidates(text)).map((r) => ({ fields: { name: r.name, address: r.address, notes: r.notes } })),
 };
 
-/** Preview step for a .pdf upload — extracts text, then an AI Suggest call proposes structured candidates. Logged to ai_suggestion_log for the same audit trail every other AI suggestion gets. Never writes to production data. */
+/** Preview step for a .pdf or .docx upload — extracts text, then an AI Suggest call proposes structured candidates. Logged to ai_suggestion_log for the same audit trail every other AI suggestion gets. Never writes to production data. */
 export async function previewDocumentImport(productionId: string, entityType: ImportEntityType, formData: FormData): Promise<ImportPreviewResult> {
   const user = await requireUser();
   await requireProductionMember(productionId);
@@ -72,9 +74,10 @@ export async function previewDocumentImport(productionId: string, entityType: Im
 
   const file = readFile(formData);
   const buffer = await file.arrayBuffer();
-  const text = await parsePdfText(buffer);
+  const isDocx = /\.docx$/i.test(file.name);
+  const text = isDocx ? await parseDocxText(buffer) : await parsePdfText(buffer);
   if (text.trim().length < 20) {
-    throw new Error("Couldn't read text from that PDF — it may be a scanned image rather than a real document.");
+    throw new Error(`Couldn't read text from that ${isDocx ? "document" : "PDF"} — it may be a scanned image rather than real text.`);
   }
 
   const extracted = await extractor(text);

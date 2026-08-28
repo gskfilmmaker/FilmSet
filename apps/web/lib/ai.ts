@@ -288,6 +288,55 @@ export async function extractLocationCandidates(rawText: string): Promise<Extrac
   return (toolUse.input as { records: ExtractedLocationCandidate[] }).records;
 }
 
+export interface ExtractedCrewCandidate {
+  name: string;
+  department: string;
+  role: string;
+  notes: string;
+}
+
+const crewExtractionTool: Anthropic.Tool = {
+  name: "extract_crew_candidates",
+  description: "Extract every crew member found in this document.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The crew member's name" },
+            department: { type: "string", description: "Their department (Camera, Sound, Art, Production, etc.) if stated, otherwise an empty string" },
+            role: { type: "string", description: "Their job title/role if stated, otherwise an empty string" },
+            notes: { type: "string", description: "Any other short context stated (empty string if none)" },
+          },
+          required: ["name", "department", "role", "notes"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/** Same Suggest-step pattern as extractCastCandidates, for a crew list / department contact sheet document. */
+export async function extractCrewCandidates(rawText: string): Promise<ExtractedCrewCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured crew data from film production documents (crew lists, department contact sheets, deal memos). " +
+      "Only extract crew members actually named in the text — never invent one.",
+    messages: [{ role: "user", content: `Extract every crew member from this document:\n\n${rawText}` }],
+    tools: [crewExtractionTool],
+    tool_choice: { type: "tool", name: "extract_crew_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any crew candidates.");
+  return (toolUse.input as { records: ExtractedCrewCandidate[] }).records;
+}
+
 export async function answerQuestion(snapshot: ProductionSnapshot, question: string): Promise<string> {
   const message = await getClient().messages.create({
     model: MODEL,

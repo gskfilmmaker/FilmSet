@@ -3,7 +3,7 @@
 import { Button, Textarea, useToast } from "@filmset/ui";
 import { Upload } from "lucide-react";
 import * as React from "react";
-import { importRevision, importScript } from "./import-actions";
+import { extractScriptFileText, importRevision, importScript } from "./import-actions";
 
 const PLACEHOLDER = `INT. TAXI - NIGHT
 
@@ -27,6 +27,7 @@ export function ImportScriptForm({
 }) {
   const [text, setText] = React.useState("");
   const [importing, setImporting] = React.useState(false);
+  const [readingFile, setReadingFile] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
@@ -34,11 +35,26 @@ export function ImportScriptForm({
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    const isDocument = /\.(pdf|docx)$/i.test(file.name);
+    setReadingFile(true);
     try {
-      const content = await file.text();
-      setText(content);
-    } catch {
-      toast({ tone: "danger", title: "Couldn't read file", description: "Please try again or paste the text directly." });
+      if (isDocument) {
+        const formData = new FormData();
+        formData.set("file", file);
+        const content = await extractScriptFileText(productionId, formData);
+        setText(content);
+      } else {
+        const content = await file.text();
+        setText(content);
+      }
+    } catch (err) {
+      toast({
+        tone: "danger",
+        title: "Couldn't read file",
+        description: err instanceof Error ? err.message : "Please try again or paste the text directly.",
+      });
+    } finally {
+      setReadingFile(false);
     }
   }
 
@@ -96,19 +112,21 @@ export function ImportScriptForm({
             </>
           ) : (
             <>
-              Upload a plain-text (.txt/.fountain) screenplay, or paste one below. Scene headings like &quot;INT. TAXI -
+              Upload a screenplay (.pdf, .docx, .txt, .fountain) or paste one below. Scene headings like &quot;INT. TAXI -
               NIGHT&quot; become scenes; action, character cues, and dialogue underneath each one are parsed automatically —
               and every character who speaks gets a Cast slot, linked to the scenes they appear in.
             </>
           )}{" "}
-          PDF and Final Draft (.fdx) files aren&apos;t supported yet — export or copy the text first.
+          Final Draft (.fdx) files aren&apos;t supported yet — export as PDF or plain text first. A PDF/Word upload extracts
+          the text into the box below for you to review before importing.
         </p>
       </div>
-      <input ref={fileInputRef} type="file" accept=".txt,.fountain,text/plain" onChange={onFileSelected} className="hidden" />
+      <input ref={fileInputRef} type="file" accept=".txt,.fountain,text/plain,.pdf,.docx" onChange={onFileSelected} className="hidden" />
       <Button
         type="button"
         variant="secondary"
         icon={<Upload className="size-[14px]" aria-hidden="true" />}
+        loading={readingFile}
         onClick={() => fileInputRef.current?.click()}
         className="self-center"
       >

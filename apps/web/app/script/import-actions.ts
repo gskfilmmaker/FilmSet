@@ -2,11 +2,37 @@
 
 import { requireProductionMember } from "@/lib/authz";
 import { findOrCreateCastMember, findOrCreateCharacter, findOrCreateLocation } from "@/lib/find-or-create";
+import { parseDocxText } from "@/lib/import/parse-docx";
+import { parsePdfText } from "@/lib/import/parse-pdf";
 import { charactersInScene, parseScreenplay, type ParsedElement, type ParsedScene } from "@/lib/script-parser";
 import { nextRevisionColor } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema, type Tx } from "@filmset/db/server";
 import { asc, count, eq } from "drizzle-orm";
+
+const MAX_SCRIPT_FILE_BYTES = 15 * 1024 * 1024;
+
+/**
+ * Extracts raw text from an uploaded .pdf or .docx script — a separate
+ * step from importScript/importRevision so the extracted text lands back
+ * in the paste box for review/edit first, same as a .txt upload already
+ * does, rather than committing straight from the file.
+ */
+export async function extractScriptFileText(productionId: string, formData: FormData): Promise<string> {
+  await requireUser();
+  await requireProductionMember(productionId);
+  const file = formData.get("file");
+  if (!(file instanceof File) || file.size === 0) throw new Error("No file selected.");
+  if (file.size > MAX_SCRIPT_FILE_BYTES) throw new Error("File must be 15MB or smaller.");
+
+  const buffer = await file.arrayBuffer();
+  const isDocx = /\.docx$/i.test(file.name);
+  const text = isDocx ? await parseDocxText(buffer) : await parsePdfText(buffer);
+  if (text.trim().length < 20) {
+    throw new Error(`Couldn't read text from that ${isDocx ? "document" : "PDF"} — it may be a scanned image rather than real text.`);
+  }
+  return text;
+}
 
 export interface ImportScriptResult {
   sceneCount: number;

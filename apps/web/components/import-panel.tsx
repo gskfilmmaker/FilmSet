@@ -21,13 +21,13 @@ import { useRouter } from "next/navigation";
 import * as React from "react";
 
 const ENTITY_LABEL: Record<ImportEntityType, string> = { cast: "cast", crew: "crew", location: "locations", expense: "invoices" };
-const DOCUMENT_CAPABLE: ImportEntityType[] = ["cast", "location"];
+const DOCUMENT_CAPABLE: ImportEntityType[] = ["cast", "crew", "location"];
 
 function isTabular(file: File): boolean {
   return /\.(csv|xlsx|xls)$/i.test(file.name);
 }
-function isPdf(file: File): boolean {
-  return /\.pdf$/i.test(file.name);
+function isDocument(file: File): boolean {
+  return /\.(pdf|docx)$/i.test(file.name);
 }
 
 export function ImportPanel({ productionId, entityType }: { productionId: string; entityType: ImportEntityType }) {
@@ -44,7 +44,7 @@ export function ImportPanel({ productionId, entityType }: { productionId: string
 
   const fields = IMPORT_FIELDS[entityType];
   const acceptsDocument = DOCUMENT_CAPABLE.includes(entityType);
-  const accept = acceptsDocument ? ".csv,.xlsx,.xls,.pdf" : ".csv,.xlsx,.xls";
+  const accept = acceptsDocument ? ".csv,.xlsx,.xls,.pdf,.docx" : ".csv,.xlsx,.xls";
 
   function reset() {
     setCandidates([]);
@@ -63,7 +63,7 @@ export function ImportPanel({ productionId, entityType }: { productionId: string
     try {
       const formData = new FormData();
       formData.set("file", file);
-      const result = isPdf(file)
+      const result = isDocument(file)
         ? await previewDocumentImport(productionId, entityType, formData)
         : isTabular(file)
           ? await previewTabularImport(productionId, entityType, formData)
@@ -128,7 +128,7 @@ export function ImportPanel({ productionId, entityType }: { productionId: string
         <DrawerHeader>
           <DrawerTitle>Import {ENTITY_LABEL[entityType]}</DrawerTitle>
           <p className="text-[12px] text-[var(--color-text-tertiary)]">
-            Upload a CSV or Excel contact list{acceptsDocument ? ", or a PDF document" : ""}. Nothing is saved until you review it below and import.
+            Upload a CSV or Excel contact list{acceptsDocument ? ", or a PDF/Word document" : ""}. Nothing is saved until you review it below and import.
           </p>
         </DrawerHeader>
 
