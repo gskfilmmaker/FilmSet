@@ -205,6 +205,10 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
   const { toast } = useToast();
   const { production, scenes: allScenes, shootDays, locations, castMembers, characters, crewMembers, callSheets } = snapshot;
   const castMemberCharacterIds = React.useMemo(() => Object.fromEntries(castMembers.map((c) => [c.id, c.characterId])), [castMembers]);
+  const castMemberActorNames = React.useMemo(
+    () => Object.fromEntries(castMembers.filter((c) => c.actorName).map((c) => [c.id, c.actorName])),
+    [castMembers],
+  );
   const [selectedSceneId, setSelectedSceneId] = React.useState<string | null>(null);
   const [editingCallSheet, setEditingCallSheet] = React.useState(false);
   const [callSheetForm, setCallSheetForm] = React.useState<CallSheetInput | null>(null);
@@ -297,7 +301,7 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
               <StatusBadge tone={progressTone[sceneProgress(selectedScene)]}>{sceneProgress(selectedScene)}</StatusBadge>
             </InspectorSection>
             <InspectorSection label="Pages">{selectedScene.pageCount}</InspectorSection>
-            <InspectorSection label="Cast">{castNames(selectedScene, castMemberCharacterIds, characters) || "—"}</InspectorSection>
+            <InspectorSection label="Cast">{castNames(selectedScene, castMemberCharacterIds, characters, castMemberActorNames) || "—"}</InspectorSection>
             <InspectorSection label="Synopsis">{selectedScene.synopsis}</InspectorSection>
             {selectedScene.continuityNotes && <InspectorSection label="Continuity">{selectedScene.continuityNotes}</InspectorSection>}
           </Inspector>

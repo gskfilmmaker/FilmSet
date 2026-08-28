@@ -140,6 +140,10 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
   const [deletingDayBusy, setDeletingDayBusy] = React.useState(false);
 
   const castMemberCharacterIds = React.useMemo(() => Object.fromEntries(castMembers.map((c) => [c.id, c.characterId])), [castMembers]);
+  const castMemberActorNames = React.useMemo(
+    () => Object.fromEntries(castMembers.filter((c) => c.actorName).map((c) => [c.id, c.actorName])),
+    [castMembers],
+  );
   const scenesById = React.useMemo(() => new Map(scenes.map((s) => [s.id, s])), [scenes]);
   const conflictSceneIds = React.useMemo(() => new Set(issues.flatMap((i) => i.affectedSceneIds)), [issues]);
 
@@ -365,7 +369,7 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
               <StatusBadge tone={primarySelected.status === "Shot" ? "success" : "info"}>{primarySelected.status}</StatusBadge>
             </InspectorSection>
             <InspectorSection label="Pages">{primarySelected.pageCount}</InspectorSection>
-            <InspectorSection label="Cast">{castNames(primarySelected, castMemberCharacterIds, characters) || "—"}</InspectorSection>
+            <InspectorSection label="Cast">{castNames(primarySelected, castMemberCharacterIds, characters, castMemberActorNames) || "—"}</InspectorSection>
             <InspectorSection label="Synopsis">{primarySelected.synopsis}</InspectorSection>
             {conflictSceneIds.has(primarySelected.id) && (
               <InspectorSection label="Conflicts">
@@ -427,6 +431,7 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
                 sceneIds={board[day.id] ?? []}
                 scenesById={scenesById}
                 castMemberCharacterIds={castMemberCharacterIds}
+                castMemberActorNames={castMemberActorNames}
                 characters={characters}
                 selectedIds={selectedIds}
                 conflictSceneIds={conflictSceneIds}
@@ -440,6 +445,7 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
               sceneIds={board.unscheduled ?? []}
               scenesById={scenesById}
               castMemberCharacterIds={castMemberCharacterIds}
+              castMemberActorNames={castMemberActorNames}
               characters={characters}
               selectedIds={selectedIds}
               conflictSceneIds={conflictSceneIds}
@@ -451,7 +457,7 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
               <div className="w-[600px] rounded-md border border-[var(--color-action-primary)]">
                 <Strip
                   scene={activeScene}
-                  castLabel={castNames(activeScene, castMemberCharacterIds, characters)}
+                  castLabel={castNames(activeScene, castMemberCharacterIds, characters, castMemberActorNames)}
                   selected={false}
                   hasConflict={conflictSceneIds.has(activeScene.id)}
                   onSelect={() => {}}

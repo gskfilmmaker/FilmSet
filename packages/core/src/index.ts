@@ -82,6 +82,8 @@ export const castMemberSchema = z
     actorName: z.string(),
     status: z.enum(["Confirmed", "Offer Out", "Unavailable"]),
     contract: z.enum(["Signed", "Pending", "Missing"]),
+    /** Storage object path (production-photos bucket) — resolved to a signed URL server-side, never a public URL. */
+    photoPath: z.string().nullable(),
   })
   .extend(contactInfoSchema.shape)
   .extend(sizingInfoSchema.shape);
@@ -109,6 +111,8 @@ export const locationSchema = z.object({
   address: z.string(),
   permitStatus: z.enum(["Confirmed", "Pending", "Missing"]),
   permitExpiry: z.string().nullable(),
+  /** Storage object path (production-photos bucket) — resolved to a signed URL server-side, never a public URL. */
+  photoPath: z.string().nullable(),
 });
 export type Location = z.infer<typeof locationSchema>;
 

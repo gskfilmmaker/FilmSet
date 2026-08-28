@@ -44,11 +44,13 @@ export function ContactSheetView({
   castMembers,
   characters,
   crewMembers,
+  photoUrls,
 }: {
   productionName: string;
   castMembers: CastMember[];
   characters: Character[];
   crewMembers: CrewMember[];
+  photoUrls: Record<string, string>;
 }) {
   const characterName = React.useCallback(
     (characterId: string) => characters.find((c) => c.id === characterId)?.name ?? "Unknown",
@@ -129,6 +131,7 @@ export function ContactSheetView({
         <table className="w-full border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-[var(--color-border-standard)] text-left text-[12px] text-[var(--color-text-tertiary)] print:text-black">
+              <th className="py-[6px] pr-[var(--fs-space-8)] font-medium print:hidden"></th>
               <th className="py-[6px] pr-[var(--fs-space-8)] font-medium">Character</th>
               <th className="py-[6px] pr-[var(--fs-space-8)] font-medium">Actor</th>
               <th className="py-[6px] pr-[var(--fs-space-8)] font-medium">Phone</th>
@@ -139,6 +142,18 @@ export function ContactSheetView({
           <tbody>
             {castMembers.map((member) => (
               <tr key={member.id} className="border-b border-[var(--color-border-subtle)]">
+                <td className="py-[6px] pr-[var(--fs-space-8)] print:hidden">
+                  {photoUrls[member.photoPath ?? ""] ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- a signed Supabase Storage URL, no benefit from next/image here
+                    <img
+                      src={photoUrls[member.photoPath ?? ""]}
+                      alt={member.actorName || characterName(member.characterId)}
+                      className="size-[28px] rounded-full object-cover"
+                    />
+                  ) : (
+                    <span className="block size-[28px] rounded-full bg-[var(--color-background-elevated)]" aria-hidden="true" />
+                  )}
+                </td>
                 <td className="py-[6px] pr-[var(--fs-space-8)] text-[var(--color-text-primary)] print:text-black">{characterName(member.characterId)}</td>
                 <td className="py-[6px] pr-[var(--fs-space-8)] text-[var(--color-text-secondary)] print:text-black">{member.actorName || "Not yet cast"}</td>
                 <td className="py-[6px] pr-[var(--fs-space-8)] text-[var(--color-text-secondary)] print:text-black">{member.phone ?? "—"}</td>

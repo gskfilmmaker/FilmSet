@@ -21,6 +21,7 @@ export interface DayColumnProps {
   sceneIds: string[];
   scenesById: Map<string, Scene>;
   castMemberCharacterIds: Record<string, string>;
+  castMemberActorNames: Record<string, string>;
   characters: Character[];
   selectedIds: Set<string>;
   conflictSceneIds: Set<string>;
@@ -35,6 +36,7 @@ export function DayColumn({
   sceneIds,
   scenesById,
   castMemberCharacterIds,
+  castMemberActorNames,
   characters,
   selectedIds,
   conflictSceneIds,
@@ -84,7 +86,7 @@ export function DayColumn({
               <Strip
                 key={id}
                 scene={scene}
-                castLabel={castNames(scene, castMemberCharacterIds, characters)}
+                castLabel={castNames(scene, castMemberCharacterIds, characters, castMemberActorNames)}
                 selected={selectedIds.has(id)}
                 hasConflict={conflictSceneIds.has(id)}
                 onSelect={onSelect}

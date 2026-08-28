@@ -71,16 +71,16 @@ const noSizingInfo = {
 } as const;
 
 export const castMembers: CastMember[] = [
-  { id: "cast_abraham", characterId: "char_abraham", actorName: "Rahul Verma", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_aisha", characterId: "char_aisha", actorName: "Priya Nair", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_rohan", characterId: "char_rohan", actorName: "Arjun Malhotra", status: "Confirmed", contract: "Pending", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_meera", characterId: "char_meera", actorName: "Kavita Rao", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_vaid", characterId: "char_vaid", actorName: "Sameer Khan", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_farid", characterId: "char_farid", actorName: "Vikram Singh", status: "Unavailable", contract: "Missing", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_nasreen", characterId: "char_nasreen", actorName: "Anjali Gupta", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_deepak", characterId: "char_deepak", actorName: "Tarun Shah", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_sunita", characterId: "char_sunita", actorName: "Divya Menon", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
-  { id: "cast_karim", characterId: "char_karim", actorName: "Imran Qureshi", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_abraham", characterId: "char_abraham", actorName: "Rahul Verma", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_aisha", characterId: "char_aisha", actorName: "Priya Nair", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_rohan", characterId: "char_rohan", actorName: "Arjun Malhotra", status: "Confirmed", contract: "Pending", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_meera", characterId: "char_meera", actorName: "Kavita Rao", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_vaid", characterId: "char_vaid", actorName: "Sameer Khan", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_farid", characterId: "char_farid", actorName: "Vikram Singh", status: "Unavailable", contract: "Missing", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_nasreen", characterId: "char_nasreen", actorName: "Anjali Gupta", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_deepak", characterId: "char_deepak", actorName: "Tarun Shah", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_sunita", characterId: "char_sunita", actorName: "Divya Menon", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo, photoPath: null },
+  { id: "cast_karim", characterId: "char_karim", actorName: "Imran Qureshi", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo, photoPath: null },
 ];
 
 export const crewMembers: CrewMember[] = [
@@ -101,13 +101,13 @@ export const crewMembers: CrewMember[] = [
 // --- Places & things ---
 
 export const locations: Location[] = [
-  { id: "loc_paharganj-street", name: "Paharganj Street", address: "Paharganj, New Delhi", permitStatus: "Confirmed", permitExpiry: null },
-  { id: "loc_nasreens-shop", name: "Nasreen's Tea Shop", address: "Chandni Chowk, Old Delhi", permitStatus: "Missing", permitExpiry: null },
-  { id: "loc_police-station", name: "Connaught Place Precinct (set)", address: "Studio A, Film City, Noida", permitStatus: "Confirmed", permitExpiry: null },
-  { id: "loc_abraham-apartment", name: "Karol Bagh Residence", address: "Karol Bagh, New Delhi", permitStatus: "Confirmed", permitExpiry: null },
-  { id: "loc_chandni-chowk-market", name: "Chandni Chowk Market", address: "Old Delhi", permitStatus: "Pending", permitExpiry: null },
-  { id: "loc_highway-agra", name: "NH19 Highway to Agra", address: "NH19, near Agra", permitStatus: "Pending", permitExpiry: "Aug 29" },
-  { id: "loc_studio-a", name: "Studio A", address: "Film City, Noida", permitStatus: "Confirmed", permitExpiry: null },
+  { id: "loc_paharganj-street", name: "Paharganj Street", address: "Paharganj, New Delhi", permitStatus: "Confirmed", permitExpiry: null, photoPath: null },
+  { id: "loc_nasreens-shop", name: "Nasreen's Tea Shop", address: "Chandni Chowk, Old Delhi", permitStatus: "Missing", permitExpiry: null, photoPath: null },
+  { id: "loc_police-station", name: "Connaught Place Precinct (set)", address: "Studio A, Film City, Noida", permitStatus: "Confirmed", permitExpiry: null, photoPath: null },
+  { id: "loc_abraham-apartment", name: "Karol Bagh Residence", address: "Karol Bagh, New Delhi", permitStatus: "Confirmed", permitExpiry: null, photoPath: null },
+  { id: "loc_chandni-chowk-market", name: "Chandni Chowk Market", address: "Old Delhi", permitStatus: "Pending", permitExpiry: null, photoPath: null },
+  { id: "loc_highway-agra", name: "NH19 Highway to Agra", address: "NH19, near Agra", permitStatus: "Pending", permitExpiry: "Aug 29", photoPath: null },
+  { id: "loc_studio-a", name: "Studio A", address: "Film City, Noida", permitStatus: "Confirmed", permitExpiry: null, photoPath: null },
 ];
 
 export const props: Prop[] = [

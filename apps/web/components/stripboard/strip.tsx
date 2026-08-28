@@ -5,11 +5,20 @@ import { CSS } from "@dnd-kit/utilities";
 import type { Character, Scene } from "@filmset/core";
 import { GripVertical, TriangleAlert } from "lucide-react";
 
-export function castNames(scene: Scene, castMemberCharacterIds: Record<string, string>, characters: Character[]): string {
+/** "Character — Actor" once cast, falling back to just the character name before casting is finalized. */
+export function castNames(
+  scene: Scene,
+  castMemberCharacterIds: Record<string, string>,
+  characters: Character[],
+  castMemberActorNames: Record<string, string> = {},
+): string {
   return scene.castIds
     .map((id) => {
       const charId = castMemberCharacterIds[id];
-      return characters.find((c) => c.id === charId)?.name;
+      const characterName = characters.find((c) => c.id === charId)?.name;
+      if (!characterName) return undefined;
+      const actorName = castMemberActorNames[id];
+      return actorName ? `${characterName} — ${actorName}` : characterName;
     })
     .filter(Boolean)
     .join(", ");
@@ -62,7 +71,7 @@ export function Strip({ scene, castLabel, selected, hasConflict, onSelect, dragg
       <span className="min-w-0 flex-1 truncate text-[var(--color-text-primary)]">{scene.setName}</span>
       <span className="w-[44px] shrink-0 text-[11px] font-semibold text-[var(--color-text-tertiary)]">{scene.dayNight}</span>
       <span className="w-[48px] shrink-0 text-right tabular-nums text-[var(--color-text-secondary)]">{scene.pageCount}</span>
-      <span className="hidden w-[160px] shrink-0 truncate text-[12px] text-[var(--color-text-tertiary)] lg:block">{castLabel}</span>
+      <span className="hidden w-[160px] shrink-0 truncate text-[12px] text-[var(--color-text-tertiary)] lg:block" title={castLabel}>{castLabel}</span>
       <span className="flex w-[16px] shrink-0 justify-center">
         {hasConflict && <TriangleAlert className="size-[14px] text-[var(--color-status-warning)]" aria-label="Conflict" />}
       </span>

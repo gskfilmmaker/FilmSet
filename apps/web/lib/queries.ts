@@ -254,6 +254,7 @@ export async function getProductionSnapshot(userId: string, productionId: string
       pantSize: c.pantSize,
       shoeSize: c.shoeSize,
       sizingNotes: c.sizingNotes,
+      photoPath: c.photoPath,
     })),
     crewMembers: crewRows.map((c) => ({
       id: c.id,
@@ -276,6 +277,7 @@ export async function getProductionSnapshot(userId: string, productionId: string
       address: l.address,
       permitStatus: l.permitStatus as Location["permitStatus"],
       permitExpiry: l.permitExpiry,
+      photoPath: l.photoPath,
     })),
     props: propRows.map((p) => ({ id: p.id, name: p.name, sceneIds: sceneIdsByProp.get(p.id) ?? [] })),
     scenes: sceneRows.map((s) => ({

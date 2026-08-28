@@ -130,6 +130,7 @@ export const castMembers = pgTable(
     actorName: text("actor_name").notNull(),
     status: text("status").notNull(),
     contract: text("contract").notNull(),
+    photoPath: text("photo_path"),
     ...contactColumns,
     ...sizingColumns,
   },
@@ -164,6 +165,7 @@ export const locations = pgTable(
     address: text("address").notNull(),
     permitStatus: text("permit_status").notNull(),
     permitExpiry: text("permit_expiry"),
+    photoPath: text("photo_path"),
   },
   (t) => [index("locations_production_idx").on(t.productionId)],
 );
