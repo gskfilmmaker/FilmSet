@@ -218,21 +218,25 @@ export const approvals: Approval[] = [
   { id: "approval_3", title: "Schedule Revision — Day 20 swap", requestedBy: "Rakesh Mehta (1st AD)", status: "Approved" },
 ];
 
+const noFileDoc = { filePath: null, expiryDate: null, linkedCastMemberId: null, linkedCrewMemberId: null, linkedLocationId: null } as const;
+
 export const documents: DocumentRecord[] = [
-  { id: "doc_1", name: "THE BAND — Screenplay", type: "Screenplay", status: "Locked", updatedAt: "2 days ago" },
-  { id: "doc_2", name: "Call Sheet — Day 18", type: "Call Sheet", status: "Published", updatedAt: "Today, 05:30" },
-  { id: "doc_3", name: "Call Sheet — Day 19", type: "Call Sheet", status: "Draft", updatedAt: "1 hour ago" },
-  { id: "doc_4", name: "Highway Permit — NH19", type: "Permit", status: "Review", updatedAt: "3 days ago" },
-  { id: "doc_5", name: "Camera Package Rental Agreement", type: "Contract", status: "Approved", updatedAt: "5 days ago" },
-  { id: "doc_6", name: "Budget — Revision 3", type: "Budget", status: "Published", updatedAt: "1 week ago" },
+  { id: "doc_1", name: "THE BAND — Screenplay", type: "Screenplay", status: "Locked", updatedAt: "2 days ago", ...noFileDoc },
+  { id: "doc_2", name: "Call Sheet — Day 18", type: "Call Sheet", status: "Published", updatedAt: "Today, 05:30", ...noFileDoc },
+  { id: "doc_3", name: "Call Sheet — Day 19", type: "Call Sheet", status: "Draft", updatedAt: "1 hour ago", ...noFileDoc },
+  { id: "doc_4", name: "Highway Permit — NH19", type: "Permit", status: "Review", updatedAt: "3 days ago", ...noFileDoc },
+  { id: "doc_5", name: "Camera Package Rental Agreement", type: "Contract", status: "Approved", updatedAt: "5 days ago", ...noFileDoc },
+  { id: "doc_6", name: "Budget — Revision 3", type: "Budget", status: "Published", updatedAt: "1 week ago", ...noFileDoc },
 ];
 
+const noFileExpense = { date: "", invoiceNumber: null, documentPath: null } as const;
+
 export const expenses: Expense[] = [
-  { id: "expense_1", vendor: "Delhi Camera Rentals", department: "Camera", amount: 480000, status: "Pending" },
-  { id: "expense_2", vendor: "Chandni Chowk Catering Co.", department: "Locations/Catering", amount: 62000, status: "Approved" },
-  { id: "expense_3", vendor: "Metro Transport Services", department: "Transport", amount: 145000, status: "Pending" },
-  { id: "expense_4", vendor: "Highway Security Services", department: "Locations", amount: 38000, status: "Pending" },
-  { id: "expense_5", vendor: "Studio A Rental — Film City", department: "Studio", amount: 220000, status: "Paid" },
+  { id: "expense_1", vendor: "Delhi Camera Rentals", department: "Camera", amount: 480000, status: "Pending", ...noFileExpense },
+  { id: "expense_2", vendor: "Chandni Chowk Catering Co.", department: "Locations/Catering", amount: 62000, status: "Approved", ...noFileExpense },
+  { id: "expense_3", vendor: "Metro Transport Services", department: "Transport", amount: 145000, status: "Pending", ...noFileExpense },
+  { id: "expense_4", vendor: "Highway Security Services", department: "Locations", amount: 38000, status: "Pending", ...noFileExpense },
+  { id: "expense_5", vendor: "Studio A Rental — Film City", department: "Studio", amount: 220000, status: "Paid", ...noFileExpense },
 ];
 
 export const budgetLines: BudgetLine[] = [

@@ -232,12 +232,35 @@ export const approvalSchema = z.object({
 });
 export type Approval = z.infer<typeof approvalSchema>;
 
+export const documentTypeSchema = z.enum([
+  "Screenplay",
+  "Call Sheet",
+  "Contract",
+  "Permit",
+  "Budget",
+  "Schedule",
+  "Deal Memo",
+  "Insurance",
+  "Release Form",
+  "Location Agreement",
+  "Other",
+]);
+export type DocumentType = z.infer<typeof documentTypeSchema>;
+
 export const documentRecordSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(["Screenplay", "Call Sheet", "Contract", "Permit", "Budget", "Schedule"]),
+  type: documentTypeSchema,
   status: z.enum(["Draft", "Review", "Approved", "Published", "Locked", "Superseded"]),
   updatedAt: z.string(),
+  /** Storage object path (production-files bucket) — resolved to a signed URL server-side, never a public URL. */
+  filePath: z.string().nullable(),
+  /** Optional expiry — permits/insurance/deal memos that lapse; surfaced as "expiring soon" on /documents. */
+  expiryDate: z.string().nullable(),
+  /** At most one of these three is set — which person/place this document belongs to, if any. */
+  linkedCastMemberId: z.string().nullable(),
+  linkedCrewMemberId: z.string().nullable(),
+  linkedLocationId: z.string().nullable(),
 });
 export type DocumentRecord = z.infer<typeof documentRecordSchema>;
 
@@ -247,9 +270,20 @@ export const expenseSchema = z.object({
   department: z.string(),
   amount: z.number(),
   status: z.enum(["Pending", "Approved", "Paid"]),
+  date: z.string(),
+  invoiceNumber: z.string().nullable(),
+  /** Storage object path (production-files bucket) for the attached invoice/receipt — resolved to a signed URL server-side. */
+  documentPath: z.string().nullable(),
 });
 export type Expense = z.infer<typeof expenseSchema>;
 
+/**
+ * `actual` is not hand-entered — it's the sum of every Approved/Paid
+ * expense in this department, recomputed server-side whenever an expense
+ * is created, edited, or deleted (see apps/web/app/money/actions.ts). This
+ * keeps "budget vs actual" always true to what's actually been invoiced,
+ * rather than a number someone forgot to update.
+ */
 export const budgetLineSchema = z.object({
   department: z.string(),
   budgeted: z.number(),

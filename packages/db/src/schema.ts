@@ -10,6 +10,7 @@ import {
   primaryKey,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -347,6 +348,11 @@ export const documents = pgTable(
     type: text("type").notNull(),
     status: text("status").notNull().default("Draft"),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    filePath: text("file_path"),
+    expiryDate: text("expiry_date"),
+    linkedCastMemberId: text("linked_cast_member_id").references(() => castMembers.id, { onDelete: "set null" }),
+    linkedCrewMemberId: text("linked_crew_member_id").references(() => crewMembers.id, { onDelete: "set null" }),
+    linkedLocationId: text("linked_location_id").references(() => locations.id, { onDelete: "set null" }),
   },
   (t) => [index("documents_production_idx").on(t.productionId)],
 );
@@ -362,6 +368,9 @@ export const expenses = pgTable(
     department: text("department").notNull(),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
     status: text("status").notNull().default("Pending"),
+    date: text("date").notNull().default(""),
+    invoiceNumber: text("invoice_number"),
+    documentPath: text("document_path"),
   },
   (t) => [index("expenses_production_idx").on(t.productionId)],
 );
@@ -377,7 +386,7 @@ export const budgetLines = pgTable(
     budgeted: numeric("budgeted", { precision: 12, scale: 2 }).notNull(),
     actual: numeric("actual", { precision: 12, scale: 2 }).notNull().default("0"),
   },
-  (t) => [index("budget_lines_production_idx").on(t.productionId)],
+  (t) => [index("budget_lines_production_idx").on(t.productionId), unique("budget_lines_production_department_unique").on(t.productionId, t.department)],
 );
 
 export const activities = pgTable(

@@ -1,21 +1,22 @@
 import { requireCurrentProduction } from "@/lib/authz";
 import { getProductionSnapshot } from "@/lib/queries";
+import { resolveFileUrls } from "@/lib/file-storage";
 import { Shell } from "@/components/shell";
-import { EmptyState } from "@filmset/ui";
-import { Wallet } from "lucide-react";
+import { MoneySection } from "./money-section";
 
 export default async function MoneyPage() {
   const { user, production } = await requireCurrentProduction();
   const snapshot = await getProductionSnapshot(user.id, production.id);
+  const fileUrls = await resolveFileUrls(snapshot.expenses.map((e) => e.documentPath));
 
   return (
     <Shell production={snapshot.production} scenes={snapshot.scenes} userEmail={user.email ?? undefined}>
-      <div className="flex h-full items-center justify-center p-[var(--fs-space-24)]">
-        <EmptyState
-          icon={<Wallet className="size-full" />}
-          title="Money is coming soon"
-          description="Budget lines, expenses, and purchase orders aren't editable here yet — the numbers on Overview are read-only for now."
-        />
+      <div className="flex flex-col gap-[var(--fs-space-24)] p-[var(--fs-space-24)]">
+        <div>
+          <h1 className="text-[22px] font-semibold leading-[28px] text-[var(--color-text-primary)]">Money</h1>
+          <p className="mt-[4px] text-[13px] text-[var(--color-text-secondary)]">Budget by department, and every invoice behind it</p>
+        </div>
+        <MoneySection productionId={snapshot.production.id} expenses={snapshot.expenses} budgetLines={snapshot.budgetLines} fileUrls={fileUrls} />
       </div>
     </Shell>
   );
