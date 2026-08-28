@@ -1,8 +1,9 @@
 "use client";
 
+import { BrandIntro } from "@/components/brand-intro";
 import { BrandFooter } from "@/components/shell";
 import { getBrowserSupabase } from "@filmset/auth/browser";
-import { Button, FrameMark, Input } from "@filmset/ui";
+import { Button, Input } from "@filmset/ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
@@ -45,9 +46,9 @@ function LoginInner() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-canvas)] px-[var(--fs-space-16)]">
       <div className="flex w-full max-w-[360px] flex-col gap-[var(--fs-space-24)]">
-        <div className="flex flex-col items-center gap-[var(--fs-space-8)]">
-          <FrameMark className="size-[32px] text-[var(--color-action-primary)]" aria-hidden="true" />
-          <h1 className="text-[18px] font-semibold text-[var(--color-text-primary)]">Sign in to FilmSet</h1>
+        <div className="flex flex-col items-center gap-[var(--fs-space-12)]">
+          <BrandIntro />
+          <h1 className="text-[14px] font-medium text-[var(--color-text-secondary)]">Sign in to your production</h1>
         </div>
         <form onSubmit={onSubmit} className="flex flex-col gap-[var(--fs-space-16)]" noValidate>
           <Input

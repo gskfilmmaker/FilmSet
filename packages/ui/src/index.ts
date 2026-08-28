@@ -8,6 +8,7 @@ export * from "./components/drawer/drawer";
 export * from "./components/dropdown-menu/dropdown-menu";
 export * from "./components/empty-state/empty-state";
 export * from "./components/error-state/error-state";
+export * from "./components/frame-mark/filmset-wordmark";
 export * from "./components/frame-mark/frame-mark";
 export * from "./components/global-bar/global-bar";
 export * from "./components/input/input";

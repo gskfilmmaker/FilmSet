@@ -1,6 +1,7 @@
 import { Bell, ChevronDown, Search } from "lucide-react";
 import * as React from "react";
 import { cn } from "../../lib/cn";
+import { FilmSetWordmark } from "../frame-mark/filmset-wordmark";
 import { FrameMark } from "../frame-mark/frame-mark";
 
 export interface GlobalBarProps {
@@ -43,8 +44,12 @@ export function GlobalBar({
         className,
       )}
     >
-      <div className="flex items-center gap-[var(--fs-space-12)]">
-        <FrameMark className="size-[18px] text-[var(--color-text-primary)]" />
+      <div className="flex items-center gap-[var(--fs-space-16)]">
+        <div className="flex items-center gap-[var(--fs-space-4)]" aria-hidden="true">
+          <FrameMark className="size-[18px] text-[var(--color-action-primary)]" />
+          <FilmSetWordmark className="text-[14px] text-[var(--color-text-primary)]" />
+        </div>
+        <span className="h-[16px] w-px bg-[var(--color-border-subtle)]" aria-hidden="true" />
         <button
           type="button"
           onClick={onOpenProductionSwitcher}

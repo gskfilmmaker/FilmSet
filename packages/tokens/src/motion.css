@@ -56,3 +56,24 @@
   from { height: var(--radix-collapsible-content-height); }
   to { height: 0; }
 }
+
+/*
+ * Brand-intro sequence (apps/web/components/brand-intro.tsx) — a one-time
+ * hero moment on the auth screens, not a UI-state transition, so it runs
+ * longer than the 120-240ms §34 budget for interactive feedback. Still
+ * respects prefers-reduced-motion via the global animation-duration
+ * override in apps/web/app/globals.css, same as everything else here.
+ */
+@keyframes fs-brand-mark-in {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes fs-brand-node-pulse {
+  0% { opacity: 0; transform: scale(0); }
+  60% { opacity: 1; transform: scale(1.35); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes fs-brand-rise-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
