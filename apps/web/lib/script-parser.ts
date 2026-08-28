@@ -4,17 +4,24 @@
  * function, no DB/Next.js imports, so it's testable and reusable from a
  * Server Action without pulling either along.
  *
- * Known limitations:
- * - Character-cue detection for scripts written in a cased alphabet (an
- *   all-caps line under 40 chars) also matches all-caps action-line
- *   emphasis some writers use ("THE DOOR SLAMS SHUT."), which then gets
- *   misread as a cue.
- * - For a script in a caseless script (Devanagari, Arabic, ...) there's no
- *   upper/lowercase signal to key off at all, so cue detection falls back
- *   to shape instead: short, standalone, few words, no sentence-ending
- *   punctuation. That can still misfire on a short action beat that
- *   happens to fit the same shape (e.g. "फिर वो रुक गया").
- * Acceptable for a first pass — standard screenplay formatting parses cleanly either way.
+ * Known limitations, both found by testing against a real 6900-line Hindi
+ * shooting script (heavy with English ALL-CAPS shot/production notes —
+ * "CAMERA – WIDE SHOT", "SCENE 10 END", "MUSIC CUE" — alongside Devanagari
+ * dialogue):
+ * - A caseless script (Devanagari, Arabic, ...) has no upper/lowercase
+ *   signal to key off, so guessing a cue from shape (short line, few words)
+ *   flagged 391 false "characters" from ordinary short lines — worse than
+ *   useless. A caseless-script cue is now only recognized via Fountain's
+ *   own "@" force-character syntax (e.g. "@पिता"), which that real script
+ *   already used correctly for every one of its actual characters.
+ * - Once a script uses "@" ANYWHERE, the plain ALL-CAPS branch (for a cased
+ *   alphabet) is disabled for the rest of that script, not just fixed up
+ *   with more exclusion rules — that real script's own ALL-CAPS English
+ *   shot notes ("CAMERA", "MONTAGE", "SCENE 12 END", ~190 of them) very
+ *   nearly outnumbered its real cues 20 to 1, and no denylist of
+ *   screenplay jargon is going to be complete. A writer who has shown they
+ *   know how to force a cue is trusted to do it consistently; a script
+ *   that never uses "@" still gets the plain ALL-CAPS heuristic as before.
  */
 
 export type ScriptElementType = "slugline" | "action" | "character" | "parenthetical" | "dialogue";
@@ -40,9 +47,20 @@ function isParenthetical(line: string): boolean {
 
 const TERMINAL_PUNCT_RE = /[.!?,;:।…]$/;
 
-function isCharacterCue(line: string): boolean {
+function isCharacterCue(line: string, usesExplicitCues: boolean): boolean {
   if (!line || line.length > 40) return false;
   if (HEADING_RE.test(line)) return false;
+
+  // Fountain's own "force character" syntax — the writer explicitly marking this line as a
+  // cue. Trust it unconditionally; it's the only reliable signal for a caseless script.
+  if (line.startsWith("@") && line.length > 1) return true;
+
+  // This script uses "@" elsewhere, so that's the only cue signal it gets — see the module
+  // doc comment for why guessing from shape/case alongside it does more harm than good.
+  if (usesExplicitCues) return false;
+
+  if (TERMINAL_PUNCT_RE.test(line)) return false; // "CAMERA:", "SUPER:", "> CUT TO:" — directives, not names
+
   const letters = line.replace(/[^\p{L}]/gu, "");
   if (!letters) return false;
   const hasAscii = /[A-Za-z]/.test(letters);
@@ -53,14 +71,13 @@ function isCharacterCue(line: string): boolean {
   if (hasAscii) {
     return letters === letters.toUpperCase();
   }
-  // Caseless script (Devanagari, Arabic, ...) — no upper/lowercase distinction to key off, so fall
-  // back to the shape of a name cue instead: short, standalone, few words, no sentence-ending punctuation.
-  const words = line.split(/\s+/).filter(Boolean);
-  return line.length <= 20 && words.length <= 3 && !TERMINAL_PUNCT_RE.test(line);
+  // Caseless script, no "@" forcing — no reliable signal to guess a name from. Better to miss a
+  // cue than misread ordinary prose as a character.
+  return false;
 }
 
 function cleanCharacterName(cue: string): string {
-  const base = cue.replace(/\(.*?\)/g, "").trim();
+  const base = cue.replace(/^@/, "").replace(/\(.*?\)/g, "").trim();
   // Title-case ASCII letter runs only — non-Latin scripts (e.g. Devanagari) have no case and pass through untouched.
   return base.replace(/[A-Za-z]+/g, (word) => (word[0] ?? "").toUpperCase() + word.slice(1).toLowerCase());
 }
@@ -79,8 +96,12 @@ export function charactersInScene(scene: ParsedScene): string[] {
   return names;
 }
 
+const EXPLICIT_CUE_RE = /^@\S/m;
+
 export function parseScreenplay(raw: string): ParsedScene[] {
-  const lines = raw.replace(/\r\n/g, "\n").split("\n");
+  const normalized = raw.replace(/\r\n/g, "\n");
+  const usesExplicitCues = EXPLICIT_CUE_RE.test(normalized);
+  const lines = normalized.split("\n");
   const scenes: ParsedScene[] = [];
   let current: ParsedScene | null = null;
   let inDialogue = false;
@@ -114,7 +135,7 @@ export function parseScreenplay(raw: string): ParsedScene[] {
       continue;
     }
 
-    if (!inDialogue && isCharacterCue(line)) {
+    if (!inDialogue && isCharacterCue(line, usesExplicitCues)) {
       current.elements.push({ type: "character", text: line.toUpperCase() });
       inDialogue = true;
       continue;
