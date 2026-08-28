@@ -1,6 +1,7 @@
 "use server";
 
 import { requireProductionMember } from "@/lib/authz";
+import type { CrewMember } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
 import { and, eq } from "drizzle-orm";
@@ -10,6 +11,7 @@ export interface CrewMemberInput {
   department: string;
   role: string;
   isHod: boolean;
+  contract: CrewMember["contract"];
   email: string;
   phone: string;
   emergencyContactName: string;
@@ -37,6 +39,7 @@ function validate(input: CrewMemberInput) {
     department,
     role,
     isHod: input.isHod,
+    contract: input.contract,
     email: toNullable(input.email),
     phone: toNullable(input.phone),
     emergencyContactName: toNullable(input.emergencyContactName),

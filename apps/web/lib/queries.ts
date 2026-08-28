@@ -261,6 +261,7 @@ export async function getProductionSnapshot(userId: string, productionId: string
       department: c.department,
       role: c.role,
       isHod: c.isHod,
+      contract: c.contract as CrewMember["contract"],
       email: c.email,
       phone: c.phone,
       emergencyContactName: c.emergencyContactName,

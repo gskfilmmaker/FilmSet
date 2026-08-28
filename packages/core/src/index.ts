@@ -95,6 +95,8 @@ export const crewMemberSchema = z
     role: z.string(),
     /** Head of department — sorts first within their department and is called out on the Contact Sheet. */
     isHod: z.boolean(),
+    /** Deal memo / contract status — same tracking Cast already has, extended to Crew. */
+    contract: z.enum(["Signed", "Pending", "Missing"]),
   })
   .extend(contactInfoSchema.shape);
 export type CrewMember = z.infer<typeof crewMemberSchema>;

@@ -1,17 +1,38 @@
 "use client";
 
 import type { CrewMember } from "@filmset/core";
-import { Button, Checkbox, EmptyState, Input, StatusBadge, ToastAction, useToast } from "@filmset/ui";
+import {
+  Button,
+  Checkbox,
+  EmptyState,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+  ToastAction,
+  useToast,
+} from "@filmset/ui";
 import { ChevronDown, ChevronRight, HardHat, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { createCrewMember, deleteCrewMember, updateCrewMember, type CrewMemberInput } from "./actions";
+
+const CONTRACTS: CrewMember["contract"][] = ["Signed", "Pending", "Missing"];
+const contractTone: Record<CrewMember["contract"], "success" | "warning" | "danger"> = {
+  Signed: "success",
+  Pending: "warning",
+  Missing: "danger",
+};
 
 const emptyForm: CrewMemberInput = {
   name: "",
   department: "",
   role: "",
   isHod: false,
+  contract: "Pending",
   email: "",
   phone: "",
   emergencyContactName: "",
@@ -57,6 +78,21 @@ function CrewForm({ value, onChange }: { value: CrewMemberInput; onChange: (next
           <Checkbox checked={value.isHod} onCheckedChange={(checked) => onChange({ ...value, isHod: checked === true })} />
           Head of department
         </label>
+        <div className="flex flex-col gap-[4px]">
+          <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Contract</label>
+          <Select value={value.contract} onValueChange={(v) => onChange({ ...value, contract: v as CrewMember["contract"] })}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTRACTS.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       <button
@@ -169,6 +205,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
       department: member.department,
       role: member.role,
       isHod: member.isHod,
+      contract: member.contract,
       email: member.email ?? "",
       phone: member.phone ?? "",
       emergencyContactName: member.emergencyContactName ?? "",
@@ -200,6 +237,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
       department: member.department,
       role: member.role,
       isHod: member.isHod,
+      contract: member.contract,
       email: member.email ?? "",
       phone: member.phone ?? "",
       emergencyContactName: member.emergencyContactName ?? "",
@@ -278,6 +316,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
+                    <StatusBadge tone={contractTone[member.contract]}>{member.contract}</StatusBadge>
                     <Button
                       variant="quiet"
                       iconOnly

@@ -147,6 +147,7 @@ export const crewMembers = pgTable(
     department: text("department").notNull(),
     role: text("role").notNull(),
     isHod: boolean("is_hod").notNull().default(false),
+    contract: text("contract").notNull().default("Pending"),
     ...contactColumns,
   },
   (t) => [index("crew_members_production_idx").on(t.productionId)],
