@@ -55,19 +55,20 @@ export function SettingsForm({
           </a>
         </section>
 
-        <section className="flex flex-col items-center gap-[var(--fs-space-12)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)] text-center">
+        <p className="flex items-center justify-center gap-[6px] text-[12px] text-[var(--color-text-tertiary)]">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no benefit from next/image here */}
-          <img src="/brand/gsk-productions-logo.png" alt="GSK Productions Inc." className="h-[36px] w-auto" />
-          <p className="text-[13px] text-[var(--color-text-secondary)]">
-            FilmSet is a product of{" "}
-            <a href="https://www.gskproductions.ca" target="_blank" rel="noopener noreferrer" className="text-[var(--color-action-primary)] hover:underline">
+          <img src="/brand/gsk-productions-logo.png" alt="" aria-hidden="true" className="h-[13px] w-auto shrink-0 opacity-70" />
+          <span>
+            Built by{" "}
+            <a href="https://www.gskproductions.ca" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-text-secondary)] hover:underline">
               GSK Productions Inc.
+            </a>{" "}
+            ·{" "}
+            <a href="mailto:info@gskproductions.ca" className="hover:text-[var(--color-text-secondary)] hover:underline">
+              info@gskproductions.ca
             </a>
-          </p>
-          <a href="mailto:info@gskproductions.ca" className="text-[13px] text-[var(--color-action-primary)] hover:underline">
-            info@gskproductions.ca
-          </a>
-        </section>
+          </span>
+        </p>
       </div>
     </Shell>
   );

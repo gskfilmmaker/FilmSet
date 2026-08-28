@@ -37,7 +37,7 @@ function validate(input: CastMemberInput) {
   const characterName = input.characterName.trim();
   const actorName = input.actorName.trim();
   if (!characterName) throw new Error("Character name is required.");
-  if (!actorName) throw new Error("Actor name is required.");
+  // An empty actorName is a valid state — "Not yet cast" — already displayed everywhere a cast row shows (cast-section.tsx and others fall back to that label).
   return {
     characterName,
     actorName,

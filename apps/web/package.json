@@ -23,9 +23,12 @@
     "@filmset/ui": "workspace:*",
     "drizzle-orm": "^0.36.4",
     "lucide-react": "^0.451.0",
+    "mammoth": "^1.12.2",
     "next": "^15.0.2",
+    "pdf-parse": "^2.4.5",
     "react": "^19.0.0",
-    "react-dom": "^19.0.0"
+    "react-dom": "^19.0.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.0.0",

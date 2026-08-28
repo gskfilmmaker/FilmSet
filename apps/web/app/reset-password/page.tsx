@@ -1,8 +1,9 @@
 "use client";
 
+import { BrandIntro } from "@/components/brand-intro";
 import { BrandFooter } from "@/components/shell";
 import { getBrowserSupabase } from "@filmset/auth/browser";
-import { Button, FrameMark, Input } from "@filmset/ui";
+import { Button, Input } from "@filmset/ui";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
@@ -63,7 +64,7 @@ export default function ResetPasswordPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-canvas)] px-[var(--fs-space-16)]">
         <div className="flex w-full max-w-[360px] flex-col items-center gap-[var(--fs-space-12)] text-center">
-          <FrameMark className="size-[32px] text-[var(--color-action-primary)]" aria-hidden="true" />
+          <BrandIntro animate={false} />
           <h1 className="text-[18px] font-semibold text-[var(--color-text-primary)]">Link expired</h1>
           <p className="text-[13px] text-[var(--color-text-tertiary)]">
             This password reset link is invalid or has expired.
@@ -81,7 +82,7 @@ export default function ResetPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-[var(--color-background-canvas)] px-[var(--fs-space-16)]">
       <div className="flex w-full max-w-[360px] flex-col gap-[var(--fs-space-24)]">
         <div className="flex flex-col items-center gap-[var(--fs-space-8)] text-center">
-          <FrameMark className="size-[32px] text-[var(--color-action-primary)]" aria-hidden="true" />
+          <BrandIntro animate={false} />
           <h1 className="text-[18px] font-semibold text-[var(--color-text-primary)]">Set a new password</h1>
         </div>
         <form onSubmit={onSubmit} className="flex flex-col gap-[var(--fs-space-16)]" noValidate>
