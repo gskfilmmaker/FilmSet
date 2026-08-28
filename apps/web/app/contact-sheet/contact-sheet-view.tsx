@@ -1,29 +1,10 @@
 "use client";
 
+import { buildCsv, downloadCsv } from "@/lib/csv";
 import type { CastMember, Character, CrewMember } from "@filmset/core";
 import { Button, StatusBadge } from "@filmset/ui";
 import { Download, Printer } from "lucide-react";
 import * as React from "react";
-
-function csvCell(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
-function buildCsv(rows: string[][]): string {
-  return rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
-}
-
-function downloadCsv(filename: string, csv: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 const CSV_HEADER = [
   "Section",
