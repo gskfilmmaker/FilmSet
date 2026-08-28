@@ -6,10 +6,17 @@ import { Button, FrameMark, Input } from "@filmset/ui";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 
+/** Only a same-origin path is a safe post-login destination — anything else (an absolute or protocol-relative URL) is an open-redirect vector via a crafted ?next= link. */
+function safeNextPath(value: string | null): string {
+  if (!value) return "/overview";
+  if (!value.startsWith("/") || value.startsWith("//")) return "/overview";
+  return value;
+}
+
 function LoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const next = searchParams.get("next") ?? "/overview";
+  const next = safeNextPath(searchParams.get("next"));
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [error, setError] = React.useState<string | null>(null);

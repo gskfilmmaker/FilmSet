@@ -1,28 +1,9 @@
 "use client";
 
+import { buildCsv, downloadCsv } from "@/lib/csv";
 import type { CastMember, Character, Scene } from "@filmset/core";
 import { Button } from "@filmset/ui";
 import { Download, Printer } from "lucide-react";
-
-function csvCell(value: string): string {
-  return /[",\n]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
-}
-
-function buildCsv(rows: string[][]): string {
-  return rows.map((row) => row.map(csvCell).join(",")).join("\r\n");
-}
-
-function downloadCsv(filename: string, csv: string) {
-  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
 
 const SIZING_CSV_HEADER = ["Character", "Actor", "Height", "Shirt", "Pant", "Shoe", "Sizing Notes"];
 const CONTINUITY_CSV_HEADER = ["Scene", "Set", "Int/Ext", "Day/Night", "Continuity Notes"];
