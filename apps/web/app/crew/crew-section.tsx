@@ -1,7 +1,7 @@
 "use client";
 
 import type { CrewMember } from "@filmset/core";
-import { Button, EmptyState, Input, useToast } from "@filmset/ui";
+import { Button, EmptyState, Input, ToastAction, useToast } from "@filmset/ui";
 import { HardHat, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
@@ -81,11 +81,31 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
     }
   }
 
-  async function onDelete(id: string) {
-    setPendingId(id);
+  async function onDelete(member: CrewMember) {
+    setPendingId(member.id);
+    const restore: CrewMemberInput = { name: member.name, department: member.department, role: member.role };
     try {
-      await deleteCrewMember(productionId, id);
+      await deleteCrewMember(productionId, member.id);
       router.refresh();
+      toast({
+        title: "Crew member removed",
+        description: member.name,
+        action: (
+          <ToastAction
+            altText="Undo"
+            onClick={async () => {
+              try {
+                await createCrewMember(productionId, restore);
+                router.refresh();
+              } catch {
+                toast({ tone: "danger", title: "Couldn't undo", description: "Please add the crew member back manually." });
+              }
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
     } catch {
       toast({ tone: "danger", title: "Couldn't remove crew member", description: "Please try again." });
     } finally {
@@ -143,7 +163,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
                     aria-label={`Remove ${member.name}`}
                     loading={pendingId === member.id}
                     disabled={pendingId !== null}
-                    onClick={() => onDelete(member.id)}
+                    onClick={() => onDelete(member)}
                   />
                 </div>
               </li>

@@ -1,16 +1,27 @@
 "use server";
 
 import { requireProductionMember } from "@/lib/authz";
-import { findOrCreateLocation } from "@/lib/find-or-create";
-import { parseScreenplay, type ParsedElement } from "@/lib/script-parser";
+import { findOrCreateCastMember, findOrCreateCharacter, findOrCreateLocation } from "@/lib/find-or-create";
+import { charactersInScene, parseScreenplay, type ParsedElement, type ParsedScene } from "@/lib/script-parser";
 import { nextRevisionColor } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
-import { runAsUser, schema } from "@filmset/db/server";
+import { runAsUser, schema, type Tx } from "@filmset/db/server";
 import { asc, count, eq } from "drizzle-orm";
 
 export interface ImportScriptResult {
   sceneCount: number;
   locationCount: number;
+  castCount: number;
+}
+
+/** Finds/creates a cast slot for every character cued in the scene and links it via scene_cast — never removes an existing link, so a manual cast assignment always survives a re-import. */
+async function linkSceneCast(tx: Tx, productionId: string, sceneId: string, scene: ParsedScene, castIds: Set<string>) {
+  for (const name of charactersInScene(scene)) {
+    const characterId = await findOrCreateCharacter(tx, productionId, name);
+    const castMemberId = await findOrCreateCastMember(tx, productionId, characterId);
+    castIds.add(castMemberId);
+    await tx.insert(schema.sceneCast).values({ sceneId, castMemberId }).onConflictDoNothing();
+  }
 }
 
 /**
@@ -18,7 +29,10 @@ export interface ImportScriptResult {
  * any scenes the production already has. Each unique scene-heading set name
  * finds or creates a Location — scenes.location_id is NOT NULL, so this is
  * required, not a nicety, and it's also what lets Locations end up
- * populated just from importing a script.
+ * populated just from importing a script. Every character cued in the
+ * dialogue similarly finds or creates a Cast slot (with no actor attached
+ * yet) and is linked to the scenes they appear in, so Cast and each scene's
+ * cast list are populated from the script too, not just Locations.
  */
 export async function importScript(productionId: string, rawText: string): Promise<ImportScriptResult> {
   const user = await requireUser();
@@ -30,6 +44,7 @@ export async function importScript(productionId: string, rawText: string): Promi
   }
 
   const locationIds = new Set<string>();
+  const castIds = new Set<string>();
 
   await runAsUser(user.id, (db) =>
     db.transaction(async (tx) => {
@@ -61,17 +76,20 @@ export async function importScript(productionId: string, rawText: string): Promi
           sceneId,
           elements: scene.elements,
         });
+
+        await linkSceneCast(tx, productionId, sceneId, scene, castIds);
       }
     }),
   );
 
-  return { sceneCount: parsed.length, locationCount: locationIds.size };
+  return { sceneCount: parsed.length, locationCount: locationIds.size, castCount: castIds.size };
 }
 
 export interface ImportRevisionResult {
   changedCount: number;
   newCount: number;
   revisionColor: string;
+  castCount: number;
 }
 
 function sameContent(a: ParsedElement[], b: ParsedElement[]): boolean {
@@ -140,10 +158,11 @@ export async function importRevision(productionId: string, rawText: string): Pro
       }
 
       if (updates.length === 0 && newScenes.length === 0) {
-        return { changedCount: 0, newCount: 0, revisionColor: production.scriptRevisionColor };
+        return { changedCount: 0, newCount: 0, revisionColor: production.scriptRevisionColor, castCount: 0 };
       }
 
       const revisionColor = nextRevisionColor(production.scriptRevisionColor);
+      const castIds = new Set<string>();
 
       for (const { sceneId, scene } of updates) {
         const locationId = await findOrCreateLocation(tx, productionId, scene.setName);
@@ -157,6 +176,8 @@ export async function importRevision(productionId: string, rawText: string): Pro
         } else {
           await tx.insert(schema.scriptPages).values({ id: crypto.randomUUID(), productionId, sceneId, elements: scene.elements });
         }
+
+        await linkSceneCast(tx, productionId, sceneId, scene, castIds);
       }
 
       if (newScenes.length > 0) {
@@ -176,12 +197,14 @@ export async function importRevision(productionId: string, rawText: string): Pro
             revisionColor,
           });
           await tx.insert(schema.scriptPages).values({ id: crypto.randomUUID(), productionId, sceneId, elements: scene.elements });
+
+          await linkSceneCast(tx, productionId, sceneId, scene, castIds);
         }
       }
 
       await tx.update(schema.productions).set({ scriptRevisionColor: revisionColor }).where(eq(schema.productions.id, productionId));
 
-      return { changedCount: updates.length, newCount: newScenes.length, revisionColor };
+      return { changedCount: updates.length, newCount: newScenes.length, revisionColor, castCount: castIds.size };
     }),
   );
 }

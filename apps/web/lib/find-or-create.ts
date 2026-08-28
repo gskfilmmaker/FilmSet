@@ -29,3 +29,23 @@ export async function findOrCreateCharacter(tx: Tx, productionId: string, name: 
   await tx.insert(schema.characters).values({ id, productionId, name });
   return id;
 }
+
+/**
+ * Reuses the existing cast slot for this character, or opens a new one — with
+ * no actor attached yet (status "Offer Out", contract "Missing") — so the
+ * character shows up on /cast as needing casting rather than being silently
+ * dropped. Used by Script Import: a character speaking in the script gets a
+ * cast slot even though nothing about who plays them is known yet.
+ */
+export async function findOrCreateCastMember(tx: Tx, productionId: string, characterId: string): Promise<string> {
+  const [existing] = await tx
+    .select({ id: schema.castMembers.id })
+    .from(schema.castMembers)
+    .where(and(eq(schema.castMembers.productionId, productionId), eq(schema.castMembers.characterId, characterId)))
+    .limit(1);
+  if (existing) return existing.id;
+
+  const id = crypto.randomUUID();
+  await tx.insert(schema.castMembers).values({ id, productionId, characterId, actorName: "", status: "Offer Out", contract: "Missing" });
+  return id;
+}

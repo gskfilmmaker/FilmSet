@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
   StatusBadge,
+  ToastAction,
   useToast,
 } from "@filmset/ui";
 import { MapPin, Pencil, Trash2 } from "lucide-react";
@@ -124,11 +125,36 @@ export function LocationsSection({ productionId, locations }: { productionId: st
     }
   }
 
-  async function onDelete(id: string) {
-    setPendingId(id);
+  async function onDelete(location: Location) {
+    setPendingId(location.id);
+    const restore: LocationInput = {
+      name: location.name,
+      address: location.address,
+      permitStatus: location.permitStatus,
+      permitExpiry: location.permitExpiry ?? "",
+    };
     try {
-      await deleteLocation(productionId, id);
+      await deleteLocation(productionId, location.id);
       router.refresh();
+      toast({
+        title: "Location removed",
+        description: location.name,
+        action: (
+          <ToastAction
+            altText="Undo"
+            onClick={async () => {
+              try {
+                await createLocation(productionId, restore);
+                router.refresh();
+              } catch {
+                toast({ tone: "danger", title: "Couldn't undo", description: "Please add the location back manually." });
+              }
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
     } catch (err) {
       toast({ tone: "danger", title: "Couldn't remove location", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
@@ -188,7 +214,7 @@ export function LocationsSection({ productionId, locations }: { productionId: st
                     aria-label={`Remove ${location.name}`}
                     loading={pendingId === location.id}
                     disabled={pendingId !== null}
-                    onClick={() => onDelete(location.id)}
+                    onClick={() => onDelete(location)}
                   />
                 </div>
               </li>

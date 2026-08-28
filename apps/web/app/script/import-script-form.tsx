@@ -55,6 +55,7 @@ export function ImportScriptForm({
           const parts = [
             result.changedCount > 0 ? `${result.changedCount} scene${result.changedCount === 1 ? "" : "s"} updated` : null,
             result.newCount > 0 ? `${result.newCount} new scene${result.newCount === 1 ? "" : "s"}` : null,
+            result.castCount > 0 ? `${result.castCount} cast slot${result.castCount === 1 ? "" : "s"} linked` : null,
           ].filter(Boolean);
           toast({ tone: "success", title: `${result.revisionColor} revision imported`, description: parts.join(", ") });
         }
@@ -63,7 +64,7 @@ export function ImportScriptForm({
         toast({
           tone: "success",
           title: `Imported ${result.sceneCount} scene${result.sceneCount === 1 ? "" : "s"}`,
-          description: `${result.locationCount} location${result.locationCount === 1 ? "" : "s"} found or created.`,
+          description: `${result.locationCount} location${result.locationCount === 1 ? "" : "s"} and ${result.castCount} cast slot${result.castCount === 1 ? "" : "s"} found or created.`,
         });
       }
       setText("");
@@ -89,7 +90,8 @@ export function ImportScriptForm({
           ) : (
             <>
               Upload a plain-text (.txt/.fountain) screenplay, or paste one below. Scene headings like &quot;INT. TAXI -
-              NIGHT&quot; become scenes; action, character cues, and dialogue underneath each one are parsed automatically.
+              NIGHT&quot; become scenes; action, character cues, and dialogue underneath each one are parsed automatically —
+              and every character who speaks gets a Cast slot, linked to the scenes they appear in.
             </>
           )}{" "}
           PDF and Final Draft (.fdx) files aren&apos;t supported yet — export or copy the text first.

@@ -4,7 +4,7 @@ import { requireProductionMember } from "@/lib/authz";
 import type { ShootDay } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
-import { and, count, eq } from "drizzle-orm";
+import { and, asc, count, eq } from "drizzle-orm";
 
 export interface ShootDayInput {
   date: string;
@@ -72,5 +72,32 @@ export async function updateShootDay(productionId: string, id: string, input: Sh
         unit: values.unit,
       })
       .where(and(eq(schema.shootDays.id, id), eq(schema.shootDays.productionId, productionId))),
+  );
+}
+
+/**
+ * Deletes a shoot day (its call sheet cascades; any scene scheduled on it
+ * falls back to unscheduled via ON DELETE SET NULL, never deleted) and
+ * renumbers what's left by date so "Day X of N" stays contiguous and
+ * correct everywhere it's shown — the same invariant createShootDay keeps.
+ */
+export async function deleteShootDay(productionId: string, id: string) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+
+  await runAsUser(user.id, (db) =>
+    db.transaction(async (tx) => {
+      await tx.delete(schema.shootDays).where(and(eq(schema.shootDays.id, id), eq(schema.shootDays.productionId, productionId)));
+
+      const remaining = await tx
+        .select({ id: schema.shootDays.id })
+        .from(schema.shootDays)
+        .where(eq(schema.shootDays.productionId, productionId))
+        .orderBy(asc(schema.shootDays.date));
+
+      for (const [index, day] of remaining.entries()) {
+        await tx.update(schema.shootDays).set({ dayNumber: index + 1, totalDays: remaining.length }).where(eq(schema.shootDays.id, day.id));
+      }
+    }),
   );
 }

@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
   StatusBadge,
+  ToastAction,
   useToast,
 } from "@filmset/ui";
 import { Pencil, Trash2, Users } from "lucide-react";
@@ -146,11 +147,36 @@ export function CastSection({
     }
   }
 
-  async function onDelete(id: string) {
-    setPendingId(id);
+  async function onDelete(member: CastMember) {
+    setPendingId(member.id);
+    const restore: CastMemberInput = {
+      characterName: characterName(member.characterId),
+      actorName: member.actorName,
+      status: member.status,
+      contract: member.contract,
+    };
     try {
-      await deleteCastMember(productionId, id);
+      await deleteCastMember(productionId, member.id);
       router.refresh();
+      toast({
+        title: "Cast member removed",
+        description: restore.actorName || restore.characterName,
+        action: (
+          <ToastAction
+            altText="Undo"
+            onClick={async () => {
+              try {
+                await createCastMember(productionId, restore);
+                router.refresh();
+              } catch {
+                toast({ tone: "danger", title: "Couldn't undo", description: "Please add the cast member back manually." });
+              }
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
     } catch {
       toast({ tone: "danger", title: "Couldn't remove cast member", description: "Please try again." });
     } finally {
@@ -190,7 +216,9 @@ export function CastSection({
                   <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
                     {characterName(member.characterId)}
                   </p>
-                  <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">{member.actorName}</p>
+                  <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
+                    {member.actorName || <span className="italic">Not yet cast</span>}
+                  </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
                   <StatusBadge tone={statusTone[member.status]}>{member.status}</StatusBadge>
@@ -210,7 +238,7 @@ export function CastSection({
                     aria-label={`Remove ${member.actorName}`}
                     loading={pendingId === member.id}
                     disabled={pendingId !== null}
-                    onClick={() => onDelete(member.id)}
+                    onClick={() => onDelete(member)}
                   />
                 </div>
               </li>

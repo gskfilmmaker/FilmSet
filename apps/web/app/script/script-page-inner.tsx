@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { Shell } from "@/components/shell";
 import type { ProductionSnapshot } from "@/lib/queries";
 import { revisionColorSwatch, type BreakdownElement, type Scene } from "@filmset/core";
@@ -21,12 +22,12 @@ import {
   Textarea,
   useToast,
 } from "@filmset/ui";
-import { Check, FileUp, Pencil, Plus, X } from "lucide-react";
+import { Check, FileUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { addBreakdownTag, confirmAllBreakdownElements, confirmBreakdownElement, rejectBreakdownElement } from "./actions";
 import { ImportScriptForm } from "./import-script-form";
-import { createScene, updateScene, type SceneInput } from "./scene-actions";
+import { createScene, deleteScene, updateScene, type SceneInput } from "./scene-actions";
 
 const INT_EXT: Scene["intExt"][] = ["INT", "EXT"];
 const DAY_NIGHT: Scene["dayNight"][] = ["DAY", "NIGHT"];
@@ -336,7 +337,7 @@ function SceneForm({
                     onCheckedChange={(checked) => toggleCast(c.id, checked === true)}
                   />
                   <label htmlFor={`cast-${c.id}`} className="text-[13px] text-[var(--color-text-primary)]">
-                    {characterName} <span className="text-[var(--color-text-tertiary)]">— {c.actorName}</span>
+                    {characterName} <span className="text-[var(--color-text-tertiary)]">— {c.actorName || "not yet cast"}</span>
                   </label>
                 </li>
               );
@@ -359,6 +360,8 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
   const [sceneFormValue, setSceneFormValue] = React.useState<SceneInput>(blankSceneInput());
   const [savingScene, setSavingScene] = React.useState(false);
   const [showRevisionImport, setShowRevisionImport] = React.useState(false);
+  const [deletingScene, setDeletingScene] = React.useState(false);
+  const [deletingSceneBusy, setDeletingSceneBusy] = React.useState(false);
   const { toast } = useToast();
 
   const scene = scenes.find((s) => s.id === activeSceneId) ?? scenes[0];
@@ -452,6 +455,24 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
     }
   }
 
+  async function confirmDeleteScene() {
+    if (!scene) return;
+    setDeletingSceneBusy(true);
+    try {
+      await deleteScene(production.id, scene.id);
+      setDeletingScene(false);
+      setSceneFormMode("none");
+      const next = scenes.find((s) => s.id !== scene.id);
+      setActiveSceneId(next?.id ?? "");
+      toast({ tone: "success", title: "Scene deleted", description: `Scene ${scene.number} — ${scene.setName}` });
+      router.refresh();
+    } catch (err) {
+      toast({ title: "Couldn't delete scene", description: err instanceof Error ? err.message : "Please try again.", tone: "danger" });
+    } finally {
+      setDeletingSceneBusy(false);
+    }
+  }
+
   if (!scene) {
     return (
       <Shell production={production} scenes={scenes} userEmail={userEmail ?? undefined}>
@@ -497,13 +518,25 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
         sceneFormMode !== "none" ? (
           <Inspector objectType="Scene" title={sceneFormMode === "create" ? "New Scene" : `Scene ${scene.number}`}>
             <SceneForm value={sceneFormValue} onChange={setSceneFormValue} castMembers={snapshot.castMembers} characters={snapshot.characters} />
-            <div className="flex items-center gap-[var(--fs-space-8)]">
-              <Button onClick={saveScene} loading={savingScene} disabled={savingScene}>
-                Save
-              </Button>
-              <Button variant="secondary" onClick={() => setSceneFormMode("none")} disabled={savingScene}>
-                Cancel
-              </Button>
+            <div className="flex items-center justify-between gap-[var(--fs-space-8)]">
+              <div className="flex items-center gap-[var(--fs-space-8)]">
+                <Button onClick={saveScene} loading={savingScene} disabled={savingScene}>
+                  Save
+                </Button>
+                <Button variant="secondary" onClick={() => setSceneFormMode("none")} disabled={savingScene}>
+                  Cancel
+                </Button>
+              </div>
+              {sceneFormMode === "edit" && (
+                <Button
+                  variant="destructive"
+                  icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
+                  onClick={() => setDeletingScene(true)}
+                  disabled={savingScene}
+                >
+                  Delete
+                </Button>
+              )}
             </div>
           </Inspector>
         ) : (
@@ -577,6 +610,14 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
         />
         <Screenplay sceneId={activeSceneId} pages={scriptPages} onTagSelection={addTag} />
       </div>
+      <ConfirmDeleteDialog
+        open={deletingScene}
+        onOpenChange={setDeletingScene}
+        title={`Delete Scene ${scene.number}?`}
+        description="This permanently removes the scene, its script pages, and its cast/breakdown links. This can't be undone — if the scene just won't be shot, mark it Omitted instead."
+        onConfirm={confirmDeleteScene}
+        pending={deletingSceneBusy}
+      />
     </Shell>
   );
 }

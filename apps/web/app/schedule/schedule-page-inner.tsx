@@ -1,5 +1,6 @@
 "use client";
 
+import { ConfirmDeleteDialog } from "@/components/confirm-delete-dialog";
 import { DayColumn } from "@/components/stripboard/day-column";
 import { castNames, Strip } from "@/components/stripboard/strip";
 import { Shell } from "@/components/shell";
@@ -31,11 +32,11 @@ import {
   StatusBadge,
   useToast,
 } from "@filmset/ui";
-import { Plus, Sparkles, Undo2 } from "lucide-react";
+import { Plus, Sparkles, Trash2, Undo2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { persistBoard, type Board } from "./actions";
-import { createShootDay, updateShootDay, type ShootDayInput } from "./shoot-day-actions";
+import { createShootDay, deleteShootDay, updateShootDay, type ShootDayInput } from "./shoot-day-actions";
 
 const UNITS: ShootDay["unit"][] = ["Main Unit", "Second Unit"];
 const DAY_STATUSES: ShootDay["status"][] = ["Unconfirmed", "Scheduled", "In Progress", "Wrapped"];
@@ -135,6 +136,8 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
   const [dayFormValue, setDayFormValue] = React.useState<ShootDayInput>(blankShootDayInput());
   const [editingDayId, setEditingDayId] = React.useState<string | null>(null);
   const [savingDay, setSavingDay] = React.useState(false);
+  const [deletingDay, setDeletingDay] = React.useState(false);
+  const [deletingDayBusy, setDeletingDayBusy] = React.useState(false);
 
   const castMemberCharacterIds = React.useMemo(() => Object.fromEntries(castMembers.map((c) => [c.id, c.characterId])), [castMembers]);
   const scenesById = React.useMemo(() => new Map(scenes.map((s) => [s.id, s])), [scenes]);
@@ -212,6 +215,28 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
       toast({ title: "Couldn't save shoot day", description: err instanceof Error ? err.message : "Please try again.", tone: "danger" });
     } finally {
       setSavingDay(false);
+    }
+  }
+
+  async function confirmDeleteDay() {
+    const day = shootDays.find((d) => d.id === editingDayId);
+    if (!day) return;
+    setDeletingDayBusy(true);
+    try {
+      await deleteShootDay(production.id, day.id);
+      setBoard((prev) => {
+        const { [day.id]: removed, ...rest } = prev;
+        return { ...rest, unscheduled: [...(rest.unscheduled ?? []), ...(removed ?? [])] };
+      });
+      setDeletingDay(false);
+      setDayFormMode("none");
+      setEditingDayId(null);
+      toast({ tone: "success", title: "Shoot day deleted", description: `Day ${day.dayNumber} — ${day.date}` });
+      router.refresh();
+    } catch (err) {
+      toast({ title: "Couldn't delete shoot day", description: err instanceof Error ? err.message : "Please try again.", tone: "danger" });
+    } finally {
+      setDeletingDayBusy(false);
     }
   }
 
@@ -308,13 +333,25 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
             onClose={() => setDayFormMode("none")}
           >
             <ShootDayForm value={dayFormValue} onChange={setDayFormValue} locations={locations} />
-            <div className="flex items-center gap-[var(--fs-space-8)]">
-              <Button onClick={saveDay} loading={savingDay} disabled={savingDay}>
-                Save
-              </Button>
-              <Button variant="secondary" onClick={() => setDayFormMode("none")} disabled={savingDay}>
-                Cancel
-              </Button>
+            <div className="flex items-center justify-between gap-[var(--fs-space-8)]">
+              <div className="flex items-center gap-[var(--fs-space-8)]">
+                <Button onClick={saveDay} loading={savingDay} disabled={savingDay}>
+                  Save
+                </Button>
+                <Button variant="secondary" onClick={() => setDayFormMode("none")} disabled={savingDay}>
+                  Cancel
+                </Button>
+              </div>
+              {dayFormMode === "edit" && (
+                <Button
+                  variant="destructive"
+                  icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
+                  onClick={() => setDeletingDay(true)}
+                  disabled={savingDay}
+                >
+                  Delete
+                </Button>
+              )}
             </div>
           </Inspector>
         ) : primarySelected ? (
@@ -425,6 +462,14 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
           </DragOverlay>
         </DndContext>
       </div>
+      <ConfirmDeleteDialog
+        open={deletingDay}
+        onOpenChange={setDeletingDay}
+        title={editingDayId ? `Delete Day ${shootDays.find((d) => d.id === editingDayId)?.dayNumber ?? ""}?` : "Delete this shoot day?"}
+        description="This permanently removes the shoot day and its call sheet. Any scenes scheduled on it go back to Unscheduled — they're never deleted. Remaining days are renumbered."
+        onConfirm={confirmDeleteDay}
+        pending={deletingDayBusy}
+      />
     </Shell>
   );
 }
