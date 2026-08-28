@@ -129,8 +129,8 @@ export function LocationsSection({ productionId, locations }: { productionId: st
     try {
       await deleteLocation(productionId, id);
       router.refresh();
-    } catch {
-      toast({ tone: "danger", title: "Couldn't remove location", description: "Please try again." });
+    } catch (err) {
+      toast({ tone: "danger", title: "Couldn't remove location", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setPendingId(null);
     }
