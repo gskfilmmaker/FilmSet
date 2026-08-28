@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandFooter } from "@/components/shell";
 import { getBrowserSupabase } from "@filmset/auth/browser";
 import { Button, FrameMark, Input } from "@filmset/ui";
 import { useRouter } from "next/navigation";
@@ -70,6 +71,7 @@ export default function ResetPasswordPage() {
           <a href="/forgot-password" className="text-[13px] text-[var(--color-action-primary)] hover:underline">
             Request a new one
           </a>
+          <BrandFooter className="justify-center" />
         </div>
       </div>
     );
@@ -102,6 +104,7 @@ export default function ResetPasswordPage() {
             Update password
           </Button>
         </form>
+        <BrandFooter className="justify-center" />
       </div>
     </div>
   );

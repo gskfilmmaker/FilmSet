@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandFooter } from "@/components/shell";
 import { getBrowserSupabase } from "@filmset/auth/browser";
 import { Button, FrameMark, Input } from "@filmset/ui";
 import { useRouter } from "next/navigation";
@@ -46,6 +47,7 @@ export default function SignupPage() {
           <p className="text-[13px] text-[var(--color-text-tertiary)]">
             We sent a confirmation link to {email}. Follow it to finish creating your account.
           </p>
+          <BrandFooter className="justify-center" />
         </div>
       </div>
     );
@@ -92,6 +94,7 @@ export default function SignupPage() {
             Sign in
           </a>
         </p>
+        <BrandFooter className="justify-center" />
       </div>
     </div>
   );

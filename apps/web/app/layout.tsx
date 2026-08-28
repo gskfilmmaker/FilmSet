@@ -5,7 +5,11 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "FilmSet — The Operating System for Filmmaking",
-  description: "FRAME design system prototype shell.",
+  description: "FilmSet is the operating system for filmmaking — script, schedule, cast, crew, and call sheets in one place. A product of GSK Productions Inc.",
+  applicationName: "FilmSet",
+  authors: [{ name: "GSK Productions Inc.", url: "https://www.gskproductions.ca" }],
+  creator: "GSK Productions Inc.",
+  publisher: "GSK Productions Inc.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
