@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandFooter } from "@/components/shell";
 import { getBrowserSupabase } from "@filmset/auth/browser";
 import { Button, FrameMark, Input } from "@filmset/ui";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -76,6 +77,7 @@ function LoginInner() {
             Create one
           </a>
         </p>
+        <BrandFooter className="justify-center" />
       </div>
     </div>
   );

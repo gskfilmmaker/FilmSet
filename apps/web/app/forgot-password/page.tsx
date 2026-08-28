@@ -1,5 +1,6 @@
 "use client";
 
+import { BrandFooter } from "@/components/shell";
 import { getBrowserSupabase } from "@filmset/auth/browser";
 import { Button, FrameMark, Input } from "@filmset/ui";
 import * as React from "react";
@@ -40,6 +41,7 @@ export default function ForgotPasswordPage() {
           <p className="text-[13px] text-[var(--color-text-tertiary)]">
             If an account exists for {email}, we sent a link to reset your password.
           </p>
+          <BrandFooter className="justify-center" />
         </div>
       </div>
     );
@@ -76,6 +78,7 @@ export default function ForgotPasswordPage() {
             Back to sign in
           </a>
         </p>
+        <BrandFooter className="justify-center" />
       </div>
     </div>
   );

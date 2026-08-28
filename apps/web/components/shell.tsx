@@ -73,32 +73,55 @@ function routeForActiveId(pathname: string): string {
 function PrototypeControls() {
   const { theme, setTheme, density, setDensity } = useTheme();
   return (
-    <div className="flex items-center gap-[var(--fs-space-8)] border-t border-[var(--color-border-subtle)] bg-[var(--color-background-canvas)] px-[var(--fs-space-16)] py-[var(--fs-space-8)] text-[12px] text-[var(--color-text-tertiary)]">
-      <span>Prototype controls —</span>
-      <label className="flex items-center gap-[var(--fs-space-4)]">
-        Theme
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value as typeof theme)}
-          className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-4)] py-[2px] text-[var(--color-text-primary)]"
-        >
-          <option value="dark">Dark</option>
-          <option value="light">Light</option>
-          <option value="high-contrast">High Contrast</option>
-        </select>
-      </label>
-      <label className="flex items-center gap-[var(--fs-space-4)]">
-        Density
-        <select
-          value={density}
-          onChange={(e) => setDensity(e.target.value as typeof density)}
-          className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-4)] py-[2px] text-[var(--color-text-primary)]"
-        >
-          <option value="comfortable">Comfortable</option>
-          <option value="compact">Compact</option>
-        </select>
-      </label>
+    <div className="flex items-center justify-between gap-[var(--fs-space-16)] border-t border-[var(--color-border-subtle)] bg-[var(--color-background-canvas)] px-[var(--fs-space-16)] py-[var(--fs-space-8)] text-[12px] text-[var(--color-text-tertiary)]">
+      <div className="flex items-center gap-[var(--fs-space-8)]">
+        <span>Prototype controls —</span>
+        <label className="flex items-center gap-[var(--fs-space-4)]">
+          Theme
+          <select
+            value={theme}
+            onChange={(e) => setTheme(e.target.value as typeof theme)}
+            className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-4)] py-[2px] text-[var(--color-text-primary)]"
+          >
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="high-contrast">High Contrast</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-[var(--fs-space-4)]">
+          Density
+          <select
+            value={density}
+            onChange={(e) => setDensity(e.target.value as typeof density)}
+            className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-4)] py-[2px] text-[var(--color-text-primary)]"
+          >
+            <option value="comfortable">Comfortable</option>
+            <option value="compact">Compact</option>
+          </select>
+        </label>
+      </div>
+      <BrandFooter />
     </div>
+  );
+}
+
+/** FilmSet is a brand of GSK Productions Inc. — shown wherever the app has a persistent footer strip (here, and login/signup). */
+export function BrandFooter({ className }: { className?: string }) {
+  return (
+    <p className={cn("flex items-center gap-[6px] text-[12px] text-[var(--color-text-tertiary)]", className)}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no benefit from next/image here */}
+      <img src="/brand/gsk-productions-logo.png" alt="" aria-hidden="true" className="h-[14px] w-auto shrink-0 opacity-80" />
+      <span>
+        FilmSet is a product of{" "}
+        <a href="https://www.gskproductions.ca" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-text-secondary)] hover:underline">
+          GSK Productions Inc.
+        </a>{" "}
+        ·{" "}
+        <a href="mailto:info@gskproductions.ca" className="hover:text-[var(--color-text-secondary)] hover:underline">
+          info@gskproductions.ca
+        </a>
+      </span>
+    </p>
   );
 }
 
