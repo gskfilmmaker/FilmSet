@@ -26,6 +26,8 @@ export const sceneSchema = z.object({
   shootDayId: z.string().nullable(),
   castIds: z.array(z.string()),
   locationId: z.string(),
+  /** Which script revision (White/Blue/Pink/...) last changed this scene's content — see packages/core's revision-colors module. */
+  revisionColor: z.string(),
 });
 export type Scene = z.infer<typeof sceneSchema>;
 
@@ -33,6 +35,8 @@ export const productionSchema = z.object({
   id: z.string(),
   name: z.string(),
   phase: productionPhaseSchema,
+  /** The script's current revision color — advances only when a re-imported script actually changes/adds a scene. */
+  scriptRevisionColor: z.string(),
 });
 export type Production = z.infer<typeof productionSchema>;
 
@@ -220,3 +224,63 @@ export const aiRecommendationSchema = z.object({
   status: z.enum(["pending", "resolved", "dismissed"]).optional(),
 });
 export type AIRecommendation = z.infer<typeof aiRecommendationSchema>;
+
+// --- Script revisions ---
+
+/**
+ * Industry-standard revision-page color cycle (WGA convention): the
+ * original draft is White; each round of changes to the script is
+ * reprinted on the next color in this order. Only pages that actually
+ * changed move to the new color — the rest of the script stays on
+ * whatever color it last changed on. Swatches approximate the real
+ * colored paper each name refers to.
+ */
+export const REVISION_COLORS = ["White", "Blue", "Pink", "Yellow", "Green", "Goldenrod", "Buff", "Salmon", "Cherry"] as const;
+
+export const REVISION_COLOR_SWATCHES: Record<(typeof REVISION_COLORS)[number], string> = {
+  White: "#FFFFFF",
+  Blue: "#AFD9F5",
+  Pink: "#F5B8D0",
+  Yellow: "#F7EC9E",
+  Green: "#A9DDB0",
+  Goldenrod: "#E8C15A",
+  Buff: "#E8D3A8",
+  Salmon: "#F2A896",
+  Cherry: "#D9707A",
+};
+
+function parseRevisionColor(color: string): { cycle: number; name: string } {
+  const match = /^(\d+)(?:st|nd|rd|th)\s+(.+)$/.exec(color);
+  if (!match) return { cycle: 1, name: color };
+  return { cycle: Number(match[1]), name: match[2]! };
+}
+
+function ordinal(n: number): string {
+  if (n % 10 === 1 && n % 100 !== 11) return `${n}st`;
+  if (n % 10 === 2 && n % 100 !== 12) return `${n}nd`;
+  if (n % 10 === 3 && n % 100 !== 13) return `${n}rd`;
+  return `${n}th`;
+}
+
+/**
+ * The next color after `current` in the revision cycle. Wraps back to
+ * Blue (never White — White means "never revised") with an incremented
+ * cycle prefix once every color has been used, matching how long-running
+ * productions actually label a second pass through the colors ("2nd Blue").
+ */
+export function nextRevisionColor(current: string): string {
+  const { cycle, name } = parseRevisionColor(current);
+  const index = REVISION_COLORS.indexOf(name as (typeof REVISION_COLORS)[number]);
+  const safeIndex = index === -1 ? 0 : index;
+  if (safeIndex + 1 < REVISION_COLORS.length) {
+    const next: string = REVISION_COLORS[safeIndex + 1] ?? REVISION_COLORS[1];
+    return cycle > 1 ? `${ordinal(cycle)} ${next}` : next;
+  }
+  return `${ordinal(cycle + 1)} Blue`;
+}
+
+/** Swatch hex for a revision color name, tolerant of a "2nd Blue"-style cycle prefix. */
+export function revisionColorSwatch(color: string): string {
+  const { name } = parseRevisionColor(color);
+  return REVISION_COLOR_SWATCHES[name as (typeof REVISION_COLORS)[number]] ?? "#CCCCCC";
+}

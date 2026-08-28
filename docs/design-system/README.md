@@ -109,6 +109,14 @@ Script Import (above) covers the bulk case; these cover the one-off case — add
 
 `call_sheets` is keyed by `shoot_day_id` (one row per day), and `call_sheet_timeline_events` references that key — so a freshly-created shoot day has no call sheet row yet. `apps/web/app/shoot-day/call-sheet-actions.ts`'s `saveCallSheet` upserts (`onConflictDoUpdate`) rather than assuming a row exists, then replaces the timeline events wholesale (simplest correct approach for a short, fully-reordered-on-every-edit list).
 
+## Script revisions
+
+What happens when the script changes mid-shoot — a real production question, not just a technical one. FilmSet follows the industry-standard colored-page convention (WGA): the original draft is White; each round of changes is reprinted on the next color (Blue → Pink → Yellow → Green → Goldenrod → Buff → Salmon → Cherry, then wrapping to "2nd Blue" and so on). Only pages that actually changed move to the new color — everything else stays on whatever color it last changed on, so a colored dot next to a scene tells you at a glance whether it's current.
+
+- **`apps/web/lib/find-or-create.ts`**'s sibling — `packages/core`'s `nextRevisionColor`/`revisionColorSwatch` — is the shared, pure implementation of the color cycle and its swatches, used by both the server action and the UI badges.
+- **`importRevision`** (`apps/web/app/script/import-actions.ts`) is the other half of "handle script changes while shooting" — re-import the *full* current script and it's matched **by position** against the production's existing scenes (in script order), never by re-deriving scene numbers: once a scene number is locked, it must never shift, exactly like a real revised script. A changed scene is updated in place (its id, number, and shoot-day assignment survive); extra scenes past the existing count are appended as new; scenes with no counterpart are left alone — this never deletes a scene, since marking one Omitted is a separate, deliberate action. The production's revision color only advances if something actually changed.
+- Reachable from `/script`'s "Import Revision" button (only scenes actually touched move to the new color) — separate from the empty-state import, which is for a script-less production's first import and doesn't do any matching.
+
 ## Testing this locally
 
 After `db:migrate` (and optionally `db:seed`):
@@ -119,6 +127,7 @@ After `db:migrate` (and optionally `db:seed`):
 4. **Team management** — as the Producer, open the Team section on `/overview`, add a second account by email (sign up a second test account first so a `profiles` row exists for it), confirm it appears with a role selector. Change its role; remove it.
 5. **Verify access control (the important one)** — sign up a *third*, unrelated account and do **not** add it to the first account's production. Signed in as that third account: it should land on `/onboarding` (no existing membership), and if you note the first production's id and try to hit its data, RLS should return nothing — there is no UI path to type a production id manually, but you can confirm this directly in the Supabase SQL Editor: `select * from productions;` run as the `postgres` role shows all productions (expected, RLS doesn't apply to migrations), while the app itself only ever shows the signed-in user's own production because every query runs through `runAsUser`.
 6. **Production Manager** — from `/overview`, click the production name in the global bar; the switcher should list every production you're a member of with a checkmark on the current one. Use "New production" to create a second one — you should land on `/overview` showing the new production instead. Reopen the switcher and click back to the first one; confirm its data (not the new production's) is what renders. Invite a second real (already-signed-up) account by email in Team — this exercises `find_profile_for_invite`, the `0002` migration fix for the RLS gap that used to make every invite of a non-co-member fail with "no account found."
+7. **Script revisions** — import a script, note a scene's white revision dot in the nav. Change that scene's dialogue in your source text (leave the rest identical) and use "Import Revision" with the *full* script — confirm only that scene turns Blue, the rest stay White, and Overview's Script tile now reads "Blue Revision." Re-import the exact same text again — confirm it reports no changes and the color doesn't advance.
 
 ## Token architecture
 
