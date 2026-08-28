@@ -103,6 +103,30 @@ export const crewMemberSchema = z
   .extend(contactInfoSchema.shape);
 export type CrewMember = z.infer<typeof crewMemberSchema>;
 
+/**
+ * Standard film-production department names, offered as a picklist on the
+ * Crew form so "Camera" and "camera" don't silently become two different
+ * departments. Not enforced at the schema/DB level — crew_members.department
+ * stays free text so a production can still name something unusual — this
+ * is a UI convenience plus the reference list the "needs a department head"
+ * gap-check (apps/web/app/crew/crew-section.tsx) is written against.
+ */
+export const STANDARD_DEPARTMENTS = [
+  "Production",
+  "Camera",
+  "Grip & Electric",
+  "Sound",
+  "Art",
+  "Props",
+  "Wardrobe",
+  "Hair & Makeup",
+  "Locations",
+  "Stunts",
+  "Transportation",
+  "Post-Production",
+  "Visual Effects",
+] as const;
+
 // --- Places & things ---
 
 export const locationSchema = z.object({

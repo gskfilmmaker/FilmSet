@@ -1,6 +1,6 @@
 "use client";
 
-import type { CrewMember } from "@filmset/core";
+import { STANDARD_DEPARTMENTS, type CrewMember } from "@filmset/core";
 import {
   Button,
   Checkbox,
@@ -15,7 +15,7 @@ import {
   ToastAction,
   useToast,
 } from "@filmset/ui";
-import { ChevronDown, ChevronRight, HardHat, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, HardHat, Pencil, TriangleAlert, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { createCrewMember, deleteCrewMember, updateCrewMember, type CrewMemberInput } from "./actions";
@@ -26,6 +26,9 @@ const contractTone: Record<CrewMember["contract"], "success" | "warning" | "dang
   Pending: "warning",
   Missing: "danger",
 };
+
+const OTHER_DEPARTMENT = "Other";
+const DEPARTMENT_OPTIONS = [...STANDARD_DEPARTMENTS, OTHER_DEPARTMENT] as const;
 
 const emptyForm: CrewMemberInput = {
   name: "",
@@ -50,6 +53,8 @@ function hasContactDetails(value: CrewMemberInput): boolean {
 
 function CrewForm({ value, onChange }: { value: CrewMemberInput; onChange: (next: CrewMemberInput) => void }) {
   const [expanded, setExpanded] = React.useState(() => hasContactDetails(value));
+  const isStandardDepartment = (STANDARD_DEPARTMENTS as readonly string[]).includes(value.department);
+  const [customDepartment, setCustomDepartment] = React.useState(() => !isStandardDepartment && value.department !== "");
 
   return (
     <div className="flex flex-1 flex-col gap-[var(--fs-space-12)]">
@@ -60,13 +65,41 @@ function CrewForm({ value, onChange }: { value: CrewMemberInput; onChange: (next
           onChange={(e) => onChange({ ...value, name: e.target.value })}
           containerClassName="min-w-[140px] flex-1"
         />
-        <Input
-          label="Department"
-          placeholder="e.g. Camera"
-          value={value.department}
-          onChange={(e) => onChange({ ...value, department: e.target.value })}
-          containerClassName="min-w-[140px]"
-        />
+        <div className="flex flex-col gap-[4px]">
+          <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Department</label>
+          <Select
+            value={customDepartment ? OTHER_DEPARTMENT : value.department}
+            onValueChange={(v) => {
+              if (v === OTHER_DEPARTMENT) {
+                setCustomDepartment(true);
+                onChange({ ...value, department: "" });
+              } else {
+                setCustomDepartment(false);
+                onChange({ ...value, department: v });
+              }
+            }}
+          >
+            <SelectTrigger className="w-[160px]">
+              <SelectValue placeholder="Select…" />
+            </SelectTrigger>
+            <SelectContent>
+              {DEPARTMENT_OPTIONS.map((d) => (
+                <SelectItem key={d} value={d}>
+                  {d}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {customDepartment && (
+          <Input
+            label="Department name"
+            placeholder="Custom department"
+            value={value.department}
+            onChange={(e) => onChange({ ...value, department: e.target.value })}
+            containerClassName="min-w-[140px]"
+          />
+        )}
         <Input
           label="Role"
           placeholder="e.g. 1st AC"
@@ -182,6 +215,12 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
     return [...byDepartment.entries()].sort(([a], [b]) => a.localeCompare(b));
   }, [crewMembers]);
 
+  /** Departments that already have crew but nobody marked as HOD — a real gap, not just an unused department. */
+  const departmentsMissingHod = React.useMemo(
+    () => departments.filter(([, members]) => !members.some((m) => m.isHod)).map(([department]) => department),
+    [departments],
+  );
+
   async function onAdd(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -284,6 +323,15 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
           description="Add crew members to track department and role."
           action={<Button onClick={() => setAdding(true)}>Add crew member</Button>}
         />
+      )}
+
+      {departmentsMissingHod.length > 0 && (
+        <div className="flex items-start gap-[var(--fs-space-8)] rounded-lg border border-[var(--color-status-warning)]/30 bg-[var(--color-status-warning)]/10 p-[var(--fs-space-12)]">
+          <TriangleAlert className="mt-[2px] size-[14px] shrink-0 text-[var(--color-status-warning)]" aria-hidden="true" />
+          <p className="text-[12px] text-[var(--color-text-secondary)]">
+            <span className="font-semibold text-[var(--color-text-primary)]">No head assigned yet:</span> {departmentsMissingHod.join(", ")}
+          </p>
+        </div>
       )}
 
       {departments.map(([department, members]) => (
