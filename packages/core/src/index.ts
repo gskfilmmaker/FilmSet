@@ -123,6 +123,8 @@ export const STANDARD_DEPARTMENTS = [
   "Locations",
   "Stunts",
   "Transportation",
+  "Logistics",
+  "Catering",
   "Post-Production",
   "Visual Effects",
 ] as const;
