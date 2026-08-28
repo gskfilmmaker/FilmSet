@@ -1,5 +1,8 @@
 "use client";
 
+import { PhotoAvatar } from "@/components/photo-avatar";
+import { SuggestionPreviewCard } from "@/components/ai-suggestion-card";
+import type { SuggestedRecommendation } from "@/lib/ai";
 import type { Location } from "@filmset/core";
 import {
   Button,
@@ -14,10 +17,10 @@ import {
   ToastAction,
   useToast,
 } from "@filmset/ui";
-import { MapPin, Pencil, Trash2 } from "lucide-react";
+import { MapPin, Pencil, Sparkles, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { createLocation, deleteLocation, updateLocation, type LocationInput } from "./actions";
+import { createLocation, deleteLocation, updateLocation, uploadLocationPhoto, suggestLocationPhotoMatch, type LocationInput } from "./actions";
 
 const PERMIT_STATUSES: Location["permitStatus"][] = ["Confirmed", "Pending", "Missing"];
 const permitTone: Record<Location["permitStatus"], "success" | "warning" | "danger"> = {
@@ -75,7 +78,50 @@ function LocationForm({
   );
 }
 
-export function LocationsSection({ productionId, locations }: { productionId: string; locations: Location[] }) {
+/** A photo picker dedicated to the AI-match feature — separate from the location's own PhotoAvatar, since matching is a one-off "what could this photo be" check, not necessarily the photo you keep on file. */
+function AskAiMatchButton({ onPick, disabled }: { onPick: (file: File) => void; disabled: boolean }) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
+
+  function handleChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ tone: "danger", title: "Please choose an image file." });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast({ tone: "danger", title: "Photo must be under 5MB." });
+      return;
+    }
+    onPick(file);
+  }
+
+  return (
+    <>
+      <Button
+        variant="quiet"
+        iconOnly
+        icon={<Sparkles className="size-[14px]" aria-hidden="true" />}
+        aria-label="Ask AI which scenes a photo of this location could match"
+        onClick={() => inputRef.current?.click()}
+        disabled={disabled}
+      />
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={handleChange} />
+    </>
+  );
+}
+
+export function LocationsSection({
+  productionId,
+  locations,
+  photoUrls,
+}: {
+  productionId: string;
+  locations: Location[];
+  photoUrls: Record<string, string>;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [adding, setAdding] = React.useState(false);
@@ -84,6 +130,30 @@ export function LocationsSection({ productionId, locations }: { productionId: st
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editForm, setEditForm] = React.useState<LocationInput>(emptyForm);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [matching, setMatching] = React.useState<string | null>(null);
+  const [suggestions, setSuggestions] = React.useState<Record<string, { logId: string; suggestion: SuggestedRecommendation }>>({});
+
+  async function onAskAiMatch(locationId: string, file: File) {
+    setMatching(locationId);
+    try {
+      const formData = new FormData();
+      formData.set("photo", file);
+      const result = await suggestLocationPhotoMatch(productionId, locationId, formData);
+      setSuggestions((prev) => ({ ...prev, [locationId]: result }));
+    } catch (err) {
+      toast({ tone: "danger", title: "Couldn't get an AI match", description: err instanceof Error ? err.message : "Please try again." });
+    } finally {
+      setMatching(null);
+    }
+  }
+
+  function onSuggestionDecided(locationId: string) {
+    setSuggestions((prev) => {
+      const next = { ...prev };
+      delete next[locationId];
+      return next;
+    });
+  }
 
   async function onAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -175,51 +245,81 @@ export function LocationsSection({ productionId, locations }: { productionId: st
 
       {locations.length > 0 && (
         <ul className="flex flex-col divide-y divide-[var(--color-border-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
-          {locations.map((location) =>
-            editingId === location.id ? (
-              <li key={location.id} className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
-                <form onSubmit={(e) => onSaveEdit(e, location.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
-                  <LocationForm value={editForm} onChange={setEditForm} />
-                  <Button type="submit" loading={pendingId === location.id} disabled={pendingId !== null}>
-                    Save
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={() => setEditingId(null)} disabled={pendingId !== null}>
-                    Cancel
-                  </Button>
-                </form>
-              </li>
-            ) : (
-              <li key={location.id} className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">{location.name}</p>
-                  <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">{location.address}</p>
-                </div>
-                <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
-                  <StatusBadge tone={permitTone[location.permitStatus]}>{location.permitStatus}</StatusBadge>
-                  {location.permitExpiry && (
-                    <span className="text-[12px] text-[var(--color-text-tertiary)]">exp. {location.permitExpiry}</span>
-                  )}
-                  <Button
-                    variant="quiet"
-                    iconOnly
-                    icon={<Pencil className="size-[14px]" aria-hidden="true" />}
-                    aria-label={`Edit ${location.name}`}
-                    onClick={() => startEdit(location)}
-                    disabled={pendingId !== null}
+          {locations.map((location) => (
+            <React.Fragment key={location.id}>
+              {editingId === location.id ? (
+                <li className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
+                  <form onSubmit={(e) => onSaveEdit(e, location.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
+                    <LocationForm value={editForm} onChange={setEditForm} />
+                    <Button type="submit" loading={pendingId === location.id} disabled={pendingId !== null}>
+                      Save
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => setEditingId(null)} disabled={pendingId !== null}>
+                      Cancel
+                    </Button>
+                  </form>
+                </li>
+              ) : (
+                <li className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
+                  <div className="flex min-w-0 items-center gap-[var(--fs-space-12)]">
+                    <PhotoAvatar
+                      photoUrl={photoUrls[location.photoPath ?? ""] ?? null}
+                      fallbackLabel={location.name}
+                      alt={location.name}
+                      onUpload={(file) => {
+                        const formData = new FormData();
+                        formData.set("photo", file);
+                        return uploadLocationPhoto(productionId, location.id, formData).then(() => {});
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">{location.name}</p>
+                      <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">{location.address}</p>
+                    </div>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
+                    <StatusBadge tone={permitTone[location.permitStatus]}>{location.permitStatus}</StatusBadge>
+                    {location.permitExpiry && (
+                      <span className="text-[12px] text-[var(--color-text-tertiary)]">exp. {location.permitExpiry}</span>
+                    )}
+                    <AskAiMatchButton onPick={(file) => onAskAiMatch(location.id, file)} disabled={matching !== null} />
+                    <Button
+                      variant="quiet"
+                      iconOnly
+                      icon={<Pencil className="size-[14px]" aria-hidden="true" />}
+                      aria-label={`Edit ${location.name}`}
+                      onClick={() => startEdit(location)}
+                      disabled={pendingId !== null}
+                    />
+                    <Button
+                      variant="quiet"
+                      iconOnly
+                      icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
+                      aria-label={`Remove ${location.name}`}
+                      loading={pendingId === location.id}
+                      disabled={pendingId !== null}
+                      onClick={() => onDelete(location)}
+                    />
+                  </div>
+                </li>
+              )}
+              {matching === location.id && (
+                <li className="p-[var(--fs-space-12)]">
+                  <p className="text-[12px] text-[var(--color-text-tertiary)]">FilmSet AI is comparing this photo against your scenes…</p>
+                </li>
+              )}
+              {suggestions[location.id] && (
+                <li className="p-[var(--fs-space-12)]">
+                  <SuggestionPreviewCard
+                    productionId={productionId}
+                    logId={suggestions[location.id]!.logId}
+                    suggestion={suggestions[location.id]!.suggestion}
+                    onDecided={() => onSuggestionDecided(location.id)}
                   />
-                  <Button
-                    variant="quiet"
-                    iconOnly
-                    icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
-                    aria-label={`Remove ${location.name}`}
-                    loading={pendingId === location.id}
-                    disabled={pendingId !== null}
-                    onClick={() => onDelete(location)}
-                  />
-                </div>
-              </li>
-            ),
-          )}
+                </li>
+              )}
+            </React.Fragment>
+          ))}
         </ul>
       )}
 
