@@ -4,9 +4,24 @@ import { Shell } from "@/components/shell";
 import { castNames } from "@/components/stripboard/strip";
 import type { ProductionSnapshot } from "@/lib/queries";
 import type { CallSheet, Scene } from "@filmset/core";
-import { EmptyState, Inspector, InspectorSection, StatusBadge, Tabs, TabsContent, TabsList, TabsTrigger } from "@filmset/ui";
-import { Cloud, MapPin, Sunrise, Sunset } from "lucide-react";
+import {
+  Button,
+  EmptyState,
+  Input,
+  Inspector,
+  InspectorSection,
+  StatusBadge,
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+  Textarea,
+  useToast,
+} from "@filmset/ui";
+import { Cloud, MapPin, Pencil, Plus, Sunrise, Sunset, Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import * as React from "react";
+import { saveCallSheet, type CallSheetInput } from "./call-sheet-actions";
 
 const progressTone = { Completed: "success", "In Progress": "info", Planned: "neutral", Dropped: "danger" } as const;
 
@@ -28,10 +43,87 @@ const emptyCallSheet: CallSheet = {
   notes: "",
 };
 
+function callSheetToInput(callSheet: CallSheet): CallSheetInput {
+  return {
+    weather: callSheet.weather === "—" ? "" : callSheet.weather,
+    sunrise: callSheet.sunrise === "—" ? "" : callSheet.sunrise,
+    sunset: callSheet.sunset === "—" ? "" : callSheet.sunset,
+    hospital: callSheet.hospital === "—" ? "" : callSheet.hospital,
+    parking: callSheet.parking === "—" ? "" : callSheet.parking,
+    basecamp: callSheet.basecamp === "—" ? "" : callSheet.basecamp,
+    notes: callSheet.notes,
+    timeline: callSheet.timeline.map((e) => ({ time: e.time, label: e.label })),
+  };
+}
+
+function CallSheetForm({ value, onChange }: { value: CallSheetInput; onChange: (next: CallSheetInput) => void }) {
+  function updateEvent(index: number, patch: Partial<{ time: string; label: string }>) {
+    onChange({ ...value, timeline: value.timeline.map((e, i) => (i === index ? { ...e, ...patch } : e)) });
+  }
+  function removeEvent(index: number) {
+    onChange({ ...value, timeline: value.timeline.filter((_, i) => i !== index) });
+  }
+  function addEvent() {
+    onChange({ ...value, timeline: [...value.timeline, { time: "", label: "" }] });
+  }
+
+  return (
+    <div className="flex flex-col gap-[var(--fs-space-12)]">
+      <Input label="Weather" value={value.weather} onChange={(e) => onChange({ ...value, weather: e.target.value })} />
+      <div className="flex gap-[var(--fs-space-8)]">
+        <Input label="Sunrise" value={value.sunrise} onChange={(e) => onChange({ ...value, sunrise: e.target.value })} containerClassName="flex-1" />
+        <Input label="Sunset" value={value.sunset} onChange={(e) => onChange({ ...value, sunset: e.target.value })} containerClassName="flex-1" />
+      </div>
+      <Input label="Hospital" value={value.hospital} onChange={(e) => onChange({ ...value, hospital: e.target.value })} />
+      <Input label="Parking" value={value.parking} onChange={(e) => onChange({ ...value, parking: e.target.value })} />
+      <Input label="Basecamp" value={value.basecamp} onChange={(e) => onChange({ ...value, basecamp: e.target.value })} />
+      <Textarea label="Notes" rows={3} value={value.notes} onChange={(e) => onChange({ ...value, notes: e.target.value })} />
+
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Timeline</label>
+        <div className="flex flex-col gap-[var(--fs-space-8)]">
+          {value.timeline.map((event, i) => (
+            <div key={i} className="flex items-center gap-[var(--fs-space-8)]">
+              <Input
+                placeholder="06:00"
+                value={event.time}
+                onChange={(e) => updateEvent(i, { time: e.target.value })}
+                containerClassName="w-[80px]"
+              />
+              <Input
+                placeholder="Crew call"
+                value={event.label}
+                onChange={(e) => updateEvent(i, { label: e.target.value })}
+                containerClassName="flex-1"
+              />
+              <Button
+                type="button"
+                variant="quiet"
+                iconOnly
+                icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
+                aria-label="Remove event"
+                onClick={() => removeEvent(i)}
+              />
+            </div>
+          ))}
+        </div>
+        <Button type="button" variant="secondary" icon={<Plus className="size-[14px]" aria-hidden="true" />} onClick={addEvent} className="mt-[var(--fs-space-4)] self-start">
+          Add event
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function ShootDayPageInner({ snapshot, userEmail }: { snapshot: ProductionSnapshot; userEmail: string | null }) {
+  const router = useRouter();
+  const { toast } = useToast();
   const { production, scenes: allScenes, shootDays, locations, castMembers, characters, crewMembers, callSheets } = snapshot;
   const castMemberCharacterIds = React.useMemo(() => Object.fromEntries(castMembers.map((c) => [c.id, c.characterId])), [castMembers]);
   const [selectedSceneId, setSelectedSceneId] = React.useState<string | null>(null);
+  const [editingCallSheet, setEditingCallSheet] = React.useState(false);
+  const [callSheetForm, setCallSheetForm] = React.useState<CallSheetInput | null>(null);
+  const [savingCallSheet, setSavingCallSheet] = React.useState(false);
 
   const day = shootDays.find((d) => d.status === "In Progress") ?? shootDays[0];
 
@@ -54,13 +146,45 @@ export function ShootDayPageInner({ snapshot, userEmail }: { snapshot: Productio
   const selectedScene = selectedSceneId ? allScenes.find((s) => s.id === selectedSceneId) : null;
   const currentTimelineLabel = scenes.find((s) => sceneProgress(s) === "In Progress")?.number;
 
+  function startEditCallSheet() {
+    setSelectedSceneId(null);
+    setCallSheetForm(callSheetToInput(callSheet));
+    setEditingCallSheet(true);
+  }
+
+  async function saveCallSheetForm() {
+    if (!callSheetForm || !day) return;
+    setSavingCallSheet(true);
+    try {
+      await saveCallSheet(production.id, day.id, callSheetForm);
+      setEditingCallSheet(false);
+      router.refresh();
+    } catch (err) {
+      toast({ title: "Couldn't save call sheet", description: err instanceof Error ? err.message : "Please try again.", tone: "danger" });
+    } finally {
+      setSavingCallSheet(false);
+    }
+  }
+
   return (
     <Shell
       production={production}
       scenes={allScenes}
       userEmail={userEmail ?? undefined}
       inspector={
-        selectedScene ? (
+        editingCallSheet && callSheetForm ? (
+          <Inspector objectType="Call Sheet" title={`Day ${day.dayNumber}`} onClose={() => setEditingCallSheet(false)}>
+            <CallSheetForm value={callSheetForm} onChange={setCallSheetForm} />
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Button onClick={saveCallSheetForm} loading={savingCallSheet} disabled={savingCallSheet}>
+                Save
+              </Button>
+              <Button variant="secondary" onClick={() => setEditingCallSheet(false)} disabled={savingCallSheet}>
+                Cancel
+              </Button>
+            </div>
+          </Inspector>
+        ) : selectedScene ? (
           <Inspector
             objectType="Scene"
             title={`Scene ${selectedScene.number}`}
@@ -87,7 +211,12 @@ export function ShootDayPageInner({ snapshot, userEmail }: { snapshot: Productio
               {day.date} — {location?.name ?? "No location set"}
             </p>
           </div>
-          <StatusBadge tone="info">{day.status}</StatusBadge>
+          <div className="flex items-center gap-[var(--fs-space-8)]">
+            <Button variant="secondary" icon={<Pencil className="size-[14px]" aria-hidden="true" />} onClick={startEditCallSheet}>
+              Edit Call Sheet
+            </Button>
+            <StatusBadge tone="info">{day.status}</StatusBadge>
+          </div>
         </div>
 
         <Tabs defaultValue="operational" className="flex min-h-0 flex-1 flex-col">

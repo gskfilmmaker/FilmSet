@@ -71,6 +71,44 @@ A signed-in user can belong to more than one production. `apps/web/app/productio
 
 `apps/web/lib/authz.ts`'s `requireCurrentProduction` — the function every protected page calls first — reads `active_production_id` and falls back to the caller's earliest membership if it's unset or points at a production they're no longer in (an account created before this preference existed, or a stale pointer). The switcher itself lives in `apps/web/components/shell.tsx`, opened from the production name in the global bar.
 
+## Cast, Crew, Locations, Settings
+
+Every sidebar item now goes somewhere real — no more silent bounces to `/overview`:
+
+- **`/cast`, `/crew`, `/locations`** — real CRUD (`apps/web/app/{cast,crew,locations}/`), each an inline list-with-edit-row page following `team-section.tsx`'s established pattern (server-fetched props from `getProductionSnapshot`, a client component, toasts, `router.refresh()` after every mutation) rather than a Dialog, per FRAME's own guidance to prefer inline editing over a modal for anything that isn't a focused/irreversible action. Cast members reference a `characters` row; `apps/web/app/cast/actions.ts`'s `findOrCreateCharacter` reuses an existing character with the same case-insensitive name in the production rather than creating a duplicate on every edit.
+- **`/settings`** — a real route at last (it fired `onNavigate` before but wasn't in the id lookup array, so nothing happened); minimal for now — edit your display name, a link to the existing password-reset flow.
+- **`/money`, `/documents`** — real routes with an honest "Coming soon" `EmptyState` rather than a dead link, per the audit's own recommendation: building the full budget/document workflows is future work, but a route that says so beats one that silently does nothing.
+
+**Also hardened while touching this code**: `persistBoard` (stripboard drag-drop), `addBreakdownTag`, and the AI approve/reject/dismiss actions previously updated rows by id alone, trusting RLS as the only production boundary. RLS still blocks true cross-tenant access, but Production Manager just made "a user who belongs to two productions" a real case — so these now also verify the id belongs to the `productionId` the caller claims before writing, closing an internal reassignment path RLS's `is_production_member(production_id)` check doesn't cover on its own (it checks the row's own production_id, not that a *referenced* row like a scene actually belongs there).
+
+## Script Import
+
+A brand-new production (or one whose script hasn't been imported yet) has zero scenes, and `/script` couldn't do anything about that before this — `if (!scene) return ... "No scenes yet."`. It now renders `ImportScriptForm` (`apps/web/app/script/import-script-form.tsx`) in that spot: paste raw screenplay text, get back real scenes.
+
+- **`apps/web/lib/script-parser.ts`** — a pure, dependency-free heuristic parser (no DB/Next.js imports, so it's independently testable). Scene headings (`INT.`/`EXT.`/`INT/EXT.` followed by a set name, optionally `- DAY`/`- NIGHT`/etc.) start a new scene; inside one, an all-caps line under 40 chars is read as a character cue, a `(parenthetical)` as itself, and everything between a cue and the next blank line as dialogue — everything else is action. Known limitation: an all-caps *action* line (some writers use this for emphasis, e.g. "THE DOOR SLAMS SHUT.") gets misread as a character cue — acceptable for a first pass; standard formatting parses cleanly.
+- **`apps/web/app/script/import-actions.ts`**'s `importScript` finds-or-creates a `Location` per unique set name (case-insensitive) — `scenes.location_id` is `NOT NULL`, so this isn't optional, and it's also why importing a script populates `/locations` for free. New scenes are numbered and ordered after any the production already has, so importing is safe to do more than once.
+
+## Notifications and Overview health tiles
+
+Two more "displays a fixed number regardless of reality" gaps from the audit:
+
+- **Notifications** — the bell showed a hardcoded `3` with no click handler. `apps/web/app/notifications-actions.ts`'s `getNotifications()` returns pending AI recommendations and pending approvals for the current production; `Shell` fetches it on mount (and again whenever `production.id` changes, i.e. after switching productions) and renders a real count + a dropdown listing them, each linking to where it's actioned.
+- **Overview's Schedule and Script tiles** — previously hardcoded `"On Track"` and `"Blue Revision" / "Locked"` no matter what the data said. Schedule now reflects how many scenes have no `shoot_day_id` yet; Script reflects how many scenes have no `script_pages` row yet (i.e., weren't covered by an import) — both genuinely computable from data that exists, unlike a revision-tracking concept the schema doesn't have.
+
+## Manual Scene and Shoot Day editing
+
+Script Import (above) covers the bulk case; these cover the one-off case — adding or fixing a single scene or shoot day without re-pasting the whole script:
+
+- **`/script`** — "+ New Scene" in the scene nav, and a pencil icon on the Inspector header when a scene is selected, both open the same `SceneForm` (`apps/web/app/script/script-page-inner.tsx`): number, location (find-or-creates via the same helper Script Import uses), int/ext, day/night, status, synopsis, and which cast members are in the scene (writes `scene_cast` directly).
+- **`/schedule`** — "Add Shoot Day" in the toolbar (disabled with a tooltip if there are no locations yet — a shoot day's `location_id` is `NOT NULL`) and a pencil icon on each day's header both open `ShootDayForm`. `createShootDay`/`updateShootDay` (`apps/web/app/schedule/shoot-day-actions.ts`) keep every shoot day's `totalDays` in sync when one is added, so "Day X of N" stays correct everywhere it's shown.
+- `apps/web/lib/find-or-create.ts` now holds the shared `findOrCreateLocation`/`findOrCreateCharacter` helpers — Script Import, Cast CRUD, and Scene CRUD all go through the same two functions rather than three copies of the same case-insensitive lookup.
+
+## Call Sheet editing
+
+`/shoot-day` was view-only for the call sheet itself (weather, hospital, parking, basecamp, notes, the live timeline) — the last "no creation, editing, publishing" gap from the audit. "Edit Call Sheet" in the toolbar opens `CallSheetForm` in the Inspector.
+
+`call_sheets` is keyed by `shoot_day_id` (one row per day), and `call_sheet_timeline_events` references that key — so a freshly-created shoot day has no call sheet row yet. `apps/web/app/shoot-day/call-sheet-actions.ts`'s `saveCallSheet` upserts (`onConflictDoUpdate`) rather than assuming a row exists, then replaces the timeline events wholesale (simplest correct approach for a short, fully-reordered-on-every-edit list).
+
 ## Testing this locally
 
 After `db:migrate` (and optionally `db:seed`):

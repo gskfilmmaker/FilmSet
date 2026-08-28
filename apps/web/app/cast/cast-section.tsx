@@ -1,0 +1,244 @@
+"use client";
+
+import type { CastMember, Character } from "@filmset/core";
+import {
+  Button,
+  EmptyState,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+  useToast,
+} from "@filmset/ui";
+import { Pencil, Trash2, Users } from "lucide-react";
+import { useRouter } from "next/navigation";
+import * as React from "react";
+import { createCastMember, deleteCastMember, updateCastMember, type CastMemberInput } from "./actions";
+
+const STATUSES: CastMember["status"][] = ["Confirmed", "Offer Out", "Unavailable"];
+const CONTRACTS: CastMember["contract"][] = ["Signed", "Pending", "Missing"];
+
+const statusTone: Record<CastMember["status"], "success" | "warning" | "danger"> = {
+  Confirmed: "success",
+  "Offer Out": "warning",
+  Unavailable: "danger",
+};
+const contractTone: Record<CastMember["contract"], "success" | "warning" | "danger"> = {
+  Signed: "success",
+  Pending: "warning",
+  Missing: "danger",
+};
+
+const emptyForm: CastMemberInput = { characterName: "", actorName: "", status: "Offer Out", contract: "Pending" };
+
+function CastForm({ value, onChange }: { value: CastMemberInput; onChange: (next: CastMemberInput) => void }) {
+  return (
+    <div className="flex flex-1 flex-wrap items-end gap-[var(--fs-space-8)]">
+      <Input
+        label="Character"
+        value={value.characterName}
+        onChange={(e) => onChange({ ...value, characterName: e.target.value })}
+        containerClassName="min-w-[140px] flex-1"
+      />
+      <Input
+        label="Actor"
+        value={value.actorName}
+        onChange={(e) => onChange({ ...value, actorName: e.target.value })}
+        containerClassName="min-w-[140px] flex-1"
+      />
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Status</label>
+        <Select value={value.status} onValueChange={(v) => onChange({ ...value, status: v as CastMember["status"] })}>
+          <SelectTrigger className="w-[140px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Contract</label>
+        <Select value={value.contract} onValueChange={(v) => onChange({ ...value, contract: v as CastMember["contract"] })}>
+          <SelectTrigger className="w-[130px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {CONTRACTS.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    </div>
+  );
+}
+
+export function CastSection({
+  productionId,
+  castMembers,
+  characters,
+}: {
+  productionId: string;
+  castMembers: CastMember[];
+  characters: Character[];
+}) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [adding, setAdding] = React.useState(false);
+  const [addForm, setAddForm] = React.useState<CastMemberInput>(emptyForm);
+  const [saving, setSaving] = React.useState(false);
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [editForm, setEditForm] = React.useState<CastMemberInput>(emptyForm);
+  const [pendingId, setPendingId] = React.useState<string | null>(null);
+
+  const characterName = React.useCallback(
+    (characterId: string) => characters.find((c) => c.id === characterId)?.name ?? "Unknown",
+    [characters],
+  );
+
+  async function onAdd(e: React.FormEvent) {
+    e.preventDefault();
+    setSaving(true);
+    try {
+      await createCastMember(productionId, addForm);
+      toast({ tone: "success", title: "Cast member added", description: addForm.actorName });
+      setAddForm(emptyForm);
+      setAdding(false);
+      router.refresh();
+    } catch (err) {
+      toast({ tone: "danger", title: "Couldn't add cast member", description: err instanceof Error ? err.message : "Please try again." });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function startEdit(member: CastMember) {
+    setEditingId(member.id);
+    setEditForm({
+      characterName: characterName(member.characterId),
+      actorName: member.actorName,
+      status: member.status,
+      contract: member.contract,
+    });
+  }
+
+  async function onSaveEdit(e: React.FormEvent, id: string) {
+    e.preventDefault();
+    setPendingId(id);
+    try {
+      await updateCastMember(productionId, id, editForm);
+      setEditingId(null);
+      router.refresh();
+    } catch (err) {
+      toast({ tone: "danger", title: "Couldn't save changes", description: err instanceof Error ? err.message : "Please try again." });
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  async function onDelete(id: string) {
+    setPendingId(id);
+    try {
+      await deleteCastMember(productionId, id);
+      router.refresh();
+    } catch {
+      toast({ tone: "danger", title: "Couldn't remove cast member", description: "Please try again." });
+    } finally {
+      setPendingId(null);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-[var(--fs-space-16)]">
+      {castMembers.length === 0 && !adding && (
+        <EmptyState
+          icon={<Users className="size-full" />}
+          title="No cast yet"
+          description="Add a cast member to track casting and contract status."
+          action={<Button onClick={() => setAdding(true)}>Add cast member</Button>}
+        />
+      )}
+
+      {castMembers.length > 0 && (
+        <ul className="flex flex-col divide-y divide-[var(--color-border-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
+          {castMembers.map((member) =>
+            editingId === member.id ? (
+              <li key={member.id} className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
+                <form onSubmit={(e) => onSaveEdit(e, member.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
+                  <CastForm value={editForm} onChange={setEditForm} />
+                  <Button type="submit" loading={pendingId === member.id} disabled={pendingId !== null}>
+                    Save
+                  </Button>
+                  <Button type="button" variant="secondary" onClick={() => setEditingId(null)} disabled={pendingId !== null}>
+                    Cancel
+                  </Button>
+                </form>
+              </li>
+            ) : (
+              <li key={member.id} className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                    {characterName(member.characterId)}
+                  </p>
+                  <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">{member.actorName}</p>
+                </div>
+                <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
+                  <StatusBadge tone={statusTone[member.status]}>{member.status}</StatusBadge>
+                  <StatusBadge tone={contractTone[member.contract]}>{member.contract}</StatusBadge>
+                  <Button
+                    variant="quiet"
+                    iconOnly
+                    icon={<Pencil className="size-[14px]" aria-hidden="true" />}
+                    aria-label={`Edit ${member.actorName}`}
+                    onClick={() => startEdit(member)}
+                    disabled={pendingId !== null}
+                  />
+                  <Button
+                    variant="quiet"
+                    iconOnly
+                    icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
+                    aria-label={`Remove ${member.actorName}`}
+                    loading={pendingId === member.id}
+                    disabled={pendingId !== null}
+                    onClick={() => onDelete(member.id)}
+                  />
+                </div>
+              </li>
+            ),
+          )}
+        </ul>
+      )}
+
+      {castMembers.length > 0 && !adding && (
+        <Button variant="secondary" onClick={() => setAdding(true)} className="self-start">
+          Add cast member
+        </Button>
+      )}
+
+      {adding && (
+        <form
+          onSubmit={onAdd}
+          className="flex flex-col items-end gap-[var(--fs-space-8)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-12)] sm:flex-row"
+        >
+          <CastForm value={addForm} onChange={setAddForm} />
+          <Button type="submit" loading={saving} disabled={saving}>
+            Add
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => setAdding(false)} disabled={saving}>
+            Cancel
+          </Button>
+        </form>
+      )}
+    </div>
+  );
+}

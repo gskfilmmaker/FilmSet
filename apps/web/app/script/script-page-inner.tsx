@@ -2,20 +2,39 @@
 
 import { Shell } from "@/components/shell";
 import type { ProductionSnapshot } from "@/lib/queries";
-import type { BreakdownElement } from "@filmset/core";
+import type { BreakdownElement, Scene } from "@filmset/core";
 import {
+  Button,
+  Checkbox,
   Inspector,
   InspectorSection,
+  Input,
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   StatusBadge,
+  Textarea,
   useToast,
 } from "@filmset/ui";
-import { Check, Plus, X } from "lucide-react";
-import { useSearchParams } from "next/navigation";
+import { Check, Pencil, Plus, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { addBreakdownTag, confirmAllBreakdownElements, confirmBreakdownElement, rejectBreakdownElement } from "./actions";
+import { ImportScriptForm } from "./import-script-form";
+import { createScene, updateScene, type SceneInput } from "./scene-actions";
+
+const INT_EXT: Scene["intExt"][] = ["INT", "EXT"];
+const DAY_NIGHT: Scene["dayNight"][] = ["DAY", "NIGHT"];
+const SCENE_STATUSES: Scene["status"][] = ["Draft", "Scheduled", "Shot", "Omitted", "Pickup", "Reshoot"];
+
+function blankSceneInput(): SceneInput {
+  return { number: "", intExt: "INT", setName: "", dayNight: "DAY", synopsis: "", status: "Draft", castMemberIds: [] };
+}
 
 const CATEGORIES: BreakdownElement["category"][] = [
   "Props",
@@ -31,13 +50,23 @@ function SceneNav({
   scenes,
   activeSceneId,
   onSelect,
+  onNewScene,
 }: {
   scenes: ProductionSnapshot["scenes"];
   activeSceneId: string;
   onSelect: (id: string) => void;
+  onNewScene: () => void;
 }) {
   return (
     <nav aria-label="Scenes" className="flex h-full w-[220px] shrink-0 flex-col overflow-y-auto border-r border-[var(--color-border-subtle)]">
+      <button
+        type="button"
+        onClick={onNewScene}
+        className="flex items-center gap-[var(--fs-space-4)] border-b border-[var(--color-border-subtle)] px-[var(--fs-space-12)] py-[var(--fs-space-8)] text-left text-[13px] font-medium text-[var(--color-action-primary)] outline-none hover:bg-[var(--color-background-elevated)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-action-primary)]"
+      >
+        <Plus className="size-[13px]" aria-hidden="true" />
+        New Scene
+      </button>
       {scenes.map((scene) => (
         <button
           key={scene.id}
@@ -199,12 +228,114 @@ function BreakdownRow({
   );
 }
 
+function SceneForm({
+  value,
+  onChange,
+  castMembers,
+  characters,
+}: {
+  value: SceneInput;
+  onChange: (next: SceneInput) => void;
+  castMembers: ProductionSnapshot["castMembers"];
+  characters: ProductionSnapshot["characters"];
+}) {
+  function toggleCast(id: string, checked: boolean) {
+    onChange({ ...value, castMemberIds: checked ? [...value.castMemberIds, id] : value.castMemberIds.filter((c) => c !== id) });
+  }
+
+  return (
+    <div className="flex flex-col gap-[var(--fs-space-12)]">
+      <Input label="Number" value={value.number} onChange={(e) => onChange({ ...value, number: e.target.value })} />
+      <Input label="Location" value={value.setName} onChange={(e) => onChange({ ...value, setName: e.target.value })} />
+      <div className="flex gap-[var(--fs-space-8)]">
+        <div className="flex flex-1 flex-col gap-[4px]">
+          <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Int/Ext</label>
+          <Select value={value.intExt} onValueChange={(v) => onChange({ ...value, intExt: v as Scene["intExt"] })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {INT_EXT.map((v) => (
+                <SelectItem key={v} value={v}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex flex-1 flex-col gap-[4px]">
+          <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Day/Night</label>
+          <Select value={value.dayNight} onValueChange={(v) => onChange({ ...value, dayNight: v as Scene["dayNight"] })}>
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {DAY_NIGHT.map((v) => (
+                <SelectItem key={v} value={v}>
+                  {v}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Status</label>
+        <Select value={value.status} onValueChange={(v) => onChange({ ...value, status: v as Scene["status"] })}>
+          <SelectTrigger>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {SCENE_STATUSES.map((v) => (
+              <SelectItem key={v} value={v}>
+                {v}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      <Textarea
+        label="Synopsis"
+        rows={3}
+        value={value.synopsis}
+        onChange={(e) => onChange({ ...value, synopsis: e.target.value })}
+      />
+      {castMembers.length > 0 && (
+        <div className="flex flex-col gap-[4px]">
+          <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Cast</label>
+          <ul className="flex flex-col gap-[6px]">
+            {castMembers.map((c) => {
+              const characterName = characters.find((ch) => ch.id === c.characterId)?.name ?? c.actorName;
+              return (
+                <li key={c.id} className="flex items-center gap-[var(--fs-space-8)]">
+                  <Checkbox
+                    id={`cast-${c.id}`}
+                    checked={value.castMemberIds.includes(c.id)}
+                    onCheckedChange={(checked) => toggleCast(c.id, checked === true)}
+                  />
+                  <label htmlFor={`cast-${c.id}`} className="text-[13px] text-[var(--color-text-primary)]">
+                    {characterName} <span className="text-[var(--color-text-tertiary)]">— {c.actorName}</span>
+                  </label>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapshot; userEmail: string | null }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialScene = searchParams.get("scene");
   const { production, scenes, scriptPages } = snapshot;
   const [activeSceneId, setActiveSceneId] = React.useState(initialScene ?? scenes[0]?.id ?? "");
   const [elements, setElements] = React.useState<BreakdownElement[]>(snapshot.breakdownElements);
+  const [sceneFormMode, setSceneFormMode] = React.useState<"none" | "edit" | "create">("none");
+  const [sceneFormValue, setSceneFormValue] = React.useState<SceneInput>(blankSceneInput());
+  const [savingScene, setSavingScene] = React.useState(false);
   const { toast } = useToast();
 
   const scene = scenes.find((s) => s.id === activeSceneId) ?? scenes[0];
@@ -260,10 +391,50 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
     }
   }
 
+  function startEditScene() {
+    if (!scene) return;
+    setSceneFormValue({
+      number: scene.number,
+      intExt: scene.intExt,
+      setName: scene.setName,
+      dayNight: scene.dayNight,
+      synopsis: scene.synopsis,
+      status: scene.status,
+      castMemberIds: scene.castIds,
+    });
+    setSceneFormMode("edit");
+  }
+
+  function startCreateScene() {
+    setSceneFormValue(blankSceneInput());
+    setSceneFormMode("create");
+  }
+
+  async function saveScene() {
+    setSavingScene(true);
+    try {
+      if (sceneFormMode === "create") {
+        const id = await createScene(production.id, sceneFormValue);
+        setSceneFormMode("none");
+        setActiveSceneId(id);
+      } else if (scene) {
+        await updateScene(production.id, scene.id, sceneFormValue);
+        setSceneFormMode("none");
+      }
+      router.refresh();
+    } catch (err) {
+      toast({ title: "Couldn't save scene", description: err instanceof Error ? err.message : "Please try again.", tone: "danger" });
+    } finally {
+      setSavingScene(false);
+    }
+  }
+
   if (!scene) {
     return (
       <Shell production={production} scenes={scenes} userEmail={userEmail ?? undefined}>
-        <div className="flex flex-1 items-center justify-center text-[13px] text-[var(--color-text-tertiary)]">No scenes yet.</div>
+        <div className="flex flex-1 items-center justify-center overflow-y-auto">
+          <ImportScriptForm productionId={production.id} onImported={() => router.refresh()} />
+        </div>
       </Shell>
     );
   }
@@ -274,47 +445,75 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
       scenes={scenes}
       userEmail={userEmail ?? undefined}
       inspector={
-        <Inspector objectType="Scene" title={`Scene ${scene.number}`} subtitle={`${scene.intExt}. ${scene.setName.toUpperCase()} — ${scene.dayNight}`}>
-          <InspectorSection label="Status">
-            <StatusBadge tone={scene.status === "Shot" ? "success" : scene.status === "Omitted" ? "neutral" : "info"}>{scene.status}</StatusBadge>
-          </InspectorSection>
-          <InspectorSection label="Synopsis">{scene.synopsis}</InspectorSection>
-          <InspectorSection
-            label="AI Suggested"
-            action={
-              suggested.length > 0 && (
-                <button type="button" onClick={confirmAll} className="text-[11px] font-medium text-[var(--color-action-primary)] hover:underline">
-                  Confirm all
-                </button>
-              )
+        sceneFormMode !== "none" ? (
+          <Inspector objectType="Scene" title={sceneFormMode === "create" ? "New Scene" : `Scene ${scene.number}`}>
+            <SceneForm value={sceneFormValue} onChange={setSceneFormValue} castMembers={snapshot.castMembers} characters={snapshot.characters} />
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Button onClick={saveScene} loading={savingScene} disabled={savingScene}>
+                Save
+              </Button>
+              <Button variant="secondary" onClick={() => setSceneFormMode("none")} disabled={savingScene}>
+                Cancel
+              </Button>
+            </div>
+          </Inspector>
+        ) : (
+          <Inspector
+            objectType="Scene"
+            title={`Scene ${scene.number}`}
+            subtitle={`${scene.intExt}. ${scene.setName.toUpperCase()} — ${scene.dayNight}`}
+            headerActions={
+              <button
+                type="button"
+                onClick={startEditScene}
+                aria-label="Edit scene"
+                className="flex size-[28px] items-center justify-center rounded-md text-[var(--color-text-tertiary)] outline-none hover:bg-[var(--color-background-surface)] hover:text-[var(--color-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+              >
+                <Pencil className="size-[14px]" aria-hidden="true" />
+              </button>
             }
           >
-            {suggested.length > 0 ? (
-              <ul className="flex flex-col gap-[var(--fs-space-8)]">
-                {suggested.map((el) => (
-                  <BreakdownRow key={el.id} element={el} onConfirm={() => confirmElement(el.id)} onReject={() => rejectElement(el.id)} />
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[12px] text-[var(--color-text-tertiary)]">Nothing pending review.</p>
-            )}
-          </InspectorSection>
-          <InspectorSection label="Confirmed">
-            {confirmed.length > 0 ? (
-              <ul className="flex flex-col gap-[var(--fs-space-8)]">
-                {confirmed.map((el) => (
-                  <BreakdownRow key={el.id} element={el} />
-                ))}
-              </ul>
-            ) : (
-              <p className="text-[12px] text-[var(--color-text-tertiary)]">No confirmed elements yet.</p>
-            )}
-          </InspectorSection>
-        </Inspector>
+            <InspectorSection label="Status">
+              <StatusBadge tone={scene.status === "Shot" ? "success" : scene.status === "Omitted" ? "neutral" : "info"}>{scene.status}</StatusBadge>
+            </InspectorSection>
+            <InspectorSection label="Synopsis">{scene.synopsis || <span className="text-[var(--color-text-tertiary)]">None yet.</span>}</InspectorSection>
+            <InspectorSection
+              label="AI Suggested"
+              action={
+                suggested.length > 0 && (
+                  <button type="button" onClick={confirmAll} className="text-[11px] font-medium text-[var(--color-action-primary)] hover:underline">
+                    Confirm all
+                  </button>
+                )
+              }
+            >
+              {suggested.length > 0 ? (
+                <ul className="flex flex-col gap-[var(--fs-space-8)]">
+                  {suggested.map((el) => (
+                    <BreakdownRow key={el.id} element={el} onConfirm={() => confirmElement(el.id)} onReject={() => rejectElement(el.id)} />
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[12px] text-[var(--color-text-tertiary)]">Nothing pending review.</p>
+              )}
+            </InspectorSection>
+            <InspectorSection label="Confirmed">
+              {confirmed.length > 0 ? (
+                <ul className="flex flex-col gap-[var(--fs-space-8)]">
+                  {confirmed.map((el) => (
+                    <BreakdownRow key={el.id} element={el} />
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[12px] text-[var(--color-text-tertiary)]">No confirmed elements yet.</p>
+              )}
+            </InspectorSection>
+          </Inspector>
+        )
       }
     >
       <div className="flex h-full min-h-0">
-        <SceneNav scenes={scenes} activeSceneId={activeSceneId} onSelect={setActiveSceneId} />
+        <SceneNav scenes={scenes} activeSceneId={activeSceneId} onSelect={setActiveSceneId} onNewScene={startCreateScene} />
         <Screenplay sceneId={activeSceneId} pages={scriptPages} onTagSelection={addTag} />
       </div>
     </Shell>
