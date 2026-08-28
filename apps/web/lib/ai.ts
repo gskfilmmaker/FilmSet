@@ -182,6 +182,112 @@ export async function suggestLocationMatch(
   return toolUse.input as SuggestedRecommendation;
 }
 
+export interface ExtractedCastCandidate {
+  characterName: string;
+  actorName: string;
+  notes: string;
+}
+
+const castExtractionTool: Anthropic.Tool = {
+  name: "extract_cast_candidates",
+  description: "Extract every character/cast record found in this document, one entry per role.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            characterName: { type: "string", description: "The character or role name" },
+            actorName: {
+              type: "string",
+              description: "The cast actor's real name if the document names one, otherwise an empty string (e.g. for a role marked open/uncast/TBD)",
+            },
+            notes: { type: "string", description: "A short one-line summary of role size or function, if stated (empty string if none)" },
+          },
+          required: ["characterName", "actorName", "notes"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/**
+ * Suggest step for document-based cast import (apps/web/lib/import): reads
+ * raw text extracted from an uploaded casting bible / character breakdown
+ * / cast list and proposes structured character+actor candidates. Purely
+ * extractive — never invents a role or actor not present in the text.
+ * Still only a Suggest step: nothing is written to production data here,
+ * the caller logs it to ai_suggestion_log and a human reviews every row
+ * before commitImport writes anything.
+ */
+export async function extractCastCandidates(rawText: string): Promise<ExtractedCastCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured character/cast data from film production documents (casting bibles, character breakdowns, cast lists). " +
+      "Only extract what is actually stated in the text — never invent a character or actor name. A role explicitly marked as open, " +
+      "uncast, or TBD should have an empty actorName. Skip generic ensemble/background entries that don't name a specific character.",
+    messages: [{ role: "user", content: `Extract every character/cast record from this document:\n\n${rawText}` }],
+    tools: [castExtractionTool],
+    tool_choice: { type: "tool", name: "extract_cast_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any cast candidates.");
+  return (toolUse.input as { records: ExtractedCastCandidate[] }).records;
+}
+
+export interface ExtractedLocationCandidate {
+  name: string;
+  address: string;
+  notes: string;
+}
+
+const locationExtractionTool: Anthropic.Tool = {
+  name: "extract_location_candidates",
+  description: "Extract every named filming location found in this document.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The location's name" },
+            address: { type: "string", description: "A street address or descriptive location if stated, otherwise an empty string" },
+            notes: { type: "string", description: "A short one-line summary of what happens there or its category, if stated (empty string if none)" },
+          },
+          required: ["name", "address", "notes"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/** Same Suggest-step pattern as extractCastCandidates, for a location list / scouting document / location map page. */
+export async function extractLocationCandidates(rawText: string): Promise<ExtractedLocationCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured filming-location data from film production documents (location lists, scouting reports, location maps). " +
+      "Only extract locations actually named in the text — never invent one.",
+    messages: [{ role: "user", content: `Extract every named filming location from this document:\n\n${rawText}` }],
+    tools: [locationExtractionTool],
+    tool_choice: { type: "tool", name: "extract_location_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any location candidates.");
+  return (toolUse.input as { records: ExtractedLocationCandidate[] }).records;
+}
+
 export async function answerQuestion(snapshot: ProductionSnapshot, question: string): Promise<string> {
   const message = await getClient().messages.create({
     model: MODEL,
