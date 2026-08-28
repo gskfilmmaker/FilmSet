@@ -1,6 +1,7 @@
 "use client";
 
 import { Button, Textarea, useToast } from "@filmset/ui";
+import { Upload } from "lucide-react";
 import * as React from "react";
 import { importScript } from "./import-actions";
 
@@ -17,7 +18,20 @@ Almost is not good enough.`;
 export function ImportScriptForm({ productionId, onImported }: { productionId: string; onImported: () => void }) {
   const [text, setText] = React.useState("");
   const [importing, setImporting] = React.useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  async function onFileSelected(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    try {
+      const content = await file.text();
+      setText(content);
+    } catch {
+      toast({ tone: "danger", title: "Couldn't read file", description: "Please try again or paste the text directly." });
+    }
+  }
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -44,10 +58,21 @@ export function ImportScriptForm({ productionId, onImported }: { productionId: s
       <div className="text-center">
         <p className="text-[14px] font-medium text-[var(--color-text-primary)]">No scenes yet</p>
         <p className="mt-[4px] text-[13px] text-[var(--color-text-secondary)]">
-          Paste a screenplay below. Scene headings like &quot;INT. TAXI - NIGHT&quot; become scenes; action, character
-          cues, and dialogue underneath each one are parsed automatically.
+          Upload a plain-text (.txt/.fountain) screenplay, or paste one below. Scene headings like &quot;INT. TAXI -
+          NIGHT&quot; become scenes; action, character cues, and dialogue underneath each one are parsed automatically.
+          PDF and Final Draft (.fdx) files aren&apos;t supported yet — export or copy the text first.
         </p>
       </div>
+      <input ref={fileInputRef} type="file" accept=".txt,.fountain,text/plain" onChange={onFileSelected} className="hidden" />
+      <Button
+        type="button"
+        variant="secondary"
+        icon={<Upload className="size-[14px]" aria-hidden="true" />}
+        onClick={() => fileInputRef.current?.click()}
+        className="self-center"
+      >
+        Upload a file
+      </Button>
       <form onSubmit={onSubmit} className="flex flex-col gap-[var(--fs-space-12)]">
         <Textarea
           value={text}
