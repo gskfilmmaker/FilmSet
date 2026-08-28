@@ -103,6 +103,12 @@ Script Import (above) covers the bulk case; these cover the one-off case — add
 - **`/schedule`** — "Add Shoot Day" in the toolbar (disabled with a tooltip if there are no locations yet — a shoot day's `location_id` is `NOT NULL`) and a pencil icon on each day's header both open `ShootDayForm`. `createShootDay`/`updateShootDay` (`apps/web/app/schedule/shoot-day-actions.ts`) keep every shoot day's `totalDays` in sync when one is added, so "Day X of N" stays correct everywhere it's shown.
 - `apps/web/lib/find-or-create.ts` now holds the shared `findOrCreateLocation`/`findOrCreateCharacter` helpers — Script Import, Cast CRUD, and Scene CRUD all go through the same two functions rather than three copies of the same case-insensitive lookup.
 
+## Call Sheet editing
+
+`/shoot-day` was view-only for the call sheet itself (weather, hospital, parking, basecamp, notes, the live timeline) — the last "no creation, editing, publishing" gap from the audit. "Edit Call Sheet" in the toolbar opens `CallSheetForm` in the Inspector.
+
+`call_sheets` is keyed by `shoot_day_id` (one row per day), and `call_sheet_timeline_events` references that key — so a freshly-created shoot day has no call sheet row yet. `apps/web/app/shoot-day/call-sheet-actions.ts`'s `saveCallSheet` upserts (`onConflictDoUpdate`) rather than assuming a row exists, then replaces the timeline events wholesale (simplest correct approach for a short, fully-reordered-on-every-edit list).
+
 ## Testing this locally
 
 After `db:migrate` (and optionally `db:seed`):
