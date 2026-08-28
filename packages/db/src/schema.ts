@@ -64,6 +64,8 @@ export const productions = pgTable("productions", {
   createdBy: uuid("created_by")
     .notNull()
     .references(() => profiles.id, { onDelete: "restrict" }),
+  /** The script's current revision color (White/Blue/Pink/...) — see packages/core's revision-colors module. Advances only when a revision import actually changes/adds a scene. */
+  scriptRevisionColor: text("script_revision_color").notNull().default("White"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -202,6 +204,8 @@ export const scenes = pgTable(
     status: text("status").notNull().default("Draft"),
     shootDayId: text("shoot_day_id").references(() => shootDays.id, { onDelete: "set null" }),
     scheduleOrder: integer("schedule_order").notNull().default(0),
+    /** The revision color of the script import that last changed this scene's content. */
+    revisionColor: text("revision_color").notNull().default("White"),
     locationId: text("location_id")
       .notNull()
       .references(() => locations.id),

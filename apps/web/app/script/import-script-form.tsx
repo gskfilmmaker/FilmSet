@@ -3,7 +3,7 @@
 import { Button, Textarea, useToast } from "@filmset/ui";
 import { Upload } from "lucide-react";
 import * as React from "react";
-import { importScript } from "./import-actions";
+import { importRevision, importScript } from "./import-actions";
 
 const PLACEHOLDER = `INT. TAXI - NIGHT
 
@@ -15,7 +15,16 @@ We are almost there.
 RAJ
 Almost is not good enough.`;
 
-export function ImportScriptForm({ productionId, onImported }: { productionId: string; onImported: () => void }) {
+export function ImportScriptForm({
+  productionId,
+  onImported,
+  mode = "new",
+}: {
+  productionId: string;
+  onImported: () => void;
+  /** "new" for a scene-less production's first import; "revision" re-matches against the existing script and only touches what changed. */
+  mode?: "new" | "revision";
+}) {
   const [text, setText] = React.useState("");
   const [importing, setImporting] = React.useState(false);
   const fileInputRef = React.useRef<HTMLInputElement>(null);
@@ -38,12 +47,25 @@ export function ImportScriptForm({ productionId, onImported }: { productionId: s
     if (!text.trim()) return;
     setImporting(true);
     try {
-      const result = await importScript(productionId, text);
-      toast({
-        tone: "success",
-        title: `Imported ${result.sceneCount} scene${result.sceneCount === 1 ? "" : "s"}`,
-        description: `${result.locationCount} location${result.locationCount === 1 ? "" : "s"} found or created.`,
-      });
+      if (mode === "revision") {
+        const result = await importRevision(productionId, text);
+        if (result.changedCount === 0 && result.newCount === 0) {
+          toast({ tone: "info", title: "No changes found", description: "This matches the script already on file." });
+        } else {
+          const parts = [
+            result.changedCount > 0 ? `${result.changedCount} scene${result.changedCount === 1 ? "" : "s"} updated` : null,
+            result.newCount > 0 ? `${result.newCount} new scene${result.newCount === 1 ? "" : "s"}` : null,
+          ].filter(Boolean);
+          toast({ tone: "success", title: `${result.revisionColor} revision imported`, description: parts.join(", ") });
+        }
+      } else {
+        const result = await importScript(productionId, text);
+        toast({
+          tone: "success",
+          title: `Imported ${result.sceneCount} scene${result.sceneCount === 1 ? "" : "s"}`,
+          description: `${result.locationCount} location${result.locationCount === 1 ? "" : "s"} found or created.`,
+        });
+      }
       setText("");
       onImported();
     } catch (err) {
@@ -56,10 +78,20 @@ export function ImportScriptForm({ productionId, onImported }: { productionId: s
   return (
     <div className="mx-auto flex w-full max-w-[560px] flex-col gap-[var(--fs-space-16)] p-[var(--fs-space-24)]">
       <div className="text-center">
-        <p className="text-[14px] font-medium text-[var(--color-text-primary)]">No scenes yet</p>
+        <p className="text-[14px] font-medium text-[var(--color-text-primary)]">{mode === "revision" ? "Import a revision" : "No scenes yet"}</p>
         <p className="mt-[4px] text-[13px] text-[var(--color-text-secondary)]">
-          Upload a plain-text (.txt/.fountain) screenplay, or paste one below. Scene headings like &quot;INT. TAXI -
-          NIGHT&quot; become scenes; action, character cues, and dialogue underneath each one are parsed automatically.
+          {mode === "revision" ? (
+            <>
+              Upload or paste the <strong>full, current</strong> script. Scenes are matched to the existing ones by their
+              position in the script — only what actually changed gets updated and moved to the next revision color; new
+              scenes are added at the end.
+            </>
+          ) : (
+            <>
+              Upload a plain-text (.txt/.fountain) screenplay, or paste one below. Scene headings like &quot;INT. TAXI -
+              NIGHT&quot; become scenes; action, character cues, and dialogue underneath each one are parsed automatically.
+            </>
+          )}{" "}
           PDF and Final Draft (.fdx) files aren&apos;t supported yet — export or copy the text first.
         </p>
       </div>
@@ -82,7 +114,7 @@ export function ImportScriptForm({ productionId, onImported }: { productionId: s
           className="font-mono text-[13px]"
         />
         <Button type="submit" loading={importing} disabled={importing || !text.trim()} className="self-center">
-          Import script
+          {mode === "revision" ? "Import revision" : "Import script"}
         </Button>
       </form>
     </div>

@@ -2,7 +2,7 @@
 
 import { Shell } from "@/components/shell";
 import type { ProductionSnapshot } from "@/lib/queries";
-import type { BreakdownElement, Scene } from "@filmset/core";
+import { revisionColorSwatch, type BreakdownElement, type Scene } from "@filmset/core";
 import {
   Button,
   Checkbox,
@@ -21,7 +21,7 @@ import {
   Textarea,
   useToast,
 } from "@filmset/ui";
-import { Check, Pencil, Plus, X } from "lucide-react";
+import { Check, FileUp, Pencil, Plus, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { addBreakdownTag, confirmAllBreakdownElements, confirmBreakdownElement, rejectBreakdownElement } from "./actions";
@@ -34,6 +34,17 @@ const SCENE_STATUSES: Scene["status"][] = ["Draft", "Scheduled", "Shot", "Omitte
 
 function blankSceneInput(): SceneInput {
   return { number: "", intExt: "INT", setName: "", dayNight: "DAY", synopsis: "", status: "Draft", castMemberIds: [] };
+}
+
+function RevisionDot({ color }: { color: string }) {
+  return (
+    <span
+      aria-hidden="true"
+      title={`${color} revision`}
+      className="size-[9px] shrink-0 rounded-full border border-[var(--color-border-standard)]"
+      style={{ backgroundColor: revisionColorSwatch(color) }}
+    />
+  );
 }
 
 const CATEGORIES: BreakdownElement["category"][] = [
@@ -51,11 +62,13 @@ function SceneNav({
   activeSceneId,
   onSelect,
   onNewScene,
+  onImportRevision,
 }: {
   scenes: ProductionSnapshot["scenes"];
   activeSceneId: string;
   onSelect: (id: string) => void;
   onNewScene: () => void;
+  onImportRevision: () => void;
 }) {
   return (
     <nav aria-label="Scenes" className="flex h-full w-[220px] shrink-0 flex-col overflow-y-auto border-r border-[var(--color-border-subtle)]">
@@ -66,6 +79,14 @@ function SceneNav({
       >
         <Plus className="size-[13px]" aria-hidden="true" />
         New Scene
+      </button>
+      <button
+        type="button"
+        onClick={onImportRevision}
+        className="flex items-center gap-[var(--fs-space-4)] border-b border-[var(--color-border-subtle)] px-[var(--fs-space-12)] py-[var(--fs-space-8)] text-left text-[13px] font-medium text-[var(--color-text-secondary)] outline-none hover:bg-[var(--color-background-elevated)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-action-primary)]"
+      >
+        <FileUp className="size-[13px]" aria-hidden="true" />
+        Import Revision
       </button>
       {scenes.map((scene) => (
         <button
@@ -81,7 +102,8 @@ function SceneNav({
         >
           <span className="flex items-center gap-[var(--fs-space-8)] text-[13px] font-medium text-[var(--color-text-primary)]">
             <span className="tabular-nums text-[var(--color-text-tertiary)]">{scene.number}</span>
-            {scene.setName}
+            <span className="truncate">{scene.setName}</span>
+            <RevisionDot color={scene.revisionColor} />
           </span>
           <span className="text-[11px] text-[var(--color-text-tertiary)]">
             {scene.intExt}. {scene.dayNight} · {scene.pageCount} pg
@@ -336,6 +358,7 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
   const [sceneFormMode, setSceneFormMode] = React.useState<"none" | "edit" | "create">("none");
   const [sceneFormValue, setSceneFormValue] = React.useState<SceneInput>(blankSceneInput());
   const [savingScene, setSavingScene] = React.useState(false);
+  const [showRevisionImport, setShowRevisionImport] = React.useState(false);
   const { toast } = useToast();
 
   const scene = scenes.find((s) => s.id === activeSceneId) ?? scenes[0];
@@ -433,7 +456,33 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
     return (
       <Shell production={production} scenes={scenes} userEmail={userEmail ?? undefined}>
         <div className="flex flex-1 items-center justify-center overflow-y-auto">
-          <ImportScriptForm productionId={production.id} onImported={() => router.refresh()} />
+          <ImportScriptForm productionId={production.id} onImported={() => router.refresh()} mode="new" />
+        </div>
+      </Shell>
+    );
+  }
+
+  if (showRevisionImport) {
+    return (
+      <Shell production={production} scenes={scenes} userEmail={userEmail ?? undefined}>
+        <div className="flex flex-1 flex-col overflow-y-auto">
+          <button
+            type="button"
+            onClick={() => setShowRevisionImport(false)}
+            className="self-start px-[var(--fs-space-24)] pt-[var(--fs-space-16)] text-[13px] text-[var(--color-action-primary)] hover:underline"
+          >
+            ← Back to script
+          </button>
+          <div className="flex flex-1 items-center justify-center">
+            <ImportScriptForm
+              productionId={production.id}
+              mode="revision"
+              onImported={() => {
+                setShowRevisionImport(false);
+                router.refresh();
+              }}
+            />
+          </div>
         </div>
       </Shell>
     );
@@ -476,6 +525,12 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
             <InspectorSection label="Status">
               <StatusBadge tone={scene.status === "Shot" ? "success" : scene.status === "Omitted" ? "neutral" : "info"}>{scene.status}</StatusBadge>
             </InspectorSection>
+            <InspectorSection label="Revision">
+              <span className="flex items-center gap-[var(--fs-space-8)]">
+                <RevisionDot color={scene.revisionColor} />
+                {scene.revisionColor}
+              </span>
+            </InspectorSection>
             <InspectorSection label="Synopsis">{scene.synopsis || <span className="text-[var(--color-text-tertiary)]">None yet.</span>}</InspectorSection>
             <InspectorSection
               label="AI Suggested"
@@ -513,7 +568,13 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
       }
     >
       <div className="flex h-full min-h-0">
-        <SceneNav scenes={scenes} activeSceneId={activeSceneId} onSelect={setActiveSceneId} onNewScene={startCreateScene} />
+        <SceneNav
+          scenes={scenes}
+          activeSceneId={activeSceneId}
+          onSelect={setActiveSceneId}
+          onNewScene={startCreateScene}
+          onImportRevision={() => setShowRevisionImport(true)}
+        />
         <Screenplay sceneId={activeSceneId} pages={scriptPages} onTagSelection={addTag} />
       </div>
     </Shell>

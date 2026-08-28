@@ -2,10 +2,11 @@
 
 import { requireProductionMember } from "@/lib/authz";
 import { findOrCreateLocation } from "@/lib/find-or-create";
-import { parseScreenplay } from "@/lib/script-parser";
+import { parseScreenplay, type ParsedElement } from "@/lib/script-parser";
+import { nextRevisionColor } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
-import { count, eq } from "drizzle-orm";
+import { asc, count, eq } from "drizzle-orm";
 
 export interface ImportScriptResult {
   sceneCount: number;
@@ -65,4 +66,122 @@ export async function importScript(productionId: string, rawText: string): Promi
   );
 
   return { sceneCount: parsed.length, locationCount: locationIds.size };
+}
+
+export interface ImportRevisionResult {
+  changedCount: number;
+  newCount: number;
+  revisionColor: string;
+}
+
+function sameContent(a: ParsedElement[], b: ParsedElement[]): boolean {
+  return JSON.stringify(a) === JSON.stringify(b);
+}
+
+/**
+ * Re-imports the *full* current script as a revision: matched position by
+ * position against the production's existing scenes (in script order), not
+ * by re-deriving scene numbers — locked scene numbers must never shift once
+ * assigned, matching how a real revised script preserves them. A changed
+ * scene is updated in place (never re-created, so its id/number/history
+ * survive); any extra parsed scenes past the existing count are appended as
+ * new. Existing scenes with no counterpart in the new text are left alone —
+ * this never deletes a scene; marking one Omitted is a separate, deliberate
+ * action, not something a partial paste should do automatically.
+ *
+ * The production's revision color only advances if something actually
+ * changed, and only the scenes that changed (or are new) move to that
+ * color — everything else stays on whatever color it last changed on.
+ */
+export async function importRevision(productionId: string, rawText: string): Promise<ImportRevisionResult> {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+
+  const parsed = parseScreenplay(rawText);
+  if (parsed.length === 0) {
+    throw new Error("No scene headings found — lines should start with INT. or EXT., e.g. \"INT. TAXI - NIGHT\".");
+  }
+
+  return runAsUser(user.id, (db) =>
+    db.transaction(async (tx) => {
+      const [production] = await tx
+        .select({ scriptRevisionColor: schema.productions.scriptRevisionColor })
+        .from(schema.productions)
+        .where(eq(schema.productions.id, productionId))
+        .limit(1);
+      if (!production) throw new Error("Production not found.");
+
+      const existingScenes = await tx
+        .select({ id: schema.scenes.id })
+        .from(schema.scenes)
+        .where(eq(schema.scenes.productionId, productionId))
+        .orderBy(asc(schema.scenes.scheduleOrder));
+
+      const existingPages = await tx
+        .select({ sceneId: schema.scriptPages.sceneId, elements: schema.scriptPages.elements })
+        .from(schema.scriptPages)
+        .where(eq(schema.scriptPages.productionId, productionId));
+      const pagesBySceneId = new Map(existingPages.map((p) => [p.sceneId, p.elements as ParsedElement[]]));
+
+      const updates: { sceneId: string; scene: (typeof parsed)[number] }[] = [];
+      const newScenes: (typeof parsed)[number][] = [];
+
+      for (let i = 0; i < parsed.length; i++) {
+        const parsedScene = parsed[i]!;
+        const existing = existingScenes[i];
+        if (existing) {
+          const existingElements = pagesBySceneId.get(existing.id) ?? [];
+          if (!sameContent(existingElements, parsedScene.elements)) {
+            updates.push({ sceneId: existing.id, scene: parsedScene });
+          }
+        } else {
+          newScenes.push(parsedScene);
+        }
+      }
+
+      if (updates.length === 0 && newScenes.length === 0) {
+        return { changedCount: 0, newCount: 0, revisionColor: production.scriptRevisionColor };
+      }
+
+      const revisionColor = nextRevisionColor(production.scriptRevisionColor);
+
+      for (const { sceneId, scene } of updates) {
+        const locationId = await findOrCreateLocation(tx, productionId, scene.setName);
+        await tx
+          .update(schema.scenes)
+          .set({ intExt: scene.intExt, setName: scene.setName, dayNight: scene.dayNight, locationId, revisionColor })
+          .where(eq(schema.scenes.id, sceneId));
+
+        if (pagesBySceneId.has(sceneId)) {
+          await tx.update(schema.scriptPages).set({ elements: scene.elements }).where(eq(schema.scriptPages.sceneId, sceneId));
+        } else {
+          await tx.insert(schema.scriptPages).values({ id: crypto.randomUUID(), productionId, sceneId, elements: scene.elements });
+        }
+      }
+
+      if (newScenes.length > 0) {
+        const offset = existingScenes.length;
+        for (const [j, scene] of newScenes.entries()) {
+          const locationId = await findOrCreateLocation(tx, productionId, scene.setName);
+          const sceneId = crypto.randomUUID();
+          await tx.insert(schema.scenes).values({
+            id: sceneId,
+            productionId,
+            number: String(offset + j + 1),
+            intExt: scene.intExt,
+            setName: scene.setName,
+            dayNight: scene.dayNight,
+            locationId,
+            scheduleOrder: offset + j,
+            revisionColor,
+          });
+          await tx.insert(schema.scriptPages).values({ id: crypto.randomUUID(), productionId, sceneId, elements: scene.elements });
+        }
+      }
+
+      await tx.update(schema.productions).set({ scriptRevisionColor: revisionColor }).where(eq(schema.productions.id, productionId));
+
+      return { changedCount: updates.length, newCount: newScenes.length, revisionColor };
+    }),
+  );
 }

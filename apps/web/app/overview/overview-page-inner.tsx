@@ -67,7 +67,8 @@ export function OverviewPageInner({
   const scheduleTone = scenes.length === 0 ? "neutral" : unscheduledScenes === 0 ? "success" : "warning";
 
   const scenesMissingPages = scenes.filter((s) => !scriptPages.some((p) => p.sceneId === s.id)).length;
-  const scriptValue = scenes.length === 0 ? "Not imported" : scenesMissingPages === 0 ? "Fully imported" : `${scenesMissingPages} Missing pages`;
+  const scriptValue =
+    scenes.length === 0 ? "Not imported" : scenesMissingPages === 0 ? `${production.scriptRevisionColor} Revision` : `${scenesMissingPages} Missing pages`;
   const scriptTone = scenes.length === 0 ? "neutral" : scenesMissingPages === 0 ? "success" : "warning";
 
   function sceneLabel(id: string) {
