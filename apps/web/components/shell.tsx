@@ -35,6 +35,7 @@ import {
   MapPin,
   Plus,
   Settings,
+  Shirt,
   Sparkles,
   Users,
   Wallet,
@@ -50,6 +51,7 @@ const navItems: (SidebarItem & { href: string })[] = [
   { id: "cast", label: "Cast", href: "/cast", icon: <Users className="size-full" /> },
   { id: "crew", label: "Crew", href: "/crew", icon: <HardHat className="size-full" /> },
   { id: "contact-sheet", label: "Contact Sheet", href: "/contact-sheet", icon: <Contact className="size-full" /> },
+  { id: "wardrobe", label: "Wardrobe & Continuity", href: "/wardrobe", icon: <Shirt className="size-full" /> },
   { id: "locations", label: "Locations", href: "/locations", icon: <MapPin className="size-full" /> },
   { id: "set", label: "Set", href: "/shoot-day", icon: <Building2 className="size-full" /> },
   { id: "money", label: "Money", href: "/money", icon: <Wallet className="size-full" /> },
@@ -66,6 +68,7 @@ function routeForActiveId(pathname: string): string {
   if (pathname.startsWith("/cast")) return "cast";
   if (pathname.startsWith("/crew")) return "crew";
   if (pathname.startsWith("/contact-sheet")) return "contact-sheet";
+  if (pathname.startsWith("/wardrobe")) return "wardrobe";
   if (pathname.startsWith("/locations")) return "locations";
   if (pathname.startsWith("/money")) return "money";
   if (pathname.startsWith("/documents")) return "documents";
