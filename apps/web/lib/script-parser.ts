@@ -4,10 +4,17 @@
  * function, no DB/Next.js imports, so it's testable and reusable from a
  * Server Action without pulling either along.
  *
- * Known limitation: character-cue detection (an all-caps line under 40
- * chars) also matches all-caps action-line emphasis some writers use
- * ("THE DOOR SLAMS SHUT."), which then gets misread as a cue. Acceptable
- * for a first pass — standard screenplay formatting parses cleanly.
+ * Known limitations:
+ * - Character-cue detection for scripts written in a cased alphabet (an
+ *   all-caps line under 40 chars) also matches all-caps action-line
+ *   emphasis some writers use ("THE DOOR SLAMS SHUT."), which then gets
+ *   misread as a cue.
+ * - For a script in a caseless script (Devanagari, Arabic, ...) there's no
+ *   upper/lowercase signal to key off at all, so cue detection falls back
+ *   to shape instead: short, standalone, few words, no sentence-ending
+ *   punctuation. That can still misfire on a short action beat that
+ *   happens to fit the same shape (e.g. "फिर वो रुक गया").
+ * Acceptable for a first pass — standard screenplay formatting parses cleanly either way.
  */
 
 export type ScriptElementType = "slugline" | "action" | "character" | "parenthetical" | "dialogue";
@@ -31,12 +38,25 @@ function isParenthetical(line: string): boolean {
   return line.startsWith("(") && line.endsWith(")");
 }
 
+const TERMINAL_PUNCT_RE = /[.!?,;:।…]$/;
+
 function isCharacterCue(line: string): boolean {
   if (!line || line.length > 40) return false;
   if (HEADING_RE.test(line)) return false;
-  const letters = line.replace(/[^A-Za-z]/g, "");
+  const letters = line.replace(/[^\p{L}]/gu, "");
   if (!letters) return false;
-  return letters === letters.toUpperCase();
+  const hasAscii = /[A-Za-z]/.test(letters);
+  const hasNonAscii = /[^\x00-\x7F]/.test(letters);
+  // A line mixing an ASCII word with a non-Latin script is almost always action text with an
+  // English emphasis word ("CAMERA धीरे-धीरे आगे बढ़ता है."), not a character name — never a cue.
+  if (hasAscii && hasNonAscii) return false;
+  if (hasAscii) {
+    return letters === letters.toUpperCase();
+  }
+  // Caseless script (Devanagari, Arabic, ...) — no upper/lowercase distinction to key off, so fall
+  // back to the shape of a name cue instead: short, standalone, few words, no sentence-ending punctuation.
+  const words = line.split(/\s+/).filter(Boolean);
+  return line.length <= 20 && words.length <= 3 && !TERMINAL_PUNCT_RE.test(line);
 }
 
 function cleanCharacterName(cue: string): string {
