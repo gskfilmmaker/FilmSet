@@ -125,6 +125,35 @@ export async function updateCastMember(productionId: string, id: string, input: 
   );
 }
 
+export interface CastSizingInput {
+  height: string;
+  shirtSize: string;
+  pantSize: string;
+  shoeSize: string;
+  sizingNotes: string;
+}
+
+/**
+ * A focused sibling of updateCastMember for the Wardrobe department —
+ * lets them log sizing directly from /wardrobe without needing (or being
+ * able to touch) the character/actor/status/contract/contact fields that
+ * live on the full Cast edit form.
+ */
+export async function updateCastSizing(productionId: string, id: string, input: CastSizingInput) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const values = {
+    height: toNullable(input.height),
+    shirtSize: toNullable(input.shirtSize),
+    pantSize: toNullable(input.pantSize),
+    shoeSize: toNullable(input.shoeSize),
+    sizingNotes: toNullable(input.sizingNotes),
+  };
+  await runAsUser(user.id, (db) =>
+    db.update(schema.castMembers).set(values).where(and(eq(schema.castMembers.id, id), eq(schema.castMembers.productionId, productionId))),
+  );
+}
+
 export async function deleteCastMember(productionId: string, id: string) {
   const user = await requireUser();
   await requireProductionMember(productionId);
