@@ -88,3 +88,20 @@ export async function updateScene(productionId: string, sceneId: string, input: 
     }),
   );
 }
+
+/**
+ * Hard-deletes a scene and everything scoped to it (script pages, cast
+ * links, breakdown/issue links — all cascade via FK). This is for a scene
+ * that was never really shot (added by mistake, a duplicate from a bad
+ * import) — a scene that's part of the record but no longer being made
+ * should be marked "Omitted" via edit instead, which keeps every other
+ * scene's locked number stable; a hard delete does too, since numbers are
+ * never renumbered on delete.
+ */
+export async function deleteScene(productionId: string, sceneId: string) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  await runAsUser(user.id, (db) =>
+    db.delete(schema.scenes).where(and(eq(schema.scenes.id, sceneId), eq(schema.scenes.productionId, productionId))),
+  );
+}

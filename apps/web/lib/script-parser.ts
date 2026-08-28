@@ -39,6 +39,26 @@ function isCharacterCue(line: string): boolean {
   return letters === letters.toUpperCase();
 }
 
+function cleanCharacterName(cue: string): string {
+  const base = cue.replace(/\(.*?\)/g, "").trim();
+  // Title-case ASCII letter runs only — non-Latin scripts (e.g. Devanagari) have no case and pass through untouched.
+  return base.replace(/[A-Za-z]+/g, (word) => (word[0] ?? "").toUpperCase() + word.slice(1).toLowerCase());
+}
+
+/** Unique character names cued in this scene, in order of first appearance — stripped of (V.O.)/(CONT'D)-style annotations. */
+export function charactersInScene(scene: ParsedScene): string[] {
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const el of scene.elements) {
+    if (el.type !== "character") continue;
+    const name = cleanCharacterName(el.text);
+    if (!name || seen.has(name)) continue;
+    seen.add(name);
+    names.push(name);
+  }
+  return names;
+}
+
 export function parseScreenplay(raw: string): ParsedScene[] {
   const lines = raw.replace(/\r\n/g, "\n").split("\n");
   const scenes: ParsedScene[] = [];
