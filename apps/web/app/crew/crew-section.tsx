@@ -2,36 +2,118 @@
 
 import type { CrewMember } from "@filmset/core";
 import { Button, EmptyState, Input, ToastAction, useToast } from "@filmset/ui";
-import { HardHat, Pencil, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, HardHat, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { createCrewMember, deleteCrewMember, updateCrewMember, type CrewMemberInput } from "./actions";
 
-const emptyForm: CrewMemberInput = { name: "", department: "", role: "" };
+const emptyForm: CrewMemberInput = {
+  name: "",
+  department: "",
+  role: "",
+  email: "",
+  phone: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
+  agentName: "",
+  agentPhone: "",
+  agentEmail: "",
+};
+
+function hasContactDetails(value: CrewMemberInput): boolean {
+  return Boolean(
+    value.email || value.phone || value.emergencyContactName || value.emergencyContactPhone || value.agentName || value.agentPhone || value.agentEmail,
+  );
+}
 
 function CrewForm({ value, onChange }: { value: CrewMemberInput; onChange: (next: CrewMemberInput) => void }) {
+  const [expanded, setExpanded] = React.useState(() => hasContactDetails(value));
+
   return (
-    <div className="flex flex-1 flex-wrap items-end gap-[var(--fs-space-8)]">
-      <Input
-        label="Name"
-        value={value.name}
-        onChange={(e) => onChange({ ...value, name: e.target.value })}
-        containerClassName="min-w-[140px] flex-1"
-      />
-      <Input
-        label="Department"
-        placeholder="e.g. Camera"
-        value={value.department}
-        onChange={(e) => onChange({ ...value, department: e.target.value })}
-        containerClassName="min-w-[140px]"
-      />
-      <Input
-        label="Role"
-        placeholder="e.g. 1st AC"
-        value={value.role}
-        onChange={(e) => onChange({ ...value, role: e.target.value })}
-        containerClassName="min-w-[140px]"
-      />
+    <div className="flex flex-1 flex-col gap-[var(--fs-space-12)]">
+      <div className="flex flex-1 flex-wrap items-end gap-[var(--fs-space-8)]">
+        <Input
+          label="Name"
+          value={value.name}
+          onChange={(e) => onChange({ ...value, name: e.target.value })}
+          containerClassName="min-w-[140px] flex-1"
+        />
+        <Input
+          label="Department"
+          placeholder="e.g. Camera"
+          value={value.department}
+          onChange={(e) => onChange({ ...value, department: e.target.value })}
+          containerClassName="min-w-[140px]"
+        />
+        <Input
+          label="Role"
+          placeholder="e.g. 1st AC"
+          value={value.role}
+          onChange={(e) => onChange({ ...value, role: e.target.value })}
+          containerClassName="min-w-[140px]"
+        />
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-fit items-center gap-[4px] text-[12px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+      >
+        {expanded ? <ChevronDown className="size-[14px]" aria-hidden="true" /> : <ChevronRight className="size-[14px]" aria-hidden="true" />}
+        Contact & agent details
+      </button>
+
+      {expanded && (
+        <div className="flex flex-wrap items-end gap-[var(--fs-space-8)] rounded-md bg-[var(--color-background-surface)] p-[var(--fs-space-8)]">
+          <Input
+            label="Email"
+            type="email"
+            value={value.email}
+            onChange={(e) => onChange({ ...value, email: e.target.value })}
+            containerClassName="min-w-[160px] flex-1"
+          />
+          <Input
+            label="Phone"
+            type="tel"
+            value={value.phone}
+            onChange={(e) => onChange({ ...value, phone: e.target.value })}
+            containerClassName="min-w-[140px]"
+          />
+          <Input
+            label="Emergency contact"
+            value={value.emergencyContactName}
+            onChange={(e) => onChange({ ...value, emergencyContactName: e.target.value })}
+            containerClassName="min-w-[160px] flex-1"
+          />
+          <Input
+            label="Emergency phone"
+            type="tel"
+            value={value.emergencyContactPhone}
+            onChange={(e) => onChange({ ...value, emergencyContactPhone: e.target.value })}
+            containerClassName="min-w-[140px]"
+          />
+          <Input
+            label="Agent / rep"
+            value={value.agentName}
+            onChange={(e) => onChange({ ...value, agentName: e.target.value })}
+            containerClassName="min-w-[160px] flex-1"
+          />
+          <Input
+            label="Agent phone"
+            type="tel"
+            value={value.agentPhone}
+            onChange={(e) => onChange({ ...value, agentPhone: e.target.value })}
+            containerClassName="min-w-[140px]"
+          />
+          <Input
+            label="Agent email"
+            type="email"
+            value={value.agentEmail}
+            onChange={(e) => onChange({ ...value, agentEmail: e.target.value })}
+            containerClassName="min-w-[160px] flex-1"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -64,7 +146,18 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
 
   function startEdit(member: CrewMember) {
     setEditingId(member.id);
-    setEditForm({ name: member.name, department: member.department, role: member.role });
+    setEditForm({
+      name: member.name,
+      department: member.department,
+      role: member.role,
+      email: member.email ?? "",
+      phone: member.phone ?? "",
+      emergencyContactName: member.emergencyContactName ?? "",
+      emergencyContactPhone: member.emergencyContactPhone ?? "",
+      agentName: member.agentName ?? "",
+      agentPhone: member.agentPhone ?? "",
+      agentEmail: member.agentEmail ?? "",
+    });
   }
 
   async function onSaveEdit(e: React.FormEvent, id: string) {
@@ -83,7 +176,18 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
 
   async function onDelete(member: CrewMember) {
     setPendingId(member.id);
-    const restore: CrewMemberInput = { name: member.name, department: member.department, role: member.role };
+    const restore: CrewMemberInput = {
+      name: member.name,
+      department: member.department,
+      role: member.role,
+      email: member.email ?? "",
+      phone: member.phone ?? "",
+      emergencyContactName: member.emergencyContactName ?? "",
+      emergencyContactPhone: member.emergencyContactPhone ?? "",
+      agentName: member.agentName ?? "",
+      agentPhone: member.agentPhone ?? "",
+      agentEmail: member.agentEmail ?? "",
+    };
     try {
       await deleteCrewMember(productionId, member.id);
       router.refresh();
@@ -145,6 +249,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
                   <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">{member.name}</p>
                   <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
                     {member.department} — {member.role}
+                    {(member.phone || member.email) && ` · ${[member.phone, member.email].filter(Boolean).join(" · ")}`}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">

@@ -45,21 +45,43 @@ export type Production = z.infer<typeof productionSchema>;
 export const characterSchema = z.object({ id: z.string(), name: z.string() });
 export type Character = z.infer<typeof characterSchema>;
 
-export const castMemberSchema = z.object({
-  id: z.string(),
-  characterId: z.string(),
-  actorName: z.string(),
-  status: z.enum(["Confirmed", "Offer Out", "Unavailable"]),
-  contract: z.enum(["Signed", "Pending", "Missing"]),
+/**
+ * Contact & representation fields shared by Cast and Crew — the "who do I
+ * call" data a production office actually needs: a direct line, an
+ * emergency contact, and (for an actor's agent/manager or a HOD's rep) who
+ * to go through to reach them. All optional/nullable — most crew rows will
+ * never fill in the agent fields, and that's fine.
+ */
+export const contactInfoSchema = z.object({
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  emergencyContactName: z.string().nullable(),
+  emergencyContactPhone: z.string().nullable(),
+  agentName: z.string().nullable(),
+  agentPhone: z.string().nullable(),
+  agentEmail: z.string().nullable(),
 });
+export type ContactInfo = z.infer<typeof contactInfoSchema>;
+
+export const castMemberSchema = z
+  .object({
+    id: z.string(),
+    characterId: z.string(),
+    actorName: z.string(),
+    status: z.enum(["Confirmed", "Offer Out", "Unavailable"]),
+    contract: z.enum(["Signed", "Pending", "Missing"]),
+  })
+  .extend(contactInfoSchema.shape);
 export type CastMember = z.infer<typeof castMemberSchema>;
 
-export const crewMemberSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  department: z.string(),
-  role: z.string(),
-});
+export const crewMemberSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    department: z.string(),
+    role: z.string(),
+  })
+  .extend(contactInfoSchema.shape);
 export type CrewMember = z.infer<typeof crewMemberSchema>;
 
 // --- Places & things ---

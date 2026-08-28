@@ -50,32 +50,43 @@ export const characters: Character[] = [
   { id: "char_karim", name: "Karim" },
 ];
 
+/** No fixture cast/crew member has contact details filled in — the fields exist, the demo data just doesn't exercise them. */
+const noContactInfo = {
+  email: null,
+  phone: null,
+  emergencyContactName: null,
+  emergencyContactPhone: null,
+  agentName: null,
+  agentPhone: null,
+  agentEmail: null,
+} as const;
+
 export const castMembers: CastMember[] = [
-  { id: "cast_abraham", characterId: "char_abraham", actorName: "Rahul Verma", status: "Confirmed", contract: "Signed" },
-  { id: "cast_aisha", characterId: "char_aisha", actorName: "Priya Nair", status: "Confirmed", contract: "Signed" },
-  { id: "cast_rohan", characterId: "char_rohan", actorName: "Arjun Malhotra", status: "Confirmed", contract: "Pending" },
-  { id: "cast_meera", characterId: "char_meera", actorName: "Kavita Rao", status: "Confirmed", contract: "Signed" },
-  { id: "cast_vaid", characterId: "char_vaid", actorName: "Sameer Khan", status: "Confirmed", contract: "Signed" },
-  { id: "cast_farid", characterId: "char_farid", actorName: "Vikram Singh", status: "Unavailable", contract: "Missing" },
-  { id: "cast_nasreen", characterId: "char_nasreen", actorName: "Anjali Gupta", status: "Confirmed", contract: "Signed" },
-  { id: "cast_deepak", characterId: "char_deepak", actorName: "Tarun Shah", status: "Confirmed", contract: "Signed" },
-  { id: "cast_sunita", characterId: "char_sunita", actorName: "Divya Menon", status: "Confirmed", contract: "Signed" },
-  { id: "cast_karim", characterId: "char_karim", actorName: "Imran Qureshi", status: "Confirmed", contract: "Signed" },
+  { id: "cast_abraham", characterId: "char_abraham", actorName: "Rahul Verma", status: "Confirmed", contract: "Signed", ...noContactInfo },
+  { id: "cast_aisha", characterId: "char_aisha", actorName: "Priya Nair", status: "Confirmed", contract: "Signed", ...noContactInfo },
+  { id: "cast_rohan", characterId: "char_rohan", actorName: "Arjun Malhotra", status: "Confirmed", contract: "Pending", ...noContactInfo },
+  { id: "cast_meera", characterId: "char_meera", actorName: "Kavita Rao", status: "Confirmed", contract: "Signed", ...noContactInfo },
+  { id: "cast_vaid", characterId: "char_vaid", actorName: "Sameer Khan", status: "Confirmed", contract: "Signed", ...noContactInfo },
+  { id: "cast_farid", characterId: "char_farid", actorName: "Vikram Singh", status: "Unavailable", contract: "Missing", ...noContactInfo },
+  { id: "cast_nasreen", characterId: "char_nasreen", actorName: "Anjali Gupta", status: "Confirmed", contract: "Signed", ...noContactInfo },
+  { id: "cast_deepak", characterId: "char_deepak", actorName: "Tarun Shah", status: "Confirmed", contract: "Signed", ...noContactInfo },
+  { id: "cast_sunita", characterId: "char_sunita", actorName: "Divya Menon", status: "Confirmed", contract: "Signed", ...noContactInfo },
+  { id: "cast_karim", characterId: "char_karim", actorName: "Imran Qureshi", status: "Confirmed", contract: "Signed", ...noContactInfo },
 ];
 
 export const crewMembers: CrewMember[] = [
-  { id: "crew_1ad", name: "Rakesh Mehta", department: "Production", role: "1st AD" },
-  { id: "crew_2ad", name: "Ayesha Sheikh", department: "Production", role: "2nd AD" },
-  { id: "crew_dp", name: "Vivek Chandran", department: "Camera", role: "Director of Photography" },
-  { id: "crew_gaffer", name: "Suresh Iyer", department: "Electric", role: "Gaffer" },
-  { id: "crew_sound", name: "Neha Kulkarni", department: "Sound", role: "Sound Mixer" },
-  { id: "crew_script", name: "Pooja Bhatia", department: "Production", role: "Script Supervisor" },
-  { id: "crew_pd", name: "Aditya Rao", department: "Art", role: "Production Designer" },
-  { id: "crew_costume", name: "Simran Kaur", department: "Wardrobe", role: "Costume Designer" },
-  { id: "crew_makeup", name: "Farah Ali", department: "Hair & Makeup", role: "Makeup Head" },
-  { id: "crew_lp", name: "Manoj Tiwari", department: "Production", role: "Line Producer" },
-  { id: "crew_locations", name: "Rajesh Pillai", department: "Locations", role: "Location Manager" },
-  { id: "crew_stunts", name: "Vikas Oberoi", department: "Stunts", role: "Stunt Coordinator" },
+  { id: "crew_1ad", name: "Rakesh Mehta", department: "Production", role: "1st AD", ...noContactInfo },
+  { id: "crew_2ad", name: "Ayesha Sheikh", department: "Production", role: "2nd AD", ...noContactInfo },
+  { id: "crew_dp", name: "Vivek Chandran", department: "Camera", role: "Director of Photography", ...noContactInfo },
+  { id: "crew_gaffer", name: "Suresh Iyer", department: "Electric", role: "Gaffer", ...noContactInfo },
+  { id: "crew_sound", name: "Neha Kulkarni", department: "Sound", role: "Sound Mixer", ...noContactInfo },
+  { id: "crew_script", name: "Pooja Bhatia", department: "Production", role: "Script Supervisor", ...noContactInfo },
+  { id: "crew_pd", name: "Aditya Rao", department: "Art", role: "Production Designer", ...noContactInfo },
+  { id: "crew_costume", name: "Simran Kaur", department: "Wardrobe", role: "Costume Designer", ...noContactInfo },
+  { id: "crew_makeup", name: "Farah Ali", department: "Hair & Makeup", role: "Makeup Head", ...noContactInfo },
+  { id: "crew_lp", name: "Manoj Tiwari", department: "Production", role: "Line Producer", ...noContactInfo },
+  { id: "crew_locations", name: "Rajesh Pillai", department: "Locations", role: "Location Manager", ...noContactInfo },
+  { id: "crew_stunts", name: "Vikas Oberoi", department: "Stunts", role: "Stunt Coordinator", ...noContactInfo },
 ];
 
 // --- Places & things ---

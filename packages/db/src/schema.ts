@@ -96,6 +96,17 @@ export const characters = pgTable(
   (t) => [index("characters_production_idx").on(t.productionId)],
 );
 
+/** Contact & representation columns shared by cast_members and crew_members — see ContactInfo in packages/core. */
+const contactColumns = {
+  email: text("email"),
+  phone: text("phone"),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  agentName: text("agent_name"),
+  agentPhone: text("agent_phone"),
+  agentEmail: text("agent_email"),
+};
+
 export const castMembers = pgTable(
   "cast_members",
   {
@@ -109,6 +120,7 @@ export const castMembers = pgTable(
     actorName: text("actor_name").notNull(),
     status: text("status").notNull(),
     contract: text("contract").notNull(),
+    ...contactColumns,
   },
   (t) => [index("cast_members_production_idx").on(t.productionId)],
 );
@@ -123,6 +135,7 @@ export const crewMembers = pgTable(
     name: text("name").notNull(),
     department: text("department").notNull(),
     role: text("role").notNull(),
+    ...contactColumns,
   },
   (t) => [index("crew_members_production_idx").on(t.productionId)],
 );
