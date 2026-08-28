@@ -93,6 +93,23 @@ export async function updateScene(productionId: string, sceneId: string, input: 
 }
 
 /**
+ * A focused sibling of updateScene for the Wardrobe department — lets them
+ * log continuity directly from /wardrobe without needing (or being able to
+ * touch) the scene number/location/D-N/status/cast fields that live on the
+ * full Script edit form.
+ */
+export async function updateSceneContinuity(productionId: string, sceneId: string, continuityNotes: string) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  await runAsUser(user.id, (db) =>
+    db
+      .update(schema.scenes)
+      .set({ continuityNotes: continuityNotes.trim() })
+      .where(and(eq(schema.scenes.id, sceneId), eq(schema.scenes.productionId, productionId))),
+  );
+}
+
+/**
  * Hard-deletes a scene and everything scoped to it (script pages, cast
  * links, breakdown/issue links — all cascade via FK). This is for a scene
  * that was never really shot (added by mistake, a duplicate from a bad

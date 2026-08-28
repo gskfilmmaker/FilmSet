@@ -10,6 +10,7 @@ export default async function WardrobePage() {
   return (
     <Shell production={snapshot.production} scenes={snapshot.scenes} userEmail={user.email ?? undefined}>
       <WardrobeView
+        productionId={snapshot.production.id}
         productionName={snapshot.production.name}
         castMembers={snapshot.castMembers}
         characters={snapshot.characters}
