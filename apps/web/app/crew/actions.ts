@@ -12,6 +12,7 @@ export interface CrewMemberInput {
   role: string;
   isHod: boolean;
   contract: CrewMember["contract"];
+  walkieChannel: string;
   email: string;
   phone: string;
   emergencyContactName: string;
@@ -40,6 +41,7 @@ function validate(input: CrewMemberInput) {
     role,
     isHod: input.isHod,
     contract: input.contract,
+    walkieChannel: toNullable(input.walkieChannel),
     email: toNullable(input.email),
     phone: toNullable(input.phone),
     emergencyContactName: toNullable(input.emergencyContactName),

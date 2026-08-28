@@ -130,6 +130,7 @@ export const castMembers = pgTable(
     actorName: text("actor_name").notNull(),
     status: text("status").notNull(),
     contract: text("contract").notNull(),
+    photoPath: text("photo_path"),
     ...contactColumns,
     ...sizingColumns,
   },
@@ -148,6 +149,7 @@ export const crewMembers = pgTable(
     role: text("role").notNull(),
     isHod: boolean("is_hod").notNull().default(false),
     contract: text("contract").notNull().default("Pending"),
+    walkieChannel: text("walkie_channel"),
     ...contactColumns,
   },
   (t) => [index("crew_members_production_idx").on(t.productionId)],
@@ -164,6 +166,7 @@ export const locations = pgTable(
     address: text("address").notNull(),
     permitStatus: text("permit_status").notNull(),
     permitExpiry: text("permit_expiry"),
+    photoPath: text("photo_path"),
   },
   (t) => [index("locations_production_idx").on(t.productionId)],
 );
@@ -424,6 +427,13 @@ export const shootDayCastCallTimes = pgTable(
       .notNull()
       .references(() => castMembers.id, { onDelete: "cascade" }),
     callTime: text("call_time").notNull(),
+    status: text("status"),
+    onCall: boolean("on_call").notNull().default(false),
+    pickupTime: text("pickup_time"),
+    makeupCallTime: text("makeup_call_time"),
+    hairCallTime: text("hair_call_time"),
+    wardrobeCallTime: text("wardrobe_call_time"),
+    rehearsalCallTime: text("rehearsal_call_time"),
   },
   (t) => [primaryKey({ columns: [t.shootDayId, t.castMemberId] })],
 );
@@ -454,6 +464,73 @@ export const callSheetTimelineEvents = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
   },
   (t) => [index("call_sheet_timeline_shoot_day_idx").on(t.shootDayId)],
+);
+
+/** Background/extras headcount call for a shoot day — see BackgroundExtra in packages/core. */
+export const backgroundExtras = pgTable(
+  "background_extras",
+  {
+    id: text("id").primaryKey(),
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    description: text("description").notNull(),
+    headcount: integer("headcount").notNull().default(0),
+    callTime: text("call_time"),
+    instructions: text("instructions"),
+  },
+  (t) => [index("background_extras_shoot_day_idx").on(t.shootDayId)],
+);
+
+/** A named stand-in for a shoot day — see StandIn in packages/core. */
+export const standIns = pgTable(
+  "stand_ins",
+  {
+    id: text("id").primaryKey(),
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    standsInForCastMemberId: text("stands_in_for_cast_member_id").references(() => castMembers.id, { onDelete: "set null" }),
+    phone: text("phone"),
+    callTime: text("call_time"),
+  },
+  (t) => [index("stand_ins_shoot_day_idx").on(t.shootDayId)],
+);
+
+/** A vehicle needed on a shoot day — trucks/trailers/picture cars — see ProductionVehicle in packages/core. */
+export const productionVehicles = pgTable(
+  "production_vehicles",
+  {
+    id: text("id").primaryKey(),
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    type: text("type").notNull(),
+    description: text("description").notNull(),
+    driverName: text("driver_name"),
+    driverPhone: text("driver_phone"),
+    notes: text("notes"),
+  },
+  (t) => [index("production_vehicles_shoot_day_idx").on(t.shootDayId)],
+);
+
+/** A shuttle/van run for a shoot day — see TransportRun in packages/core. */
+export const transportRuns = pgTable(
+  "transport_runs",
+  {
+    id: text("id").primaryKey(),
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    driverName: text("driver_name"),
+    pickupTime: text("pickup_time"),
+    pickupLocation: text("pickup_location"),
+    dropoffLocation: text("dropoff_location"),
+    passengers: text("passengers"),
+    notes: text("notes"),
+  },
+  (t) => [index("transport_runs_shoot_day_idx").on(t.shootDayId)],
 );
 
 /**

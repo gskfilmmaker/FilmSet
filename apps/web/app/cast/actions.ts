@@ -2,6 +2,7 @@
 
 import { requireProductionMember } from "@/lib/authz";
 import { findOrCreateCharacter } from "@/lib/find-or-create";
+import { deleteEntityPhoto, uploadEntityPhoto } from "@/lib/photo-storage";
 import type { CastMember } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
@@ -130,4 +131,26 @@ export async function deleteCastMember(productionId: string, id: string) {
   await runAsUser(user.id, (db) =>
     db.delete(schema.castMembers).where(and(eq(schema.castMembers.id, id), eq(schema.castMembers.productionId, productionId))),
   );
+}
+
+export async function uploadCastPhoto(productionId: string, id: string, formData: FormData) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) throw new Error("No photo selected.");
+
+  const [existing] = await runAsUser(user.id, (db) =>
+    db
+      .select({ photoPath: schema.castMembers.photoPath })
+      .from(schema.castMembers)
+      .where(and(eq(schema.castMembers.id, id), eq(schema.castMembers.productionId, productionId)))
+      .limit(1),
+  );
+  if (!existing) throw new Error("Cast member not found in this production.");
+
+  const path = await uploadEntityPhoto(productionId, "cast", id, file);
+  await runAsUser(user.id, (db) =>
+    db.update(schema.castMembers).set({ photoPath: path }).where(and(eq(schema.castMembers.id, id), eq(schema.castMembers.productionId, productionId))),
+  );
+  if (existing.photoPath) await deleteEntityPhoto(existing.photoPath);
 }

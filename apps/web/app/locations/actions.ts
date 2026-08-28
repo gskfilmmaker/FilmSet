@@ -1,6 +1,9 @@
 "use server";
 
 import { requireProductionMember } from "@/lib/authz";
+import { suggestLocationMatch, type SuggestedRecommendation } from "@/lib/ai";
+import { deleteEntityPhoto, uploadEntityPhoto } from "@/lib/photo-storage";
+import { getProductionSnapshot } from "@/lib/queries";
 import type { Location } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
@@ -69,4 +72,77 @@ export async function deleteLocation(productionId: string, id: string) {
 
     await db.delete(schema.locations).where(and(eq(schema.locations.id, id), eq(schema.locations.productionId, productionId)));
   });
+}
+
+export async function uploadLocationPhoto(productionId: string, id: string, formData: FormData) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) throw new Error("No photo selected.");
+
+  const [existing] = await runAsUser(user.id, (db) =>
+    db
+      .select({ photoPath: schema.locations.photoPath })
+      .from(schema.locations)
+      .where(and(eq(schema.locations.id, id), eq(schema.locations.productionId, productionId)))
+      .limit(1),
+  );
+  if (!existing) throw new Error("Location not found in this production.");
+
+  const path = await uploadEntityPhoto(productionId, "location", id, file);
+  await runAsUser(user.id, (db) =>
+    db.update(schema.locations).set({ photoPath: path }).where(and(eq(schema.locations.id, id), eq(schema.locations.productionId, productionId))),
+  );
+  if (existing.photoPath) await deleteEntityPhoto(existing.photoPath);
+  return path;
+}
+
+const IMAGE_MEDIA_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
+
+/**
+ * Suggest step only — reads the photo + the production's scenes/locations
+ * and proposes which scene(s) this photographed location could serve,
+ * logged to ai_suggestion_log exactly like app/ai/actions.ts's
+ * generateSuggestion. Nothing is written to ai_recommendations (visible
+ * anywhere) until the user calls approveSuggestion from app/ai/actions.ts —
+ * same Suggest→Explain→Preview→Approve→Commit pipeline, reused rather than
+ * duplicated.
+ */
+export async function suggestLocationPhotoMatch(
+  productionId: string,
+  locationId: string,
+  formData: FormData,
+): Promise<{ logId: string; suggestion: SuggestedRecommendation }> {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) throw new Error("No photo selected.");
+  if (!IMAGE_MEDIA_TYPES.has(file.type)) throw new Error("Please choose a JPEG, PNG, WebP, or GIF image.");
+
+  const [location] = await runAsUser(user.id, (db) =>
+    db.select({ name: schema.locations.name }).from(schema.locations).where(and(eq(schema.locations.id, locationId), eq(schema.locations.productionId, productionId))).limit(1),
+  );
+  if (!location) throw new Error("Location not found in this production.");
+
+  const snapshot = await getProductionSnapshot(user.id, productionId);
+  const imageBase64 = Buffer.from(await file.arrayBuffer()).toString("base64");
+  const mediaType = file.type as "image/jpeg" | "image/png" | "image/webp" | "image/gif";
+
+  const suggestion = await suggestLocationMatch(snapshot, location.name, imageBase64, mediaType);
+
+  const logId = crypto.randomUUID();
+  await runAsUser(user.id, (db) =>
+    db.insert(schema.aiSuggestionLog).values({
+      id: logId,
+      productionId,
+      requestedBy: user.id,
+      kind: "recommendation",
+      input: { snapshotSummary: `location photo match for "${location.name}"` },
+      suggestion,
+      explanation: suggestion.explanation,
+      status: "suggested",
+    }),
+  );
+
+  return { logId, suggestion };
 }

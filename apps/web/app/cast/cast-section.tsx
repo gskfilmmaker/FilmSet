@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoAvatar } from "@/components/photo-avatar";
 import type { CastMember, Character } from "@filmset/core";
 import {
   Button,
@@ -18,7 +19,7 @@ import {
 import { ChevronDown, ChevronRight, Pencil, Trash2, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { createCastMember, deleteCastMember, updateCastMember, type CastMemberInput } from "./actions";
+import { createCastMember, deleteCastMember, updateCastMember, uploadCastPhoto, type CastMemberInput } from "./actions";
 
 const STATUSES: CastMember["status"][] = ["Confirmed", "Offer Out", "Unavailable"];
 const CONTRACTS: CastMember["contract"][] = ["Signed", "Pending", "Missing"];
@@ -230,10 +231,12 @@ export function CastSection({
   productionId,
   castMembers,
   characters,
+  photoUrls,
 }: {
   productionId: string;
   castMembers: CastMember[];
   characters: Character[];
+  photoUrls: Record<string, string>;
 }) {
   const router = useRouter();
   const { toast } = useToast();
@@ -378,19 +381,31 @@ export function CastSection({
               </li>
             ) : (
               <li key={member.id} className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
-                    {characterName(member.characterId)}
-                  </p>
-                  <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
-                    {member.actorName || <span className="italic">Not yet cast</span>}
-                    {(member.phone || member.email) && ` · ${[member.phone, member.email].filter(Boolean).join(" · ")}`}
-                  </p>
-                  {member.agentName && (
-                    <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
-                      Agent: {[member.agentName, member.agentPhone].filter(Boolean).join(", ")}
+                <div className="flex min-w-0 items-center gap-[var(--fs-space-12)]">
+                  <PhotoAvatar
+                    photoUrl={photoUrls[member.id] ?? null}
+                    fallbackLabel={member.actorName || characterName(member.characterId)}
+                    alt={member.actorName || characterName(member.characterId)}
+                    onUpload={(file) => {
+                      const formData = new FormData();
+                      formData.set("photo", file);
+                      return uploadCastPhoto(productionId, member.id, formData);
+                    }}
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                      {characterName(member.characterId)}
                     </p>
-                  )}
+                    <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
+                      {member.actorName || <span className="italic">Not yet cast</span>}
+                      {(member.phone || member.email) && ` · ${[member.phone, member.email].filter(Boolean).join(" · ")}`}
+                    </p>
+                    {member.agentName && (
+                      <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
+                        Agent: {[member.agentName, member.agentPhone].filter(Boolean).join(", ")}
+                      </p>
+                    )}
+                  </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
                   <StatusBadge tone={statusTone[member.status]}>{member.status}</StatusBadge>

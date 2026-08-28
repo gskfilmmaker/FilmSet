@@ -82,6 +82,8 @@ export const castMemberSchema = z
     actorName: z.string(),
     status: z.enum(["Confirmed", "Offer Out", "Unavailable"]),
     contract: z.enum(["Signed", "Pending", "Missing"]),
+    /** Storage object path (production-photos bucket) — resolved to a signed URL server-side, never a public URL. */
+    photoPath: z.string().nullable(),
   })
   .extend(contactInfoSchema.shape)
   .extend(sizingInfoSchema.shape);
@@ -97,9 +99,47 @@ export const crewMemberSchema = z
     isHod: z.boolean(),
     /** Deal memo / contract status — same tracking Cast already has, extended to Crew. */
     contract: z.enum(["Signed", "Pending", "Missing"]),
+    /** Radio/walkie channel assignment — printed on the call sheet's Radio Plan so departments know which channel to monitor. */
+    walkieChannel: z.string().nullable(),
   })
   .extend(contactInfoSchema.shape);
 export type CrewMember = z.infer<typeof crewMemberSchema>;
+
+/**
+ * Standard film-production department names, offered as a picklist on the
+ * Crew form so "Camera" and "camera" don't silently become two different
+ * departments. Not enforced at the schema/DB level — crew_members.department
+ * stays free text so a production can still name something unusual — this
+ * is a UI convenience plus the reference list the "needs a department head"
+ * gap-check (apps/web/app/crew/crew-section.tsx) is written against.
+ */
+export const STANDARD_DEPARTMENTS = [
+  "Production",
+  "Camera",
+  "Grip & Electric",
+  "Sound",
+  "Art",
+  "Props",
+  "Wardrobe",
+  "Hair & Makeup",
+  "Locations",
+  "Stunts",
+  "Transportation",
+  "Logistics",
+  "Catering",
+  "Post-Production",
+  "Visual Effects",
+  "Special Effects",
+  "Set Decorating",
+  "Casting",
+  "Construction",
+  "Medic",
+  "Accounting",
+  "Video/Playback",
+  "Animals",
+  "Publicity",
+  "Additional Labor",
+] as const;
 
 // --- Places & things ---
 
@@ -109,6 +149,8 @@ export const locationSchema = z.object({
   address: z.string(),
   permitStatus: z.enum(["Confirmed", "Pending", "Missing"]),
   permitExpiry: z.string().nullable(),
+  /** Storage object path (production-photos bucket) — resolved to a signed URL server-side, never a public URL. */
+  photoPath: z.string().nullable(),
 });
 export type Location = z.infer<typeof locationSchema>;
 
@@ -232,6 +274,32 @@ export type CallSheetTimelineEvent = z.infer<typeof callSheetTimelineEventSchema
 export const personCallTimeSchema = z.object({ personId: z.string(), callTime: z.string() });
 export type PersonCallTime = z.infer<typeof personCallTimeSchema>;
 
+/** Standard AD status codes for a cast member on a given shoot day. */
+export const castCallStatusSchema = z.enum(["Work", "Hold", "Travel", "Start", "Work/Finish", "Finish"]);
+export type CastCallStatus = z.infer<typeof castCallStatusSchema>;
+
+/**
+ * A per-cast-member call entry for one shoot day — richer than the plain
+ * crew PersonCallTime override, matching what real call sheets show per
+ * actor: a status code, department sub-calls (an actor's Makeup call is
+ * earlier than their On-Set call), and "On Call" in place of a fixed time.
+ * A cast member with no entry here uses the day's general crew call.
+ */
+export const castCallEntrySchema = z.object({
+  personId: z.string(),
+  /** On-set call time. Ignored for display when onCall is true. */
+  callTime: z.string(),
+  status: castCallStatusSchema.nullable(),
+  /** "On Call" (O/C) — the actor is on standby with no fixed time, rather than a literal clock time. */
+  onCall: z.boolean(),
+  pickupTime: z.string().nullable(),
+  makeupCallTime: z.string().nullable(),
+  hairCallTime: z.string().nullable(),
+  wardrobeCallTime: z.string().nullable(),
+  rehearsalCallTime: z.string().nullable(),
+});
+export type CastCallEntry = z.infer<typeof castCallEntrySchema>;
+
 export const callSheetSchema = z.object({
   shootDayId: z.string(),
   weather: z.string(),
@@ -243,11 +311,61 @@ export const callSheetSchema = z.object({
   timeline: z.array(callSheetTimelineEventSchema),
   notes: z.string(),
   /** Keyed by CastMember.id — a cast member with no entry here uses the day's general crew call. */
-  castCallTimes: z.array(personCallTimeSchema),
+  castCallTimes: z.array(castCallEntrySchema),
   /** Keyed by CrewMember.id — a crew member with no entry here uses the day's general crew call. */
   crewCallTimes: z.array(personCallTimeSchema),
 });
 export type CallSheet = z.infer<typeof callSheetSchema>;
+
+/** Background/extras call for one shoot day — a headcount, not individually tracked cast members. */
+export const backgroundExtraSchema = z.object({
+  id: z.string(),
+  shootDayId: z.string(),
+  description: z.string(),
+  headcount: z.number(),
+  callTime: z.string().nullable(),
+  instructions: z.string().nullable(),
+});
+export type BackgroundExtra = z.infer<typeof backgroundExtraSchema>;
+
+/** A stand-in for one shoot day — a named person, distinct from both cast and crew. */
+export const standInSchema = z.object({
+  id: z.string(),
+  shootDayId: z.string(),
+  name: z.string(),
+  standsInForCastMemberId: z.string().nullable(),
+  phone: z.string().nullable(),
+  callTime: z.string().nullable(),
+});
+export type StandIn = z.infer<typeof standInSchema>;
+
+export const vehicleTypeSchema = z.enum(["Truck", "Trailer", "Picture Car", "Action Vehicle", "Camera Vehicle", "Other"]);
+export type VehicleType = z.infer<typeof vehicleTypeSchema>;
+
+/** A vehicle needed on one shoot day — production trucks/trailers as well as picture/action cars. */
+export const productionVehicleSchema = z.object({
+  id: z.string(),
+  shootDayId: z.string(),
+  type: vehicleTypeSchema,
+  description: z.string(),
+  driverName: z.string().nullable(),
+  driverPhone: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+export type ProductionVehicle = z.infer<typeof productionVehicleSchema>;
+
+/** A shuttle/van run for one shoot day — driver, pickup, and where it's headed. */
+export const transportRunSchema = z.object({
+  id: z.string(),
+  shootDayId: z.string(),
+  driverName: z.string().nullable(),
+  pickupTime: z.string().nullable(),
+  pickupLocation: z.string().nullable(),
+  dropoffLocation: z.string().nullable(),
+  passengers: z.string().nullable(),
+  notes: z.string().nullable(),
+});
+export type TransportRun = z.infer<typeof transportRunSchema>;
 
 // --- AI ---
 

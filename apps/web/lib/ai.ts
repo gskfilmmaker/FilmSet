@@ -128,6 +128,60 @@ export async function suggestRecommendation(snapshot: ProductionSnapshot): Promi
   return toolUse.input as SuggestedRecommendation;
 }
 
+/**
+ * Suggest step for the location-photo-match feature (apps/web/app/locations/actions.ts's
+ * suggestLocationPhotoMatch): reads an uploaded photo plus the production's scenes and
+ * named locations, and proposes which scene(s) the photographed place could serve as the
+ * setting for. Returns the same SuggestedRecommendation shape as suggestRecommendation so
+ * it flows through the identical Suggest→Explain→Preview→Approve→Commit pipeline — this is
+ * still only a Suggest step, nothing is written to production data here.
+ */
+export async function suggestLocationMatch(
+  snapshot: ProductionSnapshot,
+  locationName: string,
+  imageBase64: string,
+  mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+): Promise<SuggestedRecommendation> {
+  const sceneLines = snapshot.scenes.map(
+    (s) => `- Scene ${s.number} (id: ${s.id}): ${s.intExt}. ${s.setName} — ${s.dayNight}. ${s.synopsis || "(no synopsis)"}`,
+  );
+  const locationLines = snapshot.locations.map((l) => `- ${l.name}${l.name === locationName ? " ← this is the location being photographed" : ""}`);
+
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 1024,
+    system:
+      "You are FilmSet AI, a production-management assistant for film productions. You are shown a photo of a real-world " +
+      "location or set, plus the production's existing scene list and named locations. Suggest which scene(s) this photo's " +
+      "location could plausibly serve as the setting for, based only on what's visibly in the photo (setting, era, indoor/" +
+      "outdoor, day/night lighting, urban/rural) compared with each scene's slugline and synopsis. If nothing matches " +
+      "well, say so plainly instead of forcing a match. Never invent details not visible in the photo or not present in " +
+      "the scene data.",
+    messages: [
+      {
+        role: "user",
+        content: [
+          { type: "image", source: { type: "base64", media_type: mediaType, data: imageBase64 } },
+          {
+            type: "text",
+            text:
+              `This photo is being uploaded for the location "${locationName}".\n\n` +
+              `Existing scenes:\n${sceneLines.join("\n")}\n\n` +
+              `Existing named locations:\n${locationLines.join("\n")}\n\n` +
+              "Suggest which scene(s) this photographed location best matches, or flag if it doesn't clearly match any current scene.",
+          },
+        ],
+      },
+    ],
+    tools: [recommendationTool],
+    tool_choice: { type: "tool", name: "propose_recommendation" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return a location match suggestion.");
+  return toolUse.input as SuggestedRecommendation;
+}
+
 export async function answerQuestion(snapshot: ProductionSnapshot, question: string): Promise<string> {
   const message = await getClient().messages.create({
     model: MODEL,
