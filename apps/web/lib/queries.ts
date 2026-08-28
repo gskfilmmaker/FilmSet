@@ -3,6 +3,7 @@ import type {
   Activity,
   AIRecommendation,
   Approval,
+  BackgroundExtra,
   BreakdownElement,
   BudgetLine,
   CallSheet,
@@ -14,10 +15,13 @@ import type {
   Issue,
   Location,
   Production,
+  ProductionVehicle,
   Prop,
   Scene,
   ScriptPage,
   ShootDay,
+  StandIn,
+  TransportRun,
 } from "@filmset/core";
 import type { ProductionRole } from "@filmset/auth";
 import { runAsUser, schema } from "@filmset/db/server";
@@ -55,6 +59,10 @@ export interface ProductionSnapshot {
   budgetLines: BudgetLine[];
   activities: Activity[];
   callSheets: CallSheet[];
+  backgroundExtras: BackgroundExtra[];
+  standIns: StandIn[];
+  vehicles: ProductionVehicle[];
+  transportRuns: TransportRun[];
   aiRecommendations: AIRecommendation[];
 }
 
@@ -92,6 +100,10 @@ export async function getProductionSnapshot(userId: string, productionId: string
     callSheetEventRows,
     castCallTimeRows,
     crewCallTimeRows,
+    backgroundExtraRows,
+    standInRows,
+    vehicleRows,
+    transportRunRows,
     aiRecommendationRows,
   ] = await runAsUser(userId, (db) =>
     Promise.all([
@@ -156,6 +168,13 @@ export async function getProductionSnapshot(userId: string, productionId: string
           shootDayId: schema.shootDayCastCallTimes.shootDayId,
           castMemberId: schema.shootDayCastCallTimes.castMemberId,
           callTime: schema.shootDayCastCallTimes.callTime,
+          status: schema.shootDayCastCallTimes.status,
+          onCall: schema.shootDayCastCallTimes.onCall,
+          pickupTime: schema.shootDayCastCallTimes.pickupTime,
+          makeupCallTime: schema.shootDayCastCallTimes.makeupCallTime,
+          hairCallTime: schema.shootDayCastCallTimes.hairCallTime,
+          wardrobeCallTime: schema.shootDayCastCallTimes.wardrobeCallTime,
+          rehearsalCallTime: schema.shootDayCastCallTimes.rehearsalCallTime,
         })
         .from(schema.shootDayCastCallTimes)
         .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.shootDayCastCallTimes.shootDayId), eq(schema.shootDays.productionId, productionId))),
@@ -167,6 +186,53 @@ export async function getProductionSnapshot(userId: string, productionId: string
         })
         .from(schema.shootDayCrewCallTimes)
         .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.shootDayCrewCallTimes.shootDayId), eq(schema.shootDays.productionId, productionId))),
+      db
+        .select({
+          id: schema.backgroundExtras.id,
+          shootDayId: schema.backgroundExtras.shootDayId,
+          description: schema.backgroundExtras.description,
+          headcount: schema.backgroundExtras.headcount,
+          callTime: schema.backgroundExtras.callTime,
+          instructions: schema.backgroundExtras.instructions,
+        })
+        .from(schema.backgroundExtras)
+        .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.backgroundExtras.shootDayId), eq(schema.shootDays.productionId, productionId))),
+      db
+        .select({
+          id: schema.standIns.id,
+          shootDayId: schema.standIns.shootDayId,
+          name: schema.standIns.name,
+          standsInForCastMemberId: schema.standIns.standsInForCastMemberId,
+          phone: schema.standIns.phone,
+          callTime: schema.standIns.callTime,
+        })
+        .from(schema.standIns)
+        .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.standIns.shootDayId), eq(schema.shootDays.productionId, productionId))),
+      db
+        .select({
+          id: schema.productionVehicles.id,
+          shootDayId: schema.productionVehicles.shootDayId,
+          type: schema.productionVehicles.type,
+          description: schema.productionVehicles.description,
+          driverName: schema.productionVehicles.driverName,
+          driverPhone: schema.productionVehicles.driverPhone,
+          notes: schema.productionVehicles.notes,
+        })
+        .from(schema.productionVehicles)
+        .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.productionVehicles.shootDayId), eq(schema.shootDays.productionId, productionId))),
+      db
+        .select({
+          id: schema.transportRuns.id,
+          shootDayId: schema.transportRuns.shootDayId,
+          driverName: schema.transportRuns.driverName,
+          pickupTime: schema.transportRuns.pickupTime,
+          pickupLocation: schema.transportRuns.pickupLocation,
+          dropoffLocation: schema.transportRuns.dropoffLocation,
+          passengers: schema.transportRuns.passengers,
+          notes: schema.transportRuns.notes,
+        })
+        .from(schema.transportRuns)
+        .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.transportRuns.shootDayId), eq(schema.shootDays.productionId, productionId))),
       db
         .select()
         .from(schema.aiRecommendations)
@@ -213,12 +279,23 @@ export async function getProductionSnapshot(userId: string, productionId: string
     eventsByShootDay.set(event.shootDayId, list);
   }
 
-  const castCallTimesByShootDay = new Map<string, { personId: string; callTime: string }[]>();
+  const castCallTimesByShootDay = new Map<string, CallSheet["castCallTimes"]>();
   for (const row of castCallTimeRows) {
     const list = castCallTimesByShootDay.get(row.shootDayId) ?? [];
-    list.push({ personId: row.castMemberId, callTime: row.callTime });
+    list.push({
+      personId: row.castMemberId,
+      callTime: row.callTime,
+      status: row.status as CallSheet["castCallTimes"][number]["status"],
+      onCall: row.onCall,
+      pickupTime: row.pickupTime,
+      makeupCallTime: row.makeupCallTime,
+      hairCallTime: row.hairCallTime,
+      wardrobeCallTime: row.wardrobeCallTime,
+      rehearsalCallTime: row.rehearsalCallTime,
+    });
     castCallTimesByShootDay.set(row.shootDayId, list);
   }
+
 
   const crewCallTimesByShootDay = new Map<string, { personId: string; callTime: string }[]>();
   for (const row of crewCallTimeRows) {
@@ -263,6 +340,7 @@ export async function getProductionSnapshot(userId: string, productionId: string
       role: c.role,
       isHod: c.isHod,
       contract: c.contract as CrewMember["contract"],
+      walkieChannel: c.walkieChannel,
       email: c.email,
       phone: c.phone,
       emergencyContactName: c.emergencyContactName,
@@ -347,6 +425,10 @@ export async function getProductionSnapshot(userId: string, productionId: string
       castCallTimes: castCallTimesByShootDay.get(c.shootDayId) ?? [],
       crewCallTimes: crewCallTimesByShootDay.get(c.shootDayId) ?? [],
     })),
+    backgroundExtras: backgroundExtraRows,
+    standIns: standInRows,
+    vehicles: vehicleRows.map((v) => ({ ...v, type: v.type as ProductionVehicle["type"] })),
+    transportRuns: transportRunRows,
     aiRecommendations: aiRecommendationRows.map((r) => ({
       id: r.id,
       severity: r.severity as AIRecommendation["severity"],

@@ -84,18 +84,18 @@ export const castMembers: CastMember[] = [
 ];
 
 export const crewMembers: CrewMember[] = [
-  { id: "crew_1ad", name: "Rakesh Mehta", department: "Production", role: "1st AD", isHod: false, contract: "Signed", ...noContactInfo },
-  { id: "crew_2ad", name: "Ayesha Sheikh", department: "Production", role: "2nd AD", isHod: false, contract: "Signed", ...noContactInfo },
-  { id: "crew_dp", name: "Vivek Chandran", department: "Camera", role: "Director of Photography", isHod: true, contract: "Signed", ...noContactInfo },
-  { id: "crew_gaffer", name: "Suresh Iyer", department: "Electric", role: "Gaffer", isHod: true, contract: "Signed", ...noContactInfo },
-  { id: "crew_sound", name: "Neha Kulkarni", department: "Sound", role: "Sound Mixer", isHod: true, contract: "Pending", ...noContactInfo },
-  { id: "crew_script", name: "Pooja Bhatia", department: "Production", role: "Script Supervisor", isHod: false, contract: "Signed", ...noContactInfo },
-  { id: "crew_pd", name: "Aditya Rao", department: "Art", role: "Production Designer", isHod: true, contract: "Signed", ...noContactInfo },
-  { id: "crew_costume", name: "Simran Kaur", department: "Wardrobe", role: "Costume Designer", isHod: true, contract: "Signed", ...noContactInfo },
-  { id: "crew_makeup", name: "Farah Ali", department: "Hair & Makeup", role: "Makeup Head", isHod: true, contract: "Pending", ...noContactInfo },
-  { id: "crew_lp", name: "Manoj Tiwari", department: "Production", role: "Line Producer", isHod: true, contract: "Signed", ...noContactInfo },
-  { id: "crew_locations", name: "Rajesh Pillai", department: "Locations", role: "Location Manager", isHod: true, contract: "Signed", ...noContactInfo },
-  { id: "crew_stunts", name: "Vikas Oberoi", department: "Stunts", role: "Stunt Coordinator", isHod: true, contract: "Missing", ...noContactInfo },
+  { id: "crew_1ad", name: "Rakesh Mehta", department: "Production", role: "1st AD", isHod: false, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_2ad", name: "Ayesha Sheikh", department: "Production", role: "2nd AD", isHod: false, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_dp", name: "Vivek Chandran", department: "Camera", role: "Director of Photography", isHod: true, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_gaffer", name: "Suresh Iyer", department: "Electric", role: "Gaffer", isHod: true, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_sound", name: "Neha Kulkarni", department: "Sound", role: "Sound Mixer", isHod: true, contract: "Pending", walkieChannel: null, ...noContactInfo },
+  { id: "crew_script", name: "Pooja Bhatia", department: "Production", role: "Script Supervisor", isHod: false, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_pd", name: "Aditya Rao", department: "Art", role: "Production Designer", isHod: true, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_costume", name: "Simran Kaur", department: "Wardrobe", role: "Costume Designer", isHod: true, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_makeup", name: "Farah Ali", department: "Hair & Makeup", role: "Makeup Head", isHod: true, contract: "Pending", walkieChannel: null, ...noContactInfo },
+  { id: "crew_lp", name: "Manoj Tiwari", department: "Production", role: "Line Producer", isHod: true, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_locations", name: "Rajesh Pillai", department: "Locations", role: "Location Manager", isHod: true, contract: "Signed", walkieChannel: null, ...noContactInfo },
+  { id: "crew_stunts", name: "Vikas Oberoi", department: "Stunts", role: "Stunt Coordinator", isHod: true, contract: "Missing", walkieChannel: null, ...noContactInfo },
 ];
 
 // --- Places & things ---

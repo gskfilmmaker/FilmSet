@@ -3,9 +3,10 @@
 import { Shell } from "@/components/shell";
 import { castNames } from "@/components/stripboard/strip";
 import type { ProductionSnapshot } from "@/lib/queries";
-import type { CallSheet, Scene } from "@filmset/core";
+import type { CallSheet, CastCallStatus, Scene, VehicleType } from "@filmset/core";
 import {
   Button,
+  Checkbox,
   EmptyState,
   Input,
   Inspector,
@@ -23,10 +24,13 @@ import {
   Textarea,
   useToast,
 } from "@filmset/ui";
-import { Cloud, MapPin, Pencil, Plus, Sunrise, Sunset, Trash2 } from "lucide-react";
+import { ChevronDown, ChevronRight, Cloud, MapPin, Pencil, Plus, Sunrise, Sunset, Trash2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { saveCallSheet, type CallSheetInput } from "./call-sheet-actions";
+
+const CAST_CALL_STATUSES: CastCallStatus[] = ["Work", "Hold", "Travel", "Start", "Work/Finish", "Finish"];
+const VEHICLE_TYPES: VehicleType[] = ["Truck", "Trailer", "Picture Car", "Action Vehicle", "Camera Vehicle", "Other"];
 
 const progressTone = { Completed: "success", "In Progress": "info", Planned: "neutral", Dropped: "danger" } as const;
 
@@ -50,7 +54,13 @@ const emptyCallSheet: CallSheet = {
   crewCallTimes: [],
 };
 
-function callSheetToInput(callSheet: CallSheet): CallSheetInput {
+function callSheetToInput(
+  callSheet: CallSheet,
+  backgroundExtras: ProductionSnapshot["backgroundExtras"],
+  standIns: ProductionSnapshot["standIns"],
+  vehicles: ProductionSnapshot["vehicles"],
+  transportRuns: ProductionSnapshot["transportRuns"],
+): CallSheetInput {
   return {
     weather: callSheet.weather === "—" ? "" : callSheet.weather,
     sunrise: callSheet.sunrise === "—" ? "" : callSheet.sunrise,
@@ -62,6 +72,10 @@ function callSheetToInput(callSheet: CallSheet): CallSheetInput {
     timeline: callSheet.timeline.map((e) => ({ time: e.time, label: e.label })),
     castCallTimes: callSheet.castCallTimes.map((c) => ({ ...c })),
     crewCallTimes: callSheet.crewCallTimes.map((c) => ({ ...c })),
+    backgroundExtras: backgroundExtras.map((e) => ({ ...e })),
+    standIns: standIns.map((s) => ({ ...s })),
+    vehicles: vehicles.map((v) => ({ ...v })),
+    transportRuns: transportRuns.map((r) => ({ ...r })),
   };
 }
 
@@ -74,6 +88,45 @@ function setOverride(overrides: { personId: string; callTime: string }[], person
   const trimmed = callTime.trim();
   const withoutPerson = overrides.filter((o) => o.personId !== personId);
   return trimmed ? [...withoutPerson, { personId, callTime: trimmed }] : withoutPerson;
+}
+
+function castEntryFor(entries: CallSheetInput["castCallTimes"], personId: string): CallSheetInput["castCallTimes"][number] {
+  return (
+    entries.find((e) => e.personId === personId) ?? {
+      personId,
+      callTime: "",
+      status: null,
+      onCall: false,
+      pickupTime: null,
+      makeupCallTime: null,
+      hairCallTime: null,
+      wardrobeCallTime: null,
+      rehearsalCallTime: null,
+    }
+  );
+}
+
+function isCastEntryBlank(entry: CallSheetInput["castCallTimes"][number]): boolean {
+  return (
+    !entry.callTime.trim() &&
+    !entry.status &&
+    !entry.onCall &&
+    !entry.pickupTime &&
+    !entry.makeupCallTime &&
+    !entry.hairCallTime &&
+    !entry.wardrobeCallTime &&
+    !entry.rehearsalCallTime
+  );
+}
+
+function setCastEntry(
+  entries: CallSheetInput["castCallTimes"],
+  personId: string,
+  patch: Partial<CallSheetInput["castCallTimes"][number]>,
+): CallSheetInput["castCallTimes"] {
+  const next = { ...castEntryFor(entries, personId), ...patch, personId };
+  const without = entries.filter((e) => e.personId !== personId);
+  return isCastEntryBlank(next) ? without : [...without, next];
 }
 
 function CallTimesEditor({
@@ -101,6 +154,309 @@ function CallTimesEditor({
           />
         </div>
       ))}
+    </div>
+  );
+}
+
+function CastCallRow({
+  person,
+  entry,
+  onChange,
+  dayCallTime,
+}: {
+  person: { id: string; label: string };
+  entry: CallSheetInput["castCallTimes"][number];
+  onChange: (patch: Partial<CallSheetInput["castCallTimes"][number]>) => void;
+  dayCallTime: string;
+}) {
+  const [expanded, setExpanded] = React.useState(
+    () => Boolean(entry.pickupTime || entry.makeupCallTime || entry.hairCallTime || entry.wardrobeCallTime || entry.rehearsalCallTime),
+  );
+  return (
+    <div className="flex flex-col gap-[6px] rounded-md border border-[var(--color-border-subtle)] p-[var(--fs-space-8)]">
+      <div className="flex items-center gap-[var(--fs-space-8)]">
+        <span className="flex-1 truncate text-[13px] text-[var(--color-text-secondary)]">{person.label}</span>
+        <Select value={entry.status ?? "none"} onValueChange={(v) => onChange({ status: v === "none" ? null : (v as CastCallStatus) })}>
+          <SelectTrigger className="w-[92px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">—</SelectItem>
+            {CAST_CALL_STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {s}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <label className="flex items-center gap-[4px] text-[11px] text-[var(--color-text-tertiary)]">
+          <Checkbox checked={entry.onCall} onCheckedChange={(checked) => onChange({ onCall: checked === true })} />
+          O/C
+        </label>
+        <Input
+          placeholder={dayCallTime || "06:00"}
+          value={entry.callTime}
+          onChange={(e) => onChange({ callTime: e.target.value })}
+          containerClassName="w-[72px]"
+          disabled={entry.onCall}
+        />
+      </div>
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-fit items-center gap-[2px] text-[11px] text-[var(--color-text-tertiary)] hover:text-[var(--color-text-secondary)]"
+      >
+        {expanded ? <ChevronDown className="size-[12px]" aria-hidden="true" /> : <ChevronRight className="size-[12px]" aria-hidden="true" />}
+        Pickup / Makeup / Hair / Wardrobe / Rehearsal
+      </button>
+      {expanded && (
+        <div className="grid grid-cols-3 gap-[6px]">
+          <Input label="Pickup" value={entry.pickupTime ?? ""} onChange={(e) => onChange({ pickupTime: e.target.value || null })} />
+          <Input label="Makeup" value={entry.makeupCallTime ?? ""} onChange={(e) => onChange({ makeupCallTime: e.target.value || null })} />
+          <Input label="Hair" value={entry.hairCallTime ?? ""} onChange={(e) => onChange({ hairCallTime: e.target.value || null })} />
+          <Input label="Wardrobe" value={entry.wardrobeCallTime ?? ""} onChange={(e) => onChange({ wardrobeCallTime: e.target.value || null })} />
+          <Input label="Rehearsal" value={entry.rehearsalCallTime ?? ""} onChange={(e) => onChange({ rehearsalCallTime: e.target.value || null })} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CastCallEditor({
+  people,
+  entries,
+  onChange,
+  dayCallTime,
+}: {
+  people: { id: string; label: string }[];
+  entries: CallSheetInput["castCallTimes"];
+  onChange: (next: CallSheetInput["castCallTimes"]) => void;
+  dayCallTime: string;
+}) {
+  if (people.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-[var(--fs-space-8)]">
+      {people.map((person) => (
+        <CastCallRow
+          key={person.id}
+          person={person}
+          entry={castEntryFor(entries, person.id)}
+          onChange={(patch) => onChange(setCastEntry(entries, person.id, patch))}
+          dayCallTime={dayCallTime}
+        />
+      ))}
+    </div>
+  );
+}
+
+function BackgroundExtrasEditor({ value, onChange }: { value: CallSheetInput["backgroundExtras"]; onChange: (next: CallSheetInput["backgroundExtras"]) => void }) {
+  function update(index: number, patch: Partial<CallSheetInput["backgroundExtras"][number]>) {
+    onChange(value.map((e, i) => (i === index ? { ...e, ...patch } : e)));
+  }
+  function remove(index: number) {
+    onChange(value.filter((_, i) => i !== index));
+  }
+  function add() {
+    onChange([...value, { id: crypto.randomUUID(), description: "", headcount: 1, callTime: null, instructions: null }]);
+  }
+  return (
+    <div className="flex flex-col gap-[4px]">
+      <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Background / Extras</label>
+      <div className="flex flex-col gap-[var(--fs-space-8)]">
+        {value.map((extra, i) => (
+          <div key={extra.id} className="flex flex-col gap-[6px] rounded-md border border-[var(--color-border-subtle)] p-[var(--fs-space-8)]">
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Input
+                placeholder="e.g. Restaurant Patrons"
+                value={extra.description}
+                onChange={(e) => update(i, { description: e.target.value })}
+                containerClassName="flex-1"
+              />
+              <Input
+                type="number"
+                placeholder="#"
+                value={extra.headcount || ""}
+                onChange={(e) => update(i, { headcount: Number(e.target.value) || 0 })}
+                containerClassName="w-[64px]"
+              />
+              <Input placeholder="Call" value={extra.callTime ?? ""} onChange={(e) => update(i, { callTime: e.target.value || null })} containerClassName="w-[72px]" />
+              <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+            </div>
+            <Input
+              placeholder="Instructions (wardrobe, department notes...)"
+              value={extra.instructions ?? ""}
+              onChange={(e) => update(i, { instructions: e.target.value || null })}
+            />
+          </div>
+        ))}
+      </div>
+      <Button type="button" variant="secondary" icon={<Plus className="size-[14px]" aria-hidden="true" />} onClick={add} className="mt-[var(--fs-space-4)] self-start">
+        Add group
+      </Button>
+    </div>
+  );
+}
+
+function StandInsEditor({
+  value,
+  onChange,
+  castOnDay,
+}: {
+  value: CallSheetInput["standIns"];
+  onChange: (next: CallSheetInput["standIns"]) => void;
+  castOnDay: { id: string; label: string }[];
+}) {
+  function update(index: number, patch: Partial<CallSheetInput["standIns"][number]>) {
+    onChange(value.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  }
+  function remove(index: number) {
+    onChange(value.filter((_, i) => i !== index));
+  }
+  function add() {
+    onChange([...value, { id: crypto.randomUUID(), name: "", standsInForCastMemberId: null, phone: null, callTime: null }]);
+  }
+  return (
+    <div className="flex flex-col gap-[4px]">
+      <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Stand-ins</label>
+      <div className="flex flex-col gap-[var(--fs-space-8)]">
+        {value.map((standIn, i) => (
+          <div key={standIn.id} className="flex items-center gap-[var(--fs-space-8)]">
+            <Input placeholder="Name" value={standIn.name} onChange={(e) => update(i, { name: e.target.value })} containerClassName="flex-1" />
+            <Select
+              value={standIn.standsInForCastMemberId ?? "none"}
+              onValueChange={(v) => update(i, { standsInForCastMemberId: v === "none" ? null : v })}
+            >
+              <SelectTrigger className="w-[140px]">
+                <SelectValue placeholder="Stands in for…" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">—</SelectItem>
+                {castOnDay.map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input placeholder="Call" value={standIn.callTime ?? ""} onChange={(e) => update(i, { callTime: e.target.value || null })} containerClassName="w-[72px]" />
+            <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+          </div>
+        ))}
+      </div>
+      <Button type="button" variant="secondary" icon={<Plus className="size-[14px]" aria-hidden="true" />} onClick={add} className="mt-[var(--fs-space-4)] self-start">
+        Add stand-in
+      </Button>
+    </div>
+  );
+}
+
+function VehiclesEditor({ value, onChange }: { value: CallSheetInput["vehicles"]; onChange: (next: CallSheetInput["vehicles"]) => void }) {
+  function update(index: number, patch: Partial<CallSheetInput["vehicles"][number]>) {
+    onChange(value.map((v, i) => (i === index ? { ...v, ...patch } : v)));
+  }
+  function remove(index: number) {
+    onChange(value.filter((_, i) => i !== index));
+  }
+  function add() {
+    onChange([...value, { id: crypto.randomUUID(), type: "Truck", description: "", driverName: null, driverPhone: null, notes: null }]);
+  }
+  return (
+    <div className="flex flex-col gap-[4px]">
+      <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Vehicles &amp; Equipment</label>
+      <div className="flex flex-col gap-[var(--fs-space-8)]">
+        {value.map((vehicle, i) => (
+          <div key={vehicle.id} className="flex flex-col gap-[6px] rounded-md border border-[var(--color-border-subtle)] p-[var(--fs-space-8)]">
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Select value={vehicle.type} onValueChange={(v) => update(i, { type: v })}>
+                <SelectTrigger className="w-[132px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {VEHICLE_TYPES.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input
+                placeholder="Description"
+                value={vehicle.description}
+                onChange={(e) => update(i, { description: e.target.value })}
+                containerClassName="flex-1"
+              />
+              <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+            </div>
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Input
+                placeholder="Driver"
+                value={vehicle.driverName ?? ""}
+                onChange={(e) => update(i, { driverName: e.target.value || null })}
+                containerClassName="flex-1"
+              />
+              <Input
+                placeholder="Driver phone"
+                value={vehicle.driverPhone ?? ""}
+                onChange={(e) => update(i, { driverPhone: e.target.value || null })}
+                containerClassName="flex-1"
+              />
+            </div>
+          </div>
+        ))}
+      </div>
+      <Button type="button" variant="secondary" icon={<Plus className="size-[14px]" aria-hidden="true" />} onClick={add} className="mt-[var(--fs-space-4)] self-start">
+        Add vehicle
+      </Button>
+    </div>
+  );
+}
+
+function TransportRunsEditor({ value, onChange }: { value: CallSheetInput["transportRuns"]; onChange: (next: CallSheetInput["transportRuns"]) => void }) {
+  function update(index: number, patch: Partial<CallSheetInput["transportRuns"][number]>) {
+    onChange(value.map((r, i) => (i === index ? { ...r, ...patch } : r)));
+  }
+  function remove(index: number) {
+    onChange(value.filter((_, i) => i !== index));
+  }
+  function add() {
+    onChange([...value, { id: crypto.randomUUID(), driverName: null, pickupTime: null, pickupLocation: null, dropoffLocation: null, passengers: null, notes: null }]);
+  }
+  return (
+    <div className="flex flex-col gap-[4px]">
+      <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Transport / Shuttle Runs</label>
+      <div className="flex flex-col gap-[var(--fs-space-8)]">
+        {value.map((run, i) => (
+          <div key={run.id} className="flex flex-col gap-[6px] rounded-md border border-[var(--color-border-subtle)] p-[var(--fs-space-8)]">
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Input placeholder="Driver" value={run.driverName ?? ""} onChange={(e) => update(i, { driverName: e.target.value || null })} containerClassName="flex-1" />
+              <Input placeholder="Pickup time" value={run.pickupTime ?? ""} onChange={(e) => update(i, { pickupTime: e.target.value || null })} containerClassName="w-[90px]" />
+              <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+            </div>
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Input
+                placeholder="From"
+                value={run.pickupLocation ?? ""}
+                onChange={(e) => update(i, { pickupLocation: e.target.value || null })}
+                containerClassName="flex-1"
+              />
+              <Input
+                placeholder="To"
+                value={run.dropoffLocation ?? ""}
+                onChange={(e) => update(i, { dropoffLocation: e.target.value || null })}
+                containerClassName="flex-1"
+              />
+            </div>
+            <Input
+              placeholder="Passengers"
+              value={run.passengers ?? ""}
+              onChange={(e) => update(i, { passengers: e.target.value || null })}
+            />
+          </div>
+        ))}
+      </div>
+      <Button type="button" variant="secondary" icon={<Plus className="size-[14px]" aria-hidden="true" />} onClick={add} className="mt-[var(--fs-space-4)] self-start">
+        Add run
+      </Button>
     </div>
   );
 }
@@ -175,10 +531,10 @@ function CallSheetForm({
 
       <div className="flex flex-col gap-[4px]">
         <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Cast call times</label>
-        <p className="text-[12px] text-[var(--color-text-tertiary)]">Blank uses the general crew call above.</p>
-        <CallTimesEditor
+        <p className="text-[12px] text-[var(--color-text-tertiary)]">Blank call uses the general crew call above.</p>
+        <CastCallEditor
           people={castOnDay}
-          overrides={value.castCallTimes}
+          entries={value.castCallTimes}
           onChange={(castCallTimes) => onChange({ ...value, castCallTimes })}
           dayCallTime={dayCallTime}
         />
@@ -195,6 +551,11 @@ function CallSheetForm({
           dayCallTime={dayCallTime}
         />
       </div>
+
+      <BackgroundExtrasEditor value={value.backgroundExtras} onChange={(backgroundExtras) => onChange({ ...value, backgroundExtras })} />
+      <StandInsEditor value={value.standIns} onChange={(standIns) => onChange({ ...value, standIns })} castOnDay={castOnDay} />
+      <VehiclesEditor value={value.vehicles} onChange={(vehicles) => onChange({ ...value, vehicles })} />
+      <TransportRunsEditor value={value.transportRuns} onChange={(transportRuns) => onChange({ ...value, transportRuns })} />
     </div>
   );
 }
@@ -203,7 +564,20 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
-  const { production, scenes: allScenes, shootDays, locations, castMembers, characters, crewMembers, callSheets } = snapshot;
+  const {
+    production,
+    scenes: allScenes,
+    shootDays,
+    locations,
+    castMembers,
+    characters,
+    crewMembers,
+    callSheets,
+    backgroundExtras: allBackgroundExtras,
+    standIns: allStandIns,
+    vehicles: allVehicles,
+    transportRuns: allTransportRuns,
+  } = snapshot;
   const castMemberCharacterIds = React.useMemo(() => Object.fromEntries(castMembers.map((c) => [c.id, c.characterId])), [castMembers]);
   const castMemberActorNames = React.useMemo(
     () => Object.fromEntries(castMembers.filter((c) => c.actorName).map((c) => [c.id, c.actorName])),
@@ -245,10 +619,14 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
     label: `${characters.find((ch) => ch.id === c.characterId)?.name ?? "Unknown"} — ${c.actorName || "Not yet cast"}`,
   }));
   const crewMembersLabeled = crewMembers.map((c) => ({ id: c.id, label: `${c.name} (${c.department})` }));
+  const backgroundExtras = allBackgroundExtras.filter((e) => e.shootDayId === day.id);
+  const standIns = allStandIns.filter((s) => s.shootDayId === day.id);
+  const vehicles = allVehicles.filter((v) => v.shootDayId === day.id);
+  const transportRuns = allTransportRuns.filter((r) => r.shootDayId === day.id);
 
   function startEditCallSheet() {
     setSelectedSceneId(null);
-    setCallSheetForm(callSheetToInput(callSheet));
+    setCallSheetForm(callSheetToInput(callSheet, backgroundExtras, standIns, vehicles, transportRuns));
     setEditingCallSheet(true);
   }
 
@@ -434,6 +812,10 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
               characters={characters}
               crewMembers={crewMembers}
               castMemberCharacterIds={castMemberCharacterIds}
+              backgroundExtras={backgroundExtras}
+              standIns={standIns}
+              vehicles={vehicles}
+              transportRuns={transportRuns}
             />
           </TabsContent>
         </Tabs>
@@ -478,6 +860,10 @@ function DocumentView({
   characters,
   crewMembers,
   castMemberCharacterIds,
+  backgroundExtras,
+  standIns,
+  vehicles,
+  transportRuns,
 }: {
   production: ProductionSnapshot["production"];
   day: ProductionSnapshot["shootDays"][number];
@@ -488,8 +874,13 @@ function DocumentView({
   characters: ProductionSnapshot["characters"];
   crewMembers: ProductionSnapshot["crewMembers"];
   castMemberCharacterIds: Record<string, string>;
+  backgroundExtras: ProductionSnapshot["backgroundExtras"];
+  standIns: ProductionSnapshot["standIns"];
+  vehicles: ProductionSnapshot["vehicles"];
+  transportRuns: ProductionSnapshot["transportRuns"];
 }) {
   const castOnDay = castMembers.filter((c) => scenes.some((s) => s.castIds.includes(c.id)));
+  const radioChannels = crewMembers.filter((c) => c.walkieChannel);
 
   return (
     <div className="mx-auto my-[var(--fs-space-24)] max-w-[720px] rounded-sm bg-white p-[var(--fs-space-48)] text-black shadow-[var(--fs-shadow-lg)]">
@@ -573,19 +964,84 @@ function DocumentView({
           <tr className="border-b border-black text-left">
             <th className="py-[4px] pr-[8px]">Character</th>
             <th className="py-[4px] pr-[8px]">Actor</th>
-            <th className="py-[4px]">Call</th>
+            <th className="py-[4px] pr-[8px]">Status</th>
+            <th className="py-[4px] pr-[8px]">Pickup</th>
+            <th className="py-[4px] pr-[8px]">MU</th>
+            <th className="py-[4px] pr-[8px]">Hair</th>
+            <th className="py-[4px] pr-[8px]">WD</th>
+            <th className="py-[4px] pr-[8px]">Rhrsl</th>
+            <th className="py-[4px]">On Set</th>
           </tr>
         </thead>
         <tbody>
-          {castOnDay.map((c) => (
-            <tr key={c.id} className="border-b border-gray-300">
-              <td className="py-[4px] pr-[8px]">{characters.find((ch) => ch.id === c.characterId)?.name}</td>
-              <td className="py-[4px] pr-[8px]">{c.actorName}</td>
-              <td className="py-[4px] tabular-nums">{overrideFor(callSheet.castCallTimes, c.id) || day.callTime}</td>
-            </tr>
-          ))}
+          {castOnDay.map((c) => {
+            const entry = callSheet.castCallTimes.find((e) => e.personId === c.id);
+            return (
+              <tr key={c.id} className="border-b border-gray-300">
+                <td className="py-[4px] pr-[8px]">{characters.find((ch) => ch.id === c.characterId)?.name}</td>
+                <td className="py-[4px] pr-[8px]">{c.actorName}</td>
+                <td className="py-[4px] pr-[8px]">{entry?.status ?? "—"}</td>
+                <td className="py-[4px] pr-[8px] tabular-nums">{entry?.pickupTime ?? "—"}</td>
+                <td className="py-[4px] pr-[8px] tabular-nums">{entry?.makeupCallTime ?? "—"}</td>
+                <td className="py-[4px] pr-[8px] tabular-nums">{entry?.hairCallTime ?? "—"}</td>
+                <td className="py-[4px] pr-[8px] tabular-nums">{entry?.wardrobeCallTime ?? "—"}</td>
+                <td className="py-[4px] pr-[8px] tabular-nums">{entry?.rehearsalCallTime ?? "—"}</td>
+                <td className="py-[4px] tabular-nums font-semibold">{entry?.onCall ? "On Call" : entry?.callTime || day.callTime}</td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
+
+      {standIns.length > 0 && (
+        <table className="mt-[var(--fs-space-24)] w-full border-collapse text-[12px]">
+          <caption className="mb-[var(--fs-space-8)] text-left font-semibold">Stand-ins</caption>
+          <thead>
+            <tr className="border-b border-black text-left">
+              <th className="py-[4px] pr-[8px]">Name</th>
+              <th className="py-[4px] pr-[8px]">Stands in for</th>
+              <th className="py-[4px] pr-[8px]">Phone</th>
+              <th className="py-[4px]">Call</th>
+            </tr>
+          </thead>
+          <tbody>
+            {standIns.map((s) => (
+              <tr key={s.id} className="border-b border-gray-300">
+                <td className="py-[4px] pr-[8px]">{s.name}</td>
+                <td className="py-[4px] pr-[8px]">
+                  {characters.find((ch) => ch.id === castMembers.find((c) => c.id === s.standsInForCastMemberId)?.characterId)?.name ?? "—"}
+                </td>
+                <td className="py-[4px] pr-[8px]">{s.phone ?? "—"}</td>
+                <td className="py-[4px] tabular-nums">{s.callTime ?? day.callTime}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {backgroundExtras.length > 0 && (
+        <table className="mt-[var(--fs-space-24)] w-full border-collapse text-[12px]">
+          <caption className="mb-[var(--fs-space-8)] text-left font-semibold">Background / Extras</caption>
+          <thead>
+            <tr className="border-b border-black text-left">
+              <th className="py-[4px] pr-[8px]">Description</th>
+              <th className="py-[4px] pr-[8px]">#</th>
+              <th className="py-[4px] pr-[8px]">Call</th>
+              <th className="py-[4px]">Instructions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {backgroundExtras.map((e) => (
+              <tr key={e.id} className="border-b border-gray-300">
+                <td className="py-[4px] pr-[8px]">{e.description}</td>
+                <td className="py-[4px] pr-[8px] tabular-nums">{e.headcount}</td>
+                <td className="py-[4px] pr-[8px] tabular-nums">{e.callTime ?? day.callTime}</td>
+                <td className="py-[4px]">{e.instructions ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       <table className="mt-[var(--fs-space-24)] w-full border-collapse text-[12px]">
         <caption className="mb-[var(--fs-space-8)] text-left font-semibold">Crew</caption>
@@ -594,6 +1050,7 @@ function DocumentView({
             <th className="py-[4px] pr-[8px]">Department</th>
             <th className="py-[4px] pr-[8px]">Name</th>
             <th className="py-[4px] pr-[8px]">Role</th>
+            <th className="py-[4px] pr-[8px]">Ch.</th>
             <th className="py-[4px]">Call</th>
           </tr>
         </thead>
@@ -602,12 +1059,78 @@ function DocumentView({
             <tr key={c.id} className="border-b border-gray-300">
               <td className="py-[4px] pr-[8px]">{c.department}</td>
               <td className="py-[4px] pr-[8px]">{c.name}</td>
-              <td className="py-[4px] pr-[8px] tabular-nums">{overrideFor(callSheet.crewCallTimes, c.id) || day.callTime}</td>
-              <td className="py-[4px]">{c.role}</td>
+              <td className="py-[4px] pr-[8px]">{c.role}</td>
+              <td className="py-[4px] pr-[8px] tabular-nums">{c.walkieChannel ?? "—"}</td>
+              <td className="py-[4px] tabular-nums">{overrideFor(callSheet.crewCallTimes, c.id) || day.callTime}</td>
             </tr>
           ))}
         </tbody>
       </table>
+
+      {radioChannels.length > 0 && (
+        <div className="mt-[var(--fs-space-16)] text-[12px]">
+          <p className="font-semibold">Radio Plan</p>
+          <ul className="mt-[4px] flex flex-col gap-[2px]">
+            {[...radioChannels]
+              .sort((a, b) => (a.walkieChannel ?? "").localeCompare(b.walkieChannel ?? "", undefined, { numeric: true }))
+              .map((c) => (
+                <li key={c.id}>
+                  Ch {c.walkieChannel} — {c.department} ({c.name})
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
+
+      {vehicles.length > 0 && (
+        <table className="mt-[var(--fs-space-24)] w-full border-collapse text-[12px]">
+          <caption className="mb-[var(--fs-space-8)] text-left font-semibold">Vehicles &amp; Equipment</caption>
+          <thead>
+            <tr className="border-b border-black text-left">
+              <th className="py-[4px] pr-[8px]">Type</th>
+              <th className="py-[4px] pr-[8px]">Description</th>
+              <th className="py-[4px] pr-[8px]">Driver</th>
+              <th className="py-[4px]">Driver Phone</th>
+            </tr>
+          </thead>
+          <tbody>
+            {vehicles.map((v) => (
+              <tr key={v.id} className="border-b border-gray-300">
+                <td className="py-[4px] pr-[8px]">{v.type}</td>
+                <td className="py-[4px] pr-[8px]">{v.description}</td>
+                <td className="py-[4px] pr-[8px]">{v.driverName ?? "—"}</td>
+                <td className="py-[4px]">{v.driverPhone ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+
+      {transportRuns.length > 0 && (
+        <table className="mt-[var(--fs-space-24)] w-full border-collapse text-[12px]">
+          <caption className="mb-[var(--fs-space-8)] text-left font-semibold">Transport / Shuttle Runs</caption>
+          <thead>
+            <tr className="border-b border-black text-left">
+              <th className="py-[4px] pr-[8px]">Driver</th>
+              <th className="py-[4px] pr-[8px]">Pickup</th>
+              <th className="py-[4px] pr-[8px]">From</th>
+              <th className="py-[4px] pr-[8px]">To</th>
+              <th className="py-[4px]">Passengers</th>
+            </tr>
+          </thead>
+          <tbody>
+            {transportRuns.map((r) => (
+              <tr key={r.id} className="border-b border-gray-300">
+                <td className="py-[4px] pr-[8px]">{r.driverName ?? "—"}</td>
+                <td className="py-[4px] pr-[8px] tabular-nums">{r.pickupTime ?? "—"}</td>
+                <td className="py-[4px] pr-[8px]">{r.pickupLocation ?? "—"}</td>
+                <td className="py-[4px] pr-[8px]">{r.dropoffLocation ?? "—"}</td>
+                <td className="py-[4px]">{r.passengers ?? "—"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
 
       <p className="mt-[var(--fs-space-24)] text-[12px]">{callSheet.notes}</p>
 

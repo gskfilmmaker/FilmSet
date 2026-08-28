@@ -36,6 +36,7 @@ const emptyForm: CrewMemberInput = {
   role: "",
   isHod: false,
   contract: "Pending",
+  walkieChannel: "",
   email: "",
   phone: "",
   emergencyContactName: "",
@@ -126,6 +127,13 @@ function CrewForm({ value, onChange }: { value: CrewMemberInput; onChange: (next
             </SelectContent>
           </Select>
         </div>
+        <Input
+          label="Radio ch."
+          placeholder="e.g. 2"
+          value={value.walkieChannel}
+          onChange={(e) => onChange({ ...value, walkieChannel: e.target.value })}
+          containerClassName="w-[90px]"
+        />
       </div>
 
       <button
@@ -245,6 +253,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
       role: member.role,
       isHod: member.isHod,
       contract: member.contract,
+      walkieChannel: member.walkieChannel ?? "",
       email: member.email ?? "",
       phone: member.phone ?? "",
       emergencyContactName: member.emergencyContactName ?? "",
@@ -277,6 +286,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
       role: member.role,
       isHod: member.isHod,
       contract: member.contract,
+      walkieChannel: member.walkieChannel ?? "",
       email: member.email ?? "",
       phone: member.phone ?? "",
       emergencyContactName: member.emergencyContactName ?? "",
@@ -364,6 +374,7 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
                     </p>
                   </div>
                   <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
+                    {member.walkieChannel && <StatusBadge tone="neutral">Ch {member.walkieChannel}</StatusBadge>}
                     <StatusBadge tone={contractTone[member.contract]}>{member.contract}</StatusBadge>
                     <Button
                       variant="quiet"
