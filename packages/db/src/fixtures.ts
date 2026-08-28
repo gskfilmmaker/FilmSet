@@ -266,6 +266,8 @@ export const callSheetDay18: CallSheet = {
     { time: "01:30", label: "Estimated wrap" },
   ],
   notes: "Street remains open to pedestrian traffic — PAs holding both ends during takes. Rain machine on standby, not confirmed for use.",
+  castCallTimes: [],
+  crewCallTimes: [],
 };
 
 // --- FilmSet AI recommendations (reproduces Constitution §50's structure) ---

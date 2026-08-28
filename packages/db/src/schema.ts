@@ -394,6 +394,41 @@ export const callSheets = pgTable("call_sheets", {
   notes: text("notes").notNull().default(""),
 });
 
+/**
+ * Per-person call time overrides for a shoot day — absent for a given
+ * person means "use the day's general crew call" (shootDays.callTime).
+ * Two tables rather than one polymorphic one, matching the sceneCast /
+ * propScenes join-table pattern elsewhere in this schema, so each keeps a
+ * real FK to the table it actually references.
+ */
+export const shootDayCastCallTimes = pgTable(
+  "shoot_day_cast_call_times",
+  {
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    castMemberId: text("cast_member_id")
+      .notNull()
+      .references(() => castMembers.id, { onDelete: "cascade" }),
+    callTime: text("call_time").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.shootDayId, t.castMemberId] })],
+);
+
+export const shootDayCrewCallTimes = pgTable(
+  "shoot_day_crew_call_times",
+  {
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    crewMemberId: text("crew_member_id")
+      .notNull()
+      .references(() => crewMembers.id, { onDelete: "cascade" }),
+    callTime: text("call_time").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.shootDayId, t.crewMemberId] })],
+);
+
 export const callSheetTimelineEvents = pgTable(
   "call_sheet_timeline_events",
   {

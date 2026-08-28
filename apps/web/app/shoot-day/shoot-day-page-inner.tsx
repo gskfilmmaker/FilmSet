@@ -46,6 +46,8 @@ const emptyCallSheet: CallSheet = {
   basecamp: "—",
   timeline: [],
   notes: "",
+  castCallTimes: [],
+  crewCallTimes: [],
 };
 
 function callSheetToInput(callSheet: CallSheet): CallSheetInput {
@@ -58,10 +60,64 @@ function callSheetToInput(callSheet: CallSheet): CallSheetInput {
     basecamp: callSheet.basecamp === "—" ? "" : callSheet.basecamp,
     notes: callSheet.notes,
     timeline: callSheet.timeline.map((e) => ({ time: e.time, label: e.label })),
+    castCallTimes: callSheet.castCallTimes.map((c) => ({ ...c })),
+    crewCallTimes: callSheet.crewCallTimes.map((c) => ({ ...c })),
   };
 }
 
-function CallSheetForm({ value, onChange }: { value: CallSheetInput; onChange: (next: CallSheetInput) => void }) {
+/** Looks up a person's call-time override, falling back to "" (meaning: use the day's general crew call). */
+function overrideFor(overrides: { personId: string; callTime: string }[], personId: string): string {
+  return overrides.find((o) => o.personId === personId)?.callTime ?? "";
+}
+
+function setOverride(overrides: { personId: string; callTime: string }[], personId: string, callTime: string): { personId: string; callTime: string }[] {
+  const trimmed = callTime.trim();
+  const withoutPerson = overrides.filter((o) => o.personId !== personId);
+  return trimmed ? [...withoutPerson, { personId, callTime: trimmed }] : withoutPerson;
+}
+
+function CallTimesEditor({
+  people,
+  overrides,
+  onChange,
+  dayCallTime,
+}: {
+  people: { id: string; label: string }[];
+  overrides: { personId: string; callTime: string }[];
+  onChange: (next: { personId: string; callTime: string }[]) => void;
+  dayCallTime: string;
+}) {
+  if (people.length === 0) return null;
+  return (
+    <div className="flex flex-col gap-[var(--fs-space-8)]">
+      {people.map((person) => (
+        <div key={person.id} className="flex items-center gap-[var(--fs-space-8)]">
+          <span className="flex-1 truncate text-[13px] text-[var(--color-text-secondary)]">{person.label}</span>
+          <Input
+            placeholder={dayCallTime || "06:00"}
+            value={overrideFor(overrides, person.id)}
+            onChange={(e) => onChange(setOverride(overrides, person.id, e.target.value))}
+            containerClassName="w-[80px]"
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function CallSheetForm({
+  value,
+  onChange,
+  castOnDay,
+  crewMembers,
+  dayCallTime,
+}: {
+  value: CallSheetInput;
+  onChange: (next: CallSheetInput) => void;
+  castOnDay: { id: string; label: string }[];
+  crewMembers: { id: string; label: string }[];
+  dayCallTime: string;
+}) {
   function updateEvent(index: number, patch: Partial<{ time: string; label: string }>) {
     onChange({ ...value, timeline: value.timeline.map((e, i) => (i === index ? { ...e, ...patch } : e)) });
   }
@@ -116,6 +172,29 @@ function CallSheetForm({ value, onChange }: { value: CallSheetInput; onChange: (
           Add event
         </Button>
       </div>
+
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Cast call times</label>
+        <p className="text-[12px] text-[var(--color-text-tertiary)]">Blank uses the general crew call above.</p>
+        <CallTimesEditor
+          people={castOnDay}
+          overrides={value.castCallTimes}
+          onChange={(castCallTimes) => onChange({ ...value, castCallTimes })}
+          dayCallTime={dayCallTime}
+        />
+        {castOnDay.length === 0 && <p className="text-[12px] text-[var(--color-text-tertiary)]">No cast scheduled for this day yet.</p>}
+      </div>
+
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Crew call times</label>
+        <p className="text-[12px] text-[var(--color-text-tertiary)]">Blank uses the general crew call above.</p>
+        <CallTimesEditor
+          people={crewMembers}
+          overrides={value.crewCallTimes}
+          onChange={(crewCallTimes) => onChange({ ...value, crewCallTimes })}
+          dayCallTime={dayCallTime}
+        />
+      </div>
     </div>
   );
 }
@@ -156,6 +235,12 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
   const scenes = day.sceneIds.map((id) => allScenes.find((s) => s.id === id)).filter((s): s is Scene => Boolean(s));
   const selectedScene = selectedSceneId ? allScenes.find((s) => s.id === selectedSceneId) : null;
   const currentTimelineLabel = scenes.find((s) => sceneProgress(s) === "In Progress")?.number;
+  const castOnDay = castMembers.filter((c) => scenes.some((s) => s.castIds.includes(c.id)));
+  const castOnDayLabeled = castOnDay.map((c) => ({
+    id: c.id,
+    label: `${characters.find((ch) => ch.id === c.characterId)?.name ?? "Unknown"} — ${c.actorName || "Not yet cast"}`,
+  }));
+  const crewMembersLabeled = crewMembers.map((c) => ({ id: c.id, label: `${c.name} (${c.department})` }));
 
   function startEditCallSheet() {
     setSelectedSceneId(null);
@@ -185,7 +270,13 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
       inspector={
         editingCallSheet && callSheetForm ? (
           <Inspector objectType="Call Sheet" title={`Day ${day.dayNumber}`} onClose={() => setEditingCallSheet(false)}>
-            <CallSheetForm value={callSheetForm} onChange={setCallSheetForm} />
+            <CallSheetForm
+              value={callSheetForm}
+              onChange={setCallSheetForm}
+              castOnDay={castOnDayLabeled}
+              crewMembers={crewMembersLabeled}
+              dayCallTime={day.callTime}
+            />
             <div className="flex items-center gap-[var(--fs-space-8)]">
               <Button onClick={saveCallSheetForm} loading={savingCallSheet} disabled={savingCallSheet}>
                 Save
@@ -470,7 +561,7 @@ function DocumentView({
             <tr key={c.id} className="border-b border-gray-300">
               <td className="py-[4px] pr-[8px]">{characters.find((ch) => ch.id === c.characterId)?.name}</td>
               <td className="py-[4px] pr-[8px]">{c.actorName}</td>
-              <td className="py-[4px] tabular-nums">{day.callTime}</td>
+              <td className="py-[4px] tabular-nums">{overrideFor(callSheet.castCallTimes, c.id) || day.callTime}</td>
             </tr>
           ))}
         </tbody>
@@ -482,7 +573,8 @@ function DocumentView({
           <tr className="border-b border-black text-left">
             <th className="py-[4px] pr-[8px]">Department</th>
             <th className="py-[4px] pr-[8px]">Name</th>
-            <th className="py-[4px]">Role</th>
+            <th className="py-[4px] pr-[8px]">Role</th>
+            <th className="py-[4px]">Call</th>
           </tr>
         </thead>
         <tbody>
@@ -490,6 +582,7 @@ function DocumentView({
             <tr key={c.id} className="border-b border-gray-300">
               <td className="py-[4px] pr-[8px]">{c.department}</td>
               <td className="py-[4px] pr-[8px]">{c.name}</td>
+              <td className="py-[4px] pr-[8px] tabular-nums">{overrideFor(callSheet.crewCallTimes, c.id) || day.callTime}</td>
               <td className="py-[4px]">{c.role}</td>
             </tr>
           ))}

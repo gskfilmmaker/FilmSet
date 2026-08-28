@@ -213,6 +213,10 @@ export type Activity = z.infer<typeof activitySchema>;
 export const callSheetTimelineEventSchema = z.object({ time: z.string(), label: z.string() });
 export type CallSheetTimelineEvent = z.infer<typeof callSheetTimelineEventSchema>;
 
+/** A per-person call time override for one shoot day — absence means "use the day's general crew call" (ShootDay.callTime). */
+export const personCallTimeSchema = z.object({ personId: z.string(), callTime: z.string() });
+export type PersonCallTime = z.infer<typeof personCallTimeSchema>;
+
 export const callSheetSchema = z.object({
   shootDayId: z.string(),
   weather: z.string(),
@@ -223,6 +227,10 @@ export const callSheetSchema = z.object({
   basecamp: z.string(),
   timeline: z.array(callSheetTimelineEventSchema),
   notes: z.string(),
+  /** Keyed by CastMember.id — a cast member with no entry here uses the day's general crew call. */
+  castCallTimes: z.array(personCallTimeSchema),
+  /** Keyed by CrewMember.id — a crew member with no entry here uses the day's general crew call. */
+  crewCallTimes: z.array(personCallTimeSchema),
 });
 export type CallSheet = z.infer<typeof callSheetSchema>;
 
