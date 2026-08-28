@@ -10,6 +10,11 @@ import {
   Input,
   Inspector,
   InspectorSection,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
   StatusBadge,
   Tabs,
   TabsContent,
@@ -19,7 +24,7 @@ import {
   useToast,
 } from "@filmset/ui";
 import { Cloud, MapPin, Pencil, Plus, Sunrise, Sunset, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { saveCallSheet, type CallSheetInput } from "./call-sheet-actions";
 
@@ -115,8 +120,9 @@ function CallSheetForm({ value, onChange }: { value: CallSheetInput; onChange: (
   );
 }
 
-export function ShootDayPageInner({ snapshot, userEmail }: { snapshot: ProductionSnapshot; userEmail: string | null }) {
+function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapshot; userEmail: string | null }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { toast } = useToast();
   const { production, scenes: allScenes, shootDays, locations, castMembers, characters, crewMembers, callSheets } = snapshot;
   const castMemberCharacterIds = React.useMemo(() => Object.fromEntries(castMembers.map((c) => [c.id, c.characterId])), [castMembers]);
@@ -124,8 +130,13 @@ export function ShootDayPageInner({ snapshot, userEmail }: { snapshot: Productio
   const [editingCallSheet, setEditingCallSheet] = React.useState(false);
   const [callSheetForm, setCallSheetForm] = React.useState<CallSheetInput | null>(null);
   const [savingCallSheet, setSavingCallSheet] = React.useState(false);
+  const initialDayId = searchParams.get("day");
+  const [selectedDayId, setSelectedDayId] = React.useState<string | null>(initialDayId);
 
-  const day = shootDays.find((d) => d.status === "In Progress") ?? shootDays[0];
+  const day =
+    (selectedDayId ? shootDays.find((d) => d.id === selectedDayId) : null) ??
+    shootDays.find((d) => d.status === "In Progress") ??
+    shootDays[0];
 
   if (!day) {
     return (
@@ -212,6 +223,27 @@ export function ShootDayPageInner({ snapshot, userEmail }: { snapshot: Productio
             </p>
           </div>
           <div className="flex items-center gap-[var(--fs-space-8)]">
+            {shootDays.length > 1 && (
+              <Select
+                value={day.id}
+                onValueChange={(id) => {
+                  setSelectedDayId(id);
+                  setSelectedSceneId(null);
+                  setEditingCallSheet(false);
+                }}
+              >
+                <SelectTrigger className="w-[220px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {shootDays.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      Day {d.dayNumber} — {d.date}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
             <Button variant="secondary" icon={<Pencil className="size-[14px]" aria-hidden="true" />} onClick={startEditCallSheet}>
               Edit Call Sheet
             </Button>
@@ -311,6 +343,14 @@ export function ShootDayPageInner({ snapshot, userEmail }: { snapshot: Productio
         </Tabs>
       </div>
     </Shell>
+  );
+}
+
+export function ShootDayPageInner({ snapshot, userEmail }: { snapshot: ProductionSnapshot; userEmail: string | null }) {
+  return (
+    <React.Suspense fallback={null}>
+      <ShootDayPageContent snapshot={snapshot} userEmail={userEmail} />
+    </React.Suspense>
   );
 }
 
