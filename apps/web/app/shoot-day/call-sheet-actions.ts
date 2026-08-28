@@ -14,6 +14,9 @@ export interface CallSheetInput {
   basecamp: string;
   notes: string;
   timeline: { time: string; label: string }[];
+  /** A cast member absent here uses the day's general crew call — only explicit overrides are persisted. */
+  castCallTimes: { personId: string; callTime: string }[];
+  crewCallTimes: { personId: string; callTime: string }[];
 }
 
 /**
@@ -61,6 +64,20 @@ export async function saveCallSheet(productionId: string, shootDayId: string, in
             sortOrder: index,
           })),
         );
+      }
+
+      await tx.delete(schema.shootDayCastCallTimes).where(eq(schema.shootDayCastCallTimes.shootDayId, shootDayId));
+      if (input.castCallTimes.length > 0) {
+        await tx
+          .insert(schema.shootDayCastCallTimes)
+          .values(input.castCallTimes.map((c) => ({ shootDayId, castMemberId: c.personId, callTime: c.callTime })));
+      }
+
+      await tx.delete(schema.shootDayCrewCallTimes).where(eq(schema.shootDayCrewCallTimes.shootDayId, shootDayId));
+      if (input.crewCallTimes.length > 0) {
+        await tx
+          .insert(schema.shootDayCrewCallTimes)
+          .values(input.crewCallTimes.map((c) => ({ shootDayId, crewMemberId: c.personId, callTime: c.callTime })));
       }
     }),
   );

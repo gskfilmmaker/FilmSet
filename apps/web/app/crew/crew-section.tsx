@@ -1,37 +1,160 @@
 "use client";
 
 import type { CrewMember } from "@filmset/core";
-import { Button, EmptyState, Input, ToastAction, useToast } from "@filmset/ui";
-import { HardHat, Pencil, Trash2 } from "lucide-react";
+import {
+  Button,
+  Checkbox,
+  EmptyState,
+  Input,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+  StatusBadge,
+  ToastAction,
+  useToast,
+} from "@filmset/ui";
+import { ChevronDown, ChevronRight, HardHat, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { createCrewMember, deleteCrewMember, updateCrewMember, type CrewMemberInput } from "./actions";
 
-const emptyForm: CrewMemberInput = { name: "", department: "", role: "" };
+const CONTRACTS: CrewMember["contract"][] = ["Signed", "Pending", "Missing"];
+const contractTone: Record<CrewMember["contract"], "success" | "warning" | "danger"> = {
+  Signed: "success",
+  Pending: "warning",
+  Missing: "danger",
+};
+
+const emptyForm: CrewMemberInput = {
+  name: "",
+  department: "",
+  role: "",
+  isHod: false,
+  contract: "Pending",
+  email: "",
+  phone: "",
+  emergencyContactName: "",
+  emergencyContactPhone: "",
+  agentName: "",
+  agentPhone: "",
+  agentEmail: "",
+};
+
+function hasContactDetails(value: CrewMemberInput): boolean {
+  return Boolean(
+    value.email || value.phone || value.emergencyContactName || value.emergencyContactPhone || value.agentName || value.agentPhone || value.agentEmail,
+  );
+}
 
 function CrewForm({ value, onChange }: { value: CrewMemberInput; onChange: (next: CrewMemberInput) => void }) {
+  const [expanded, setExpanded] = React.useState(() => hasContactDetails(value));
+
   return (
-    <div className="flex flex-1 flex-wrap items-end gap-[var(--fs-space-8)]">
-      <Input
-        label="Name"
-        value={value.name}
-        onChange={(e) => onChange({ ...value, name: e.target.value })}
-        containerClassName="min-w-[140px] flex-1"
-      />
-      <Input
-        label="Department"
-        placeholder="e.g. Camera"
-        value={value.department}
-        onChange={(e) => onChange({ ...value, department: e.target.value })}
-        containerClassName="min-w-[140px]"
-      />
-      <Input
-        label="Role"
-        placeholder="e.g. 1st AC"
-        value={value.role}
-        onChange={(e) => onChange({ ...value, role: e.target.value })}
-        containerClassName="min-w-[140px]"
-      />
+    <div className="flex flex-1 flex-col gap-[var(--fs-space-12)]">
+      <div className="flex flex-1 flex-wrap items-end gap-[var(--fs-space-8)]">
+        <Input
+          label="Name"
+          value={value.name}
+          onChange={(e) => onChange({ ...value, name: e.target.value })}
+          containerClassName="min-w-[140px] flex-1"
+        />
+        <Input
+          label="Department"
+          placeholder="e.g. Camera"
+          value={value.department}
+          onChange={(e) => onChange({ ...value, department: e.target.value })}
+          containerClassName="min-w-[140px]"
+        />
+        <Input
+          label="Role"
+          placeholder="e.g. 1st AC"
+          value={value.role}
+          onChange={(e) => onChange({ ...value, role: e.target.value })}
+          containerClassName="min-w-[140px]"
+        />
+        <label className="flex items-center gap-[6px] pb-[8px] text-[13px] text-[var(--color-text-secondary)]">
+          <Checkbox checked={value.isHod} onCheckedChange={(checked) => onChange({ ...value, isHod: checked === true })} />
+          Head of department
+        </label>
+        <div className="flex flex-col gap-[4px]">
+          <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Contract</label>
+          <Select value={value.contract} onValueChange={(v) => onChange({ ...value, contract: v as CrewMember["contract"] })}>
+            <SelectTrigger className="w-[130px]">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CONTRACTS.map((c) => (
+                <SelectItem key={c} value={c}>
+                  {c}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-fit items-center gap-[4px] text-[12px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+      >
+        {expanded ? <ChevronDown className="size-[14px]" aria-hidden="true" /> : <ChevronRight className="size-[14px]" aria-hidden="true" />}
+        Contact & agent details
+      </button>
+
+      {expanded && (
+        <div className="flex flex-wrap items-end gap-[var(--fs-space-8)] rounded-md bg-[var(--color-background-surface)] p-[var(--fs-space-8)]">
+          <Input
+            label="Email"
+            type="email"
+            value={value.email}
+            onChange={(e) => onChange({ ...value, email: e.target.value })}
+            containerClassName="min-w-[160px] flex-1"
+          />
+          <Input
+            label="Phone"
+            type="tel"
+            value={value.phone}
+            onChange={(e) => onChange({ ...value, phone: e.target.value })}
+            containerClassName="min-w-[140px]"
+          />
+          <Input
+            label="Emergency contact"
+            value={value.emergencyContactName}
+            onChange={(e) => onChange({ ...value, emergencyContactName: e.target.value })}
+            containerClassName="min-w-[160px] flex-1"
+          />
+          <Input
+            label="Emergency phone"
+            type="tel"
+            value={value.emergencyContactPhone}
+            onChange={(e) => onChange({ ...value, emergencyContactPhone: e.target.value })}
+            containerClassName="min-w-[140px]"
+          />
+          <Input
+            label="Agent / rep"
+            value={value.agentName}
+            onChange={(e) => onChange({ ...value, agentName: e.target.value })}
+            containerClassName="min-w-[160px] flex-1"
+          />
+          <Input
+            label="Agent phone"
+            type="tel"
+            value={value.agentPhone}
+            onChange={(e) => onChange({ ...value, agentPhone: e.target.value })}
+            containerClassName="min-w-[140px]"
+          />
+          <Input
+            label="Agent email"
+            type="email"
+            value={value.agentEmail}
+            onChange={(e) => onChange({ ...value, agentEmail: e.target.value })}
+            containerClassName="min-w-[160px] flex-1"
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -45,6 +168,19 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editForm, setEditForm] = React.useState<CrewMemberInput>(emptyForm);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
+
+  const departments = React.useMemo(() => {
+    const byDepartment = new Map<string, CrewMember[]>();
+    for (const member of crewMembers) {
+      const list = byDepartment.get(member.department) ?? [];
+      list.push(member);
+      byDepartment.set(member.department, list);
+    }
+    for (const list of byDepartment.values()) {
+      list.sort((a, b) => (a.isHod === b.isHod ? a.name.localeCompare(b.name) : a.isHod ? -1 : 1));
+    }
+    return [...byDepartment.entries()].sort(([a], [b]) => a.localeCompare(b));
+  }, [crewMembers]);
 
   async function onAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -64,7 +200,20 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
 
   function startEdit(member: CrewMember) {
     setEditingId(member.id);
-    setEditForm({ name: member.name, department: member.department, role: member.role });
+    setEditForm({
+      name: member.name,
+      department: member.department,
+      role: member.role,
+      isHod: member.isHod,
+      contract: member.contract,
+      email: member.email ?? "",
+      phone: member.phone ?? "",
+      emergencyContactName: member.emergencyContactName ?? "",
+      emergencyContactPhone: member.emergencyContactPhone ?? "",
+      agentName: member.agentName ?? "",
+      agentPhone: member.agentPhone ?? "",
+      agentEmail: member.agentEmail ?? "",
+    });
   }
 
   async function onSaveEdit(e: React.FormEvent, id: string) {
@@ -83,7 +232,20 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
 
   async function onDelete(member: CrewMember) {
     setPendingId(member.id);
-    const restore: CrewMemberInput = { name: member.name, department: member.department, role: member.role };
+    const restore: CrewMemberInput = {
+      name: member.name,
+      department: member.department,
+      role: member.role,
+      isHod: member.isHod,
+      contract: member.contract,
+      email: member.email ?? "",
+      phone: member.phone ?? "",
+      emergencyContactName: member.emergencyContactName ?? "",
+      emergencyContactPhone: member.emergencyContactPhone ?? "",
+      agentName: member.agentName ?? "",
+      agentPhone: member.agentPhone ?? "",
+      agentEmail: member.agentEmail ?? "",
+    };
     try {
       await deleteCrewMember(productionId, member.id);
       router.refresh();
@@ -124,53 +286,61 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
         />
       )}
 
-      {crewMembers.length > 0 && (
-        <ul className="flex flex-col divide-y divide-[var(--color-border-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
-          {crewMembers.map((member) =>
-            editingId === member.id ? (
-              <li key={member.id} className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
-                <form onSubmit={(e) => onSaveEdit(e, member.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
-                  <CrewForm value={editForm} onChange={setEditForm} />
-                  <Button type="submit" loading={pendingId === member.id} disabled={pendingId !== null}>
-                    Save
-                  </Button>
-                  <Button type="button" variant="secondary" onClick={() => setEditingId(null)} disabled={pendingId !== null}>
-                    Cancel
-                  </Button>
-                </form>
-              </li>
-            ) : (
-              <li key={member.id} className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
-                <div className="min-w-0">
-                  <p className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">{member.name}</p>
-                  <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
-                    {member.department} — {member.role}
-                  </p>
-                </div>
-                <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
-                  <Button
-                    variant="quiet"
-                    iconOnly
-                    icon={<Pencil className="size-[14px]" aria-hidden="true" />}
-                    aria-label={`Edit ${member.name}`}
-                    onClick={() => startEdit(member)}
-                    disabled={pendingId !== null}
-                  />
-                  <Button
-                    variant="quiet"
-                    iconOnly
-                    icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
-                    aria-label={`Remove ${member.name}`}
-                    loading={pendingId === member.id}
-                    disabled={pendingId !== null}
-                    onClick={() => onDelete(member)}
-                  />
-                </div>
-              </li>
-            ),
-          )}
-        </ul>
-      )}
+      {departments.map(([department, members]) => (
+        <div key={department} className="flex flex-col gap-[var(--fs-space-8)]">
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">{department}</h2>
+          <ul className="flex flex-col divide-y divide-[var(--color-border-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
+            {members.map((member) =>
+              editingId === member.id ? (
+                <li key={member.id} className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
+                  <form onSubmit={(e) => onSaveEdit(e, member.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
+                    <CrewForm value={editForm} onChange={setEditForm} />
+                    <Button type="submit" loading={pendingId === member.id} disabled={pendingId !== null}>
+                      Save
+                    </Button>
+                    <Button type="button" variant="secondary" onClick={() => setEditingId(null)} disabled={pendingId !== null}>
+                      Cancel
+                    </Button>
+                  </form>
+                </li>
+              ) : (
+                <li key={member.id} className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
+                  <div className="min-w-0">
+                    <p className="flex items-center gap-[6px] truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                      {member.name}
+                      {member.isHod && <StatusBadge tone="info">HOD</StatusBadge>}
+                    </p>
+                    <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
+                      {member.role}
+                      {(member.phone || member.email) && ` · ${[member.phone, member.email].filter(Boolean).join(" · ")}`}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
+                    <StatusBadge tone={contractTone[member.contract]}>{member.contract}</StatusBadge>
+                    <Button
+                      variant="quiet"
+                      iconOnly
+                      icon={<Pencil className="size-[14px]" aria-hidden="true" />}
+                      aria-label={`Edit ${member.name}`}
+                      onClick={() => startEdit(member)}
+                      disabled={pendingId !== null}
+                    />
+                    <Button
+                      variant="quiet"
+                      iconOnly
+                      icon={<Trash2 className="size-[14px]" aria-hidden="true" />}
+                      aria-label={`Remove ${member.name}`}
+                      loading={pendingId === member.id}
+                      disabled={pendingId !== null}
+                      onClick={() => onDelete(member)}
+                    />
+                  </div>
+                </li>
+              ),
+            )}
+          </ul>
+        </div>
+      ))}
 
       {crewMembers.length > 0 && !adding && (
         <Button variant="secondary" onClick={() => setAdding(true)} className="self-start">

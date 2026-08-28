@@ -1,5 +1,6 @@
 import {
   type AnyPgColumn,
+  boolean,
   index,
   integer,
   jsonb,
@@ -96,6 +97,26 @@ export const characters = pgTable(
   (t) => [index("characters_production_idx").on(t.productionId)],
 );
 
+/** Contact & representation columns shared by cast_members and crew_members — see ContactInfo in packages/core. */
+const contactColumns = {
+  email: text("email"),
+  phone: text("phone"),
+  emergencyContactName: text("emergency_contact_name"),
+  emergencyContactPhone: text("emergency_contact_phone"),
+  agentName: text("agent_name"),
+  agentPhone: text("agent_phone"),
+  agentEmail: text("agent_email"),
+};
+
+/** Wardrobe sizing columns for cast_members — see SizingInfo in packages/core. */
+const sizingColumns = {
+  height: text("height"),
+  shirtSize: text("shirt_size"),
+  pantSize: text("pant_size"),
+  shoeSize: text("shoe_size"),
+  sizingNotes: text("sizing_notes"),
+};
+
 export const castMembers = pgTable(
   "cast_members",
   {
@@ -109,6 +130,8 @@ export const castMembers = pgTable(
     actorName: text("actor_name").notNull(),
     status: text("status").notNull(),
     contract: text("contract").notNull(),
+    ...contactColumns,
+    ...sizingColumns,
   },
   (t) => [index("cast_members_production_idx").on(t.productionId)],
 );
@@ -123,6 +146,9 @@ export const crewMembers = pgTable(
     name: text("name").notNull(),
     department: text("department").notNull(),
     role: text("role").notNull(),
+    isHod: boolean("is_hod").notNull().default(false),
+    contract: text("contract").notNull().default("Pending"),
+    ...contactColumns,
   },
   (t) => [index("crew_members_production_idx").on(t.productionId)],
 );
@@ -206,6 +232,8 @@ export const scenes = pgTable(
     scheduleOrder: integer("schedule_order").notNull().default(0),
     /** The revision color of the script import that last changed this scene's content. */
     revisionColor: text("revision_color").notNull().default("White"),
+    /** Wardrobe/hair/makeup continuity notes — what's different in this scene from the rest of the shoot. */
+    continuityNotes: text("continuity_notes").notNull().default(""),
     locationId: text("location_id")
       .notNull()
       .references(() => locations.id),
@@ -378,6 +406,41 @@ export const callSheets = pgTable("call_sheets", {
   basecamp: text("basecamp").notNull().default(""),
   notes: text("notes").notNull().default(""),
 });
+
+/**
+ * Per-person call time overrides for a shoot day — absent for a given
+ * person means "use the day's general crew call" (shootDays.callTime).
+ * Two tables rather than one polymorphic one, matching the sceneCast /
+ * propScenes join-table pattern elsewhere in this schema, so each keeps a
+ * real FK to the table it actually references.
+ */
+export const shootDayCastCallTimes = pgTable(
+  "shoot_day_cast_call_times",
+  {
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    castMemberId: text("cast_member_id")
+      .notNull()
+      .references(() => castMembers.id, { onDelete: "cascade" }),
+    callTime: text("call_time").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.shootDayId, t.castMemberId] })],
+);
+
+export const shootDayCrewCallTimes = pgTable(
+  "shoot_day_crew_call_times",
+  {
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    crewMemberId: text("crew_member_id")
+      .notNull()
+      .references(() => crewMembers.id, { onDelete: "cascade" }),
+    callTime: text("call_time").notNull(),
+  },
+  (t) => [primaryKey({ columns: [t.shootDayId, t.crewMemberId] })],
+);
 
 export const callSheetTimelineEvents = pgTable(
   "call_sheet_timeline_events",

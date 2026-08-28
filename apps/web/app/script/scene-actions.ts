@@ -15,6 +15,7 @@ export interface SceneInput {
   synopsis: string;
   status: Scene["status"];
   castMemberIds: string[];
+  continuityNotes: string;
 }
 
 function validate(input: SceneInput) {
@@ -22,7 +23,7 @@ function validate(input: SceneInput) {
   const setName = input.setName.trim();
   if (!number) throw new Error("Scene number is required.");
   if (!setName) throw new Error("Location is required.");
-  return { ...input, number, setName, synopsis: input.synopsis.trim() };
+  return { ...input, number, setName, synopsis: input.synopsis.trim(), continuityNotes: input.continuityNotes.trim() };
 }
 
 async function setSceneCast(tx: Tx, sceneId: string, castMemberIds: string[]) {
@@ -53,6 +54,7 @@ export async function createScene(productionId: string, input: SceneInput) {
         dayNight: values.dayNight,
         synopsis: values.synopsis,
         status: values.status,
+        continuityNotes: values.continuityNotes,
         locationId,
         scheduleOrder: existing?.total ?? 0,
       });
@@ -80,6 +82,7 @@ export async function updateScene(productionId: string, sceneId: string, input: 
           dayNight: values.dayNight,
           synopsis: values.synopsis,
           status: values.status,
+          continuityNotes: values.continuityNotes,
           locationId,
         })
         .where(and(eq(schema.scenes.id, sceneId), eq(schema.scenes.productionId, productionId)));

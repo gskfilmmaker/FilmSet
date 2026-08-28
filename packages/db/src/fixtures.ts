@@ -50,32 +50,52 @@ export const characters: Character[] = [
   { id: "char_karim", name: "Karim" },
 ];
 
+/** No fixture cast/crew member has contact details filled in — the fields exist, the demo data just doesn't exercise them. */
+const noContactInfo = {
+  email: null,
+  phone: null,
+  emergencyContactName: null,
+  emergencyContactPhone: null,
+  agentName: null,
+  agentPhone: null,
+  agentEmail: null,
+} as const;
+
+/** No fixture cast member has sizing filled in — the fields exist, the demo data just doesn't exercise them. */
+const noSizingInfo = {
+  height: null,
+  shirtSize: null,
+  pantSize: null,
+  shoeSize: null,
+  sizingNotes: null,
+} as const;
+
 export const castMembers: CastMember[] = [
-  { id: "cast_abraham", characterId: "char_abraham", actorName: "Rahul Verma", status: "Confirmed", contract: "Signed" },
-  { id: "cast_aisha", characterId: "char_aisha", actorName: "Priya Nair", status: "Confirmed", contract: "Signed" },
-  { id: "cast_rohan", characterId: "char_rohan", actorName: "Arjun Malhotra", status: "Confirmed", contract: "Pending" },
-  { id: "cast_meera", characterId: "char_meera", actorName: "Kavita Rao", status: "Confirmed", contract: "Signed" },
-  { id: "cast_vaid", characterId: "char_vaid", actorName: "Sameer Khan", status: "Confirmed", contract: "Signed" },
-  { id: "cast_farid", characterId: "char_farid", actorName: "Vikram Singh", status: "Unavailable", contract: "Missing" },
-  { id: "cast_nasreen", characterId: "char_nasreen", actorName: "Anjali Gupta", status: "Confirmed", contract: "Signed" },
-  { id: "cast_deepak", characterId: "char_deepak", actorName: "Tarun Shah", status: "Confirmed", contract: "Signed" },
-  { id: "cast_sunita", characterId: "char_sunita", actorName: "Divya Menon", status: "Confirmed", contract: "Signed" },
-  { id: "cast_karim", characterId: "char_karim", actorName: "Imran Qureshi", status: "Confirmed", contract: "Signed" },
+  { id: "cast_abraham", characterId: "char_abraham", actorName: "Rahul Verma", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_aisha", characterId: "char_aisha", actorName: "Priya Nair", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_rohan", characterId: "char_rohan", actorName: "Arjun Malhotra", status: "Confirmed", contract: "Pending", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_meera", characterId: "char_meera", actorName: "Kavita Rao", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_vaid", characterId: "char_vaid", actorName: "Sameer Khan", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_farid", characterId: "char_farid", actorName: "Vikram Singh", status: "Unavailable", contract: "Missing", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_nasreen", characterId: "char_nasreen", actorName: "Anjali Gupta", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_deepak", characterId: "char_deepak", actorName: "Tarun Shah", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_sunita", characterId: "char_sunita", actorName: "Divya Menon", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
+  { id: "cast_karim", characterId: "char_karim", actorName: "Imran Qureshi", status: "Confirmed", contract: "Signed", ...noContactInfo, ...noSizingInfo },
 ];
 
 export const crewMembers: CrewMember[] = [
-  { id: "crew_1ad", name: "Rakesh Mehta", department: "Production", role: "1st AD" },
-  { id: "crew_2ad", name: "Ayesha Sheikh", department: "Production", role: "2nd AD" },
-  { id: "crew_dp", name: "Vivek Chandran", department: "Camera", role: "Director of Photography" },
-  { id: "crew_gaffer", name: "Suresh Iyer", department: "Electric", role: "Gaffer" },
-  { id: "crew_sound", name: "Neha Kulkarni", department: "Sound", role: "Sound Mixer" },
-  { id: "crew_script", name: "Pooja Bhatia", department: "Production", role: "Script Supervisor" },
-  { id: "crew_pd", name: "Aditya Rao", department: "Art", role: "Production Designer" },
-  { id: "crew_costume", name: "Simran Kaur", department: "Wardrobe", role: "Costume Designer" },
-  { id: "crew_makeup", name: "Farah Ali", department: "Hair & Makeup", role: "Makeup Head" },
-  { id: "crew_lp", name: "Manoj Tiwari", department: "Production", role: "Line Producer" },
-  { id: "crew_locations", name: "Rajesh Pillai", department: "Locations", role: "Location Manager" },
-  { id: "crew_stunts", name: "Vikas Oberoi", department: "Stunts", role: "Stunt Coordinator" },
+  { id: "crew_1ad", name: "Rakesh Mehta", department: "Production", role: "1st AD", isHod: false, contract: "Signed", ...noContactInfo },
+  { id: "crew_2ad", name: "Ayesha Sheikh", department: "Production", role: "2nd AD", isHod: false, contract: "Signed", ...noContactInfo },
+  { id: "crew_dp", name: "Vivek Chandran", department: "Camera", role: "Director of Photography", isHod: true, contract: "Signed", ...noContactInfo },
+  { id: "crew_gaffer", name: "Suresh Iyer", department: "Electric", role: "Gaffer", isHod: true, contract: "Signed", ...noContactInfo },
+  { id: "crew_sound", name: "Neha Kulkarni", department: "Sound", role: "Sound Mixer", isHod: true, contract: "Pending", ...noContactInfo },
+  { id: "crew_script", name: "Pooja Bhatia", department: "Production", role: "Script Supervisor", isHod: false, contract: "Signed", ...noContactInfo },
+  { id: "crew_pd", name: "Aditya Rao", department: "Art", role: "Production Designer", isHod: true, contract: "Signed", ...noContactInfo },
+  { id: "crew_costume", name: "Simran Kaur", department: "Wardrobe", role: "Costume Designer", isHod: true, contract: "Signed", ...noContactInfo },
+  { id: "crew_makeup", name: "Farah Ali", department: "Hair & Makeup", role: "Makeup Head", isHod: true, contract: "Pending", ...noContactInfo },
+  { id: "crew_lp", name: "Manoj Tiwari", department: "Production", role: "Line Producer", isHod: true, contract: "Signed", ...noContactInfo },
+  { id: "crew_locations", name: "Rajesh Pillai", department: "Locations", role: "Location Manager", isHod: true, contract: "Signed", ...noContactInfo },
+  { id: "crew_stunts", name: "Vikas Oberoi", department: "Stunts", role: "Stunt Coordinator", isHod: true, contract: "Missing", ...noContactInfo },
 ];
 
 // --- Places & things ---
@@ -101,23 +121,23 @@ export const props: Prop[] = [
 // --- Scenes ---
 
 export const theBandScenes: Scene[] = [
-  { id: "scene_40", number: "40", intExt: "INT", setName: "Nasreen's Tea Shop", dayNight: "DAY", synopsis: "Nasreen warns Abraham to stop asking questions.", pageCount: "1 2/8", status: "Shot", shootDayId: "day_16", castIds: ["cast_abraham", "cast_nasreen"], locationId: "loc_nasreens-shop", revisionColor: "White" },
-  { id: "scene_41", number: "41", intExt: "INT", setName: "Nasreen's Tea Shop", dayNight: "DAY", synopsis: "Farid confronts Abraham outside the shop.", pageCount: "7/8", status: "Shot", shootDayId: "day_16", castIds: ["cast_abraham", "cast_farid"], locationId: "loc_nasreens-shop", revisionColor: "White" },
-  { id: "scene_42", number: "42", intExt: "INT", setName: "Connaught Place Precinct", dayNight: "DAY", synopsis: "Inspector Vaid reviews Aisha's missing person file.", pageCount: "1 1/8", status: "Draft", shootDayId: null, castIds: ["cast_vaid"], locationId: "loc_police-station", revisionColor: "White" },
-  { id: "scene_44", number: "44", intExt: "INT", setName: "Abraham's Apartment", dayNight: "NIGHT", synopsis: "Abraham finds a matchbook from Nasreen's shop in Aisha's things.", pageCount: "5/8", status: "Shot", shootDayId: "day_17", castIds: ["cast_abraham"], locationId: "loc_abraham-apartment", revisionColor: "White" },
-  { id: "scene_45", number: "45", intExt: "INT", setName: "Abraham's Apartment", dayNight: "NIGHT", synopsis: "Meera arrives with information about Rohan Kapoor's shipments.", pageCount: "2 1/8", status: "Shot", shootDayId: "day_17", castIds: ["cast_abraham", "cast_meera"], locationId: "loc_abraham-apartment", revisionColor: "White" },
-  { id: "scene_46", number: "46", intExt: "INT", setName: "Abraham's Apartment", dayNight: "NIGHT", synopsis: "Sunita calls, worried she hasn't heard from Aisha.", pageCount: "6/8", status: "Shot", shootDayId: "day_17", castIds: ["cast_abraham", "cast_sunita"], locationId: "loc_abraham-apartment", revisionColor: "White" },
-  { id: "scene_47", number: "47", intExt: "EXT", setName: "Paharganj Street", dayNight: "NIGHT", synopsis: "Abraham arrives looking for Aisha.", pageCount: "2 1/8", status: "Scheduled", shootDayId: "day_18", castIds: ["cast_abraham", "cast_aisha"], locationId: "loc_paharganj-street", revisionColor: "White" },
-  { id: "scene_48", number: "48", intExt: "EXT", setName: "Paharganj Street", dayNight: "NIGHT", synopsis: "Aisha explains what she saw the night of the shipment.", pageCount: "1 4/8", status: "Scheduled", shootDayId: "day_18", castIds: ["cast_abraham", "cast_aisha"], locationId: "loc_paharganj-street", revisionColor: "White" },
-  { id: "scene_49", number: "49", intExt: "EXT", setName: "Paharganj Street", dayNight: "NIGHT", synopsis: "Karim's men spot them from a passing car.", pageCount: "7/8", status: "Scheduled", shootDayId: "day_18", castIds: ["cast_abraham", "cast_aisha", "cast_karim"], locationId: "loc_paharganj-street", revisionColor: "White" },
-  { id: "scene_50", number: "50", intExt: "EXT", setName: "Chandni Chowk Market", dayNight: "DAY", synopsis: "Abraham and Aisha lose the tail in the market crowd.", pageCount: "1 6/8", status: "Scheduled", shootDayId: "day_19", castIds: ["cast_abraham", "cast_aisha"], locationId: "loc_chandni-chowk-market", revisionColor: "White" },
-  { id: "scene_51", number: "51", intExt: "EXT", setName: "Chandni Chowk Market", dayNight: "DAY", synopsis: "Inspector Vaid questions market vendors about the chase.", pageCount: "1 1/8", status: "Scheduled", shootDayId: "day_19", castIds: ["cast_vaid"], locationId: "loc_chandni-chowk-market", revisionColor: "White" },
-  { id: "scene_52", number: "52", intExt: "EXT", setName: "NH19 Highway to Agra", dayNight: "NIGHT", synopsis: "Deepak's truck convoy makes its run.", pageCount: "2 3/8", status: "Scheduled", shootDayId: "day_20", castIds: ["cast_deepak", "cast_farid"], locationId: "loc_highway-agra", revisionColor: "White" },
-  { id: "scene_53", number: "53", intExt: "EXT", setName: "NH19 Highway to Agra", dayNight: "NIGHT", synopsis: "Vaid's unit sets up a checkpoint.", pageCount: "1 3/8", status: "Scheduled", shootDayId: "day_20", castIds: ["cast_vaid"], locationId: "loc_highway-agra", revisionColor: "White" },
-  { id: "scene_12", number: "12", intExt: "INT", setName: "Rohan Kapoor's Office", dayNight: "DAY", synopsis: "Rohan pressures a city official over the shipment route.", pageCount: "1 5/8", status: "Draft", shootDayId: null, castIds: ["cast_rohan"], locationId: "loc_studio-a", revisionColor: "White" },
-  { id: "scene_13", number: "13", intExt: "INT", setName: "Rohan Kapoor's Office", dayNight: "DAY", synopsis: "Rohan learns Meera is investigating him.", pageCount: "1 2/8", status: "Draft", shootDayId: null, castIds: ["cast_rohan", "cast_meera"], locationId: "loc_studio-a", revisionColor: "White" },
-  { id: "scene_30", number: "30", intExt: "INT", setName: "Nasreen's Tea Shop", dayNight: "NIGHT", synopsis: "Cut from the schedule — covered by Scene 40.", pageCount: "4/8", status: "Omitted", shootDayId: null, castIds: ["cast_nasreen"], locationId: "loc_nasreens-shop", revisionColor: "White" },
-  { id: "scene_8", number: "8", intExt: "EXT", setName: "Abraham's Apartment Building", dayNight: "DAY", synopsis: "Establishing shot — needs a pickup.", pageCount: "1/8", status: "Pickup", shootDayId: null, castIds: [], locationId: "loc_abraham-apartment", revisionColor: "White" },
+  { id: "scene_40", number: "40", intExt: "INT", setName: "Nasreen's Tea Shop", dayNight: "DAY", synopsis: "Nasreen warns Abraham to stop asking questions.", pageCount: "1 2/8", status: "Shot", shootDayId: "day_16", castIds: ["cast_abraham", "cast_nasreen"], locationId: "loc_nasreens-shop", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_41", number: "41", intExt: "INT", setName: "Nasreen's Tea Shop", dayNight: "DAY", synopsis: "Farid confronts Abraham outside the shop.", pageCount: "7/8", status: "Shot", shootDayId: "day_16", castIds: ["cast_abraham", "cast_farid"], locationId: "loc_nasreens-shop", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_42", number: "42", intExt: "INT", setName: "Connaught Place Precinct", dayNight: "DAY", synopsis: "Inspector Vaid reviews Aisha's missing person file.", pageCount: "1 1/8", status: "Draft", shootDayId: null, castIds: ["cast_vaid"], locationId: "loc_police-station", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_44", number: "44", intExt: "INT", setName: "Abraham's Apartment", dayNight: "NIGHT", synopsis: "Abraham finds a matchbook from Nasreen's shop in Aisha's things.", pageCount: "5/8", status: "Shot", shootDayId: "day_17", castIds: ["cast_abraham"], locationId: "loc_abraham-apartment", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_45", number: "45", intExt: "INT", setName: "Abraham's Apartment", dayNight: "NIGHT", synopsis: "Meera arrives with information about Rohan Kapoor's shipments.", pageCount: "2 1/8", status: "Shot", shootDayId: "day_17", castIds: ["cast_abraham", "cast_meera"], locationId: "loc_abraham-apartment", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_46", number: "46", intExt: "INT", setName: "Abraham's Apartment", dayNight: "NIGHT", synopsis: "Sunita calls, worried she hasn't heard from Aisha.", pageCount: "6/8", status: "Shot", shootDayId: "day_17", castIds: ["cast_abraham", "cast_sunita"], locationId: "loc_abraham-apartment", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_47", number: "47", intExt: "EXT", setName: "Paharganj Street", dayNight: "NIGHT", synopsis: "Abraham arrives looking for Aisha.", pageCount: "2 1/8", status: "Scheduled", shootDayId: "day_18", castIds: ["cast_abraham", "cast_aisha"], locationId: "loc_paharganj-street", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_48", number: "48", intExt: "EXT", setName: "Paharganj Street", dayNight: "NIGHT", synopsis: "Aisha explains what she saw the night of the shipment.", pageCount: "1 4/8", status: "Scheduled", shootDayId: "day_18", castIds: ["cast_abraham", "cast_aisha"], locationId: "loc_paharganj-street", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_49", number: "49", intExt: "EXT", setName: "Paharganj Street", dayNight: "NIGHT", synopsis: "Karim's men spot them from a passing car.", pageCount: "7/8", status: "Scheduled", shootDayId: "day_18", castIds: ["cast_abraham", "cast_aisha", "cast_karim"], locationId: "loc_paharganj-street", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_50", number: "50", intExt: "EXT", setName: "Chandni Chowk Market", dayNight: "DAY", synopsis: "Abraham and Aisha lose the tail in the market crowd.", pageCount: "1 6/8", status: "Scheduled", shootDayId: "day_19", castIds: ["cast_abraham", "cast_aisha"], locationId: "loc_chandni-chowk-market", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_51", number: "51", intExt: "EXT", setName: "Chandni Chowk Market", dayNight: "DAY", synopsis: "Inspector Vaid questions market vendors about the chase.", pageCount: "1 1/8", status: "Scheduled", shootDayId: "day_19", castIds: ["cast_vaid"], locationId: "loc_chandni-chowk-market", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_52", number: "52", intExt: "EXT", setName: "NH19 Highway to Agra", dayNight: "NIGHT", synopsis: "Deepak's truck convoy makes its run.", pageCount: "2 3/8", status: "Scheduled", shootDayId: "day_20", castIds: ["cast_deepak", "cast_farid"], locationId: "loc_highway-agra", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_53", number: "53", intExt: "EXT", setName: "NH19 Highway to Agra", dayNight: "NIGHT", synopsis: "Vaid's unit sets up a checkpoint.", pageCount: "1 3/8", status: "Scheduled", shootDayId: "day_20", castIds: ["cast_vaid"], locationId: "loc_highway-agra", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_12", number: "12", intExt: "INT", setName: "Rohan Kapoor's Office", dayNight: "DAY", synopsis: "Rohan pressures a city official over the shipment route.", pageCount: "1 5/8", status: "Draft", shootDayId: null, castIds: ["cast_rohan"], locationId: "loc_studio-a", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_13", number: "13", intExt: "INT", setName: "Rohan Kapoor's Office", dayNight: "DAY", synopsis: "Rohan learns Meera is investigating him.", pageCount: "1 2/8", status: "Draft", shootDayId: null, castIds: ["cast_rohan", "cast_meera"], locationId: "loc_studio-a", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_30", number: "30", intExt: "INT", setName: "Nasreen's Tea Shop", dayNight: "NIGHT", synopsis: "Cut from the schedule — covered by Scene 40.", pageCount: "4/8", status: "Omitted", shootDayId: null, castIds: ["cast_nasreen"], locationId: "loc_nasreens-shop", revisionColor: "White", continuityNotes: "" },
+  { id: "scene_8", number: "8", intExt: "EXT", setName: "Abraham's Apartment Building", dayNight: "DAY", synopsis: "Establishing shot — needs a pickup.", pageCount: "1/8", status: "Pickup", shootDayId: null, castIds: [], locationId: "loc_abraham-apartment", revisionColor: "White", continuityNotes: "" },
 ];
 
 // --- Schedule ---
@@ -255,6 +275,8 @@ export const callSheetDay18: CallSheet = {
     { time: "01:30", label: "Estimated wrap" },
   ],
   notes: "Street remains open to pedestrian traffic — PAs holding both ends during takes. Rain machine on standby, not confirmed for use.",
+  castCallTimes: [],
+  crewCallTimes: [],
 };
 
 // --- FilmSet AI recommendations (reproduces Constitution §50's structure) ---

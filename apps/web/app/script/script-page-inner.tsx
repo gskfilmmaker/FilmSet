@@ -34,7 +34,7 @@ const DAY_NIGHT: Scene["dayNight"][] = ["DAY", "NIGHT"];
 const SCENE_STATUSES: Scene["status"][] = ["Draft", "Scheduled", "Shot", "Omitted", "Pickup", "Reshoot"];
 
 function blankSceneInput(): SceneInput {
-  return { number: "", intExt: "INT", setName: "", dayNight: "DAY", synopsis: "", status: "Draft", castMemberIds: [] };
+  return { number: "", intExt: "INT", setName: "", dayNight: "DAY", synopsis: "", status: "Draft", castMemberIds: [], continuityNotes: "" };
 }
 
 function RevisionDot({ color }: { color: string }) {
@@ -323,6 +323,13 @@ function SceneForm({
         value={value.synopsis}
         onChange={(e) => onChange({ ...value, synopsis: e.target.value })}
       />
+      <Textarea
+        label="Continuity notes"
+        placeholder="Wardrobe/hair/makeup: what's different here from the rest of the shoot"
+        rows={2}
+        value={value.continuityNotes}
+        onChange={(e) => onChange({ ...value, continuityNotes: e.target.value })}
+      />
       {castMembers.length > 0 && (
         <div className="flex flex-col gap-[4px]">
           <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Cast</label>
@@ -427,6 +434,7 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
       synopsis: scene.synopsis,
       status: scene.status,
       castMemberIds: scene.castIds,
+      continuityNotes: scene.continuityNotes,
     });
     setSceneFormMode("edit");
   }
@@ -565,6 +573,9 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
               </span>
             </InspectorSection>
             <InspectorSection label="Synopsis">{scene.synopsis || <span className="text-[var(--color-text-tertiary)]">None yet.</span>}</InspectorSection>
+            <InspectorSection label="Continuity">
+              {scene.continuityNotes || <span className="text-[var(--color-text-tertiary)]">None yet.</span>}
+            </InspectorSection>
             <InspectorSection
               label="AI Suggested"
               action={

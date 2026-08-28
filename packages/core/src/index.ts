@@ -28,6 +28,8 @@ export const sceneSchema = z.object({
   locationId: z.string(),
   /** Which script revision (White/Blue/Pink/...) last changed this scene's content — see packages/core's revision-colors module. */
   revisionColor: z.string(),
+  /** Wardrobe/hair/makeup continuity notes for this scene — what's different here from the rest of the shoot (torn sleeve, bruise, wet hair, ...). */
+  continuityNotes: z.string(),
 });
 export type Scene = z.infer<typeof sceneSchema>;
 
@@ -45,21 +47,58 @@ export type Production = z.infer<typeof productionSchema>;
 export const characterSchema = z.object({ id: z.string(), name: z.string() });
 export type Character = z.infer<typeof characterSchema>;
 
-export const castMemberSchema = z.object({
-  id: z.string(),
-  characterId: z.string(),
-  actorName: z.string(),
-  status: z.enum(["Confirmed", "Offer Out", "Unavailable"]),
-  contract: z.enum(["Signed", "Pending", "Missing"]),
+/**
+ * Contact & representation fields shared by Cast and Crew — the "who do I
+ * call" data a production office actually needs: a direct line, an
+ * emergency contact, and (for an actor's agent/manager or a HOD's rep) who
+ * to go through to reach them. All optional/nullable — most crew rows will
+ * never fill in the agent fields, and that's fine.
+ */
+export const contactInfoSchema = z.object({
+  email: z.string().nullable(),
+  phone: z.string().nullable(),
+  emergencyContactName: z.string().nullable(),
+  emergencyContactPhone: z.string().nullable(),
+  agentName: z.string().nullable(),
+  agentPhone: z.string().nullable(),
+  agentEmail: z.string().nullable(),
 });
+export type ContactInfo = z.infer<typeof contactInfoSchema>;
+
+/** Wardrobe sizing for one cast member — free-text sizingNotes covers anything a fixed field wouldn't (wigs, prosthetics, allergies, continuity quirks). */
+export const sizingInfoSchema = z.object({
+  height: z.string().nullable(),
+  shirtSize: z.string().nullable(),
+  pantSize: z.string().nullable(),
+  shoeSize: z.string().nullable(),
+  sizingNotes: z.string().nullable(),
+});
+export type SizingInfo = z.infer<typeof sizingInfoSchema>;
+
+export const castMemberSchema = z
+  .object({
+    id: z.string(),
+    characterId: z.string(),
+    actorName: z.string(),
+    status: z.enum(["Confirmed", "Offer Out", "Unavailable"]),
+    contract: z.enum(["Signed", "Pending", "Missing"]),
+  })
+  .extend(contactInfoSchema.shape)
+  .extend(sizingInfoSchema.shape);
 export type CastMember = z.infer<typeof castMemberSchema>;
 
-export const crewMemberSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  department: z.string(),
-  role: z.string(),
-});
+export const crewMemberSchema = z
+  .object({
+    id: z.string(),
+    name: z.string(),
+    department: z.string(),
+    role: z.string(),
+    /** Head of department — sorts first within their department and is called out on the Contact Sheet. */
+    isHod: z.boolean(),
+    /** Deal memo / contract status — same tracking Cast already has, extended to Crew. */
+    contract: z.enum(["Signed", "Pending", "Missing"]),
+  })
+  .extend(contactInfoSchema.shape);
 export type CrewMember = z.infer<typeof crewMemberSchema>;
 
 // --- Places & things ---
@@ -189,6 +228,10 @@ export type Activity = z.infer<typeof activitySchema>;
 export const callSheetTimelineEventSchema = z.object({ time: z.string(), label: z.string() });
 export type CallSheetTimelineEvent = z.infer<typeof callSheetTimelineEventSchema>;
 
+/** A per-person call time override for one shoot day — absence means "use the day's general crew call" (ShootDay.callTime). */
+export const personCallTimeSchema = z.object({ personId: z.string(), callTime: z.string() });
+export type PersonCallTime = z.infer<typeof personCallTimeSchema>;
+
 export const callSheetSchema = z.object({
   shootDayId: z.string(),
   weather: z.string(),
@@ -199,6 +242,10 @@ export const callSheetSchema = z.object({
   basecamp: z.string(),
   timeline: z.array(callSheetTimelineEventSchema),
   notes: z.string(),
+  /** Keyed by CastMember.id — a cast member with no entry here uses the day's general crew call. */
+  castCallTimes: z.array(personCallTimeSchema),
+  /** Keyed by CrewMember.id — a crew member with no entry here uses the day's general crew call. */
+  crewCallTimes: z.array(personCallTimeSchema),
 });
 export type CallSheet = z.infer<typeof callSheetSchema>;
 

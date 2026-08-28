@@ -90,6 +90,8 @@ export async function getProductionSnapshot(userId: string, productionId: string
     activityRows,
     callSheetRows,
     callSheetEventRows,
+    castCallTimeRows,
+    crewCallTimeRows,
     aiRecommendationRows,
   ] = await runAsUser(userId, (db) =>
     Promise.all([
@@ -150,6 +152,22 @@ export async function getProductionSnapshot(userId: string, productionId: string
         .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.callSheetTimelineEvents.shootDayId), eq(schema.shootDays.productionId, productionId)))
         .orderBy(asc(schema.callSheetTimelineEvents.sortOrder)),
       db
+        .select({
+          shootDayId: schema.shootDayCastCallTimes.shootDayId,
+          castMemberId: schema.shootDayCastCallTimes.castMemberId,
+          callTime: schema.shootDayCastCallTimes.callTime,
+        })
+        .from(schema.shootDayCastCallTimes)
+        .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.shootDayCastCallTimes.shootDayId), eq(schema.shootDays.productionId, productionId))),
+      db
+        .select({
+          shootDayId: schema.shootDayCrewCallTimes.shootDayId,
+          crewMemberId: schema.shootDayCrewCallTimes.crewMemberId,
+          callTime: schema.shootDayCrewCallTimes.callTime,
+        })
+        .from(schema.shootDayCrewCallTimes)
+        .innerJoin(schema.shootDays, and(eq(schema.shootDays.id, schema.shootDayCrewCallTimes.shootDayId), eq(schema.shootDays.productionId, productionId))),
+      db
         .select()
         .from(schema.aiRecommendations)
         .where(and(eq(schema.aiRecommendations.productionId, productionId), eq(schema.aiRecommendations.status, "pending"))),
@@ -195,6 +213,20 @@ export async function getProductionSnapshot(userId: string, productionId: string
     eventsByShootDay.set(event.shootDayId, list);
   }
 
+  const castCallTimesByShootDay = new Map<string, { personId: string; callTime: string }[]>();
+  for (const row of castCallTimeRows) {
+    const list = castCallTimesByShootDay.get(row.shootDayId) ?? [];
+    list.push({ personId: row.castMemberId, callTime: row.callTime });
+    castCallTimesByShootDay.set(row.shootDayId, list);
+  }
+
+  const crewCallTimesByShootDay = new Map<string, { personId: string; callTime: string }[]>();
+  for (const row of crewCallTimeRows) {
+    const list = crewCallTimesByShootDay.get(row.shootDayId) ?? [];
+    list.push({ personId: row.crewMemberId, callTime: row.callTime });
+    crewCallTimesByShootDay.set(row.shootDayId, list);
+  }
+
   return {
     production: {
       id: production.id,
@@ -210,8 +242,34 @@ export async function getProductionSnapshot(userId: string, productionId: string
       actorName: c.actorName,
       status: c.status as CastMember["status"],
       contract: c.contract as CastMember["contract"],
+      email: c.email,
+      phone: c.phone,
+      emergencyContactName: c.emergencyContactName,
+      emergencyContactPhone: c.emergencyContactPhone,
+      agentName: c.agentName,
+      agentPhone: c.agentPhone,
+      agentEmail: c.agentEmail,
+      height: c.height,
+      shirtSize: c.shirtSize,
+      pantSize: c.pantSize,
+      shoeSize: c.shoeSize,
+      sizingNotes: c.sizingNotes,
     })),
-    crewMembers: crewRows.map((c) => ({ id: c.id, name: c.name, department: c.department, role: c.role })),
+    crewMembers: crewRows.map((c) => ({
+      id: c.id,
+      name: c.name,
+      department: c.department,
+      role: c.role,
+      isHod: c.isHod,
+      contract: c.contract as CrewMember["contract"],
+      email: c.email,
+      phone: c.phone,
+      emergencyContactName: c.emergencyContactName,
+      emergencyContactPhone: c.emergencyContactPhone,
+      agentName: c.agentName,
+      agentPhone: c.agentPhone,
+      agentEmail: c.agentEmail,
+    })),
     locations: locationRows.map((l) => ({
       id: l.id,
       name: l.name,
@@ -233,6 +291,7 @@ export async function getProductionSnapshot(userId: string, productionId: string
       castIds: castIdsByScene.get(s.id) ?? [],
       locationId: s.locationId,
       revisionColor: s.revisionColor,
+      continuityNotes: s.continuityNotes,
     })),
     shootDays: shootDayRows.map((d) => ({
       id: d.id,
@@ -283,6 +342,8 @@ export async function getProductionSnapshot(userId: string, productionId: string
       basecamp: c.basecamp,
       timeline: eventsByShootDay.get(c.shootDayId) ?? [],
       notes: c.notes,
+      castCallTimes: castCallTimesByShootDay.get(c.shootDayId) ?? [],
+      crewCallTimes: crewCallTimesByShootDay.get(c.shootDayId) ?? [],
     })),
     aiRecommendations: aiRecommendationRows.map((r) => ({
       id: r.id,
