@@ -28,6 +28,8 @@ export const sceneSchema = z.object({
   locationId: z.string(),
   /** Which script revision (White/Blue/Pink/...) last changed this scene's content — see packages/core's revision-colors module. */
   revisionColor: z.string(),
+  /** Wardrobe/hair/makeup continuity notes for this scene — what's different here from the rest of the shoot (torn sleeve, bruise, wet hair, ...). */
+  continuityNotes: z.string(),
 });
 export type Scene = z.infer<typeof sceneSchema>;
 
@@ -63,6 +65,16 @@ export const contactInfoSchema = z.object({
 });
 export type ContactInfo = z.infer<typeof contactInfoSchema>;
 
+/** Wardrobe sizing for one cast member — free-text sizingNotes covers anything a fixed field wouldn't (wigs, prosthetics, allergies, continuity quirks). */
+export const sizingInfoSchema = z.object({
+  height: z.string().nullable(),
+  shirtSize: z.string().nullable(),
+  pantSize: z.string().nullable(),
+  shoeSize: z.string().nullable(),
+  sizingNotes: z.string().nullable(),
+});
+export type SizingInfo = z.infer<typeof sizingInfoSchema>;
+
 export const castMemberSchema = z
   .object({
     id: z.string(),
@@ -71,7 +83,8 @@ export const castMemberSchema = z
     status: z.enum(["Confirmed", "Offer Out", "Unavailable"]),
     contract: z.enum(["Signed", "Pending", "Missing"]),
   })
-  .extend(contactInfoSchema.shape);
+  .extend(contactInfoSchema.shape)
+  .extend(sizingInfoSchema.shape);
 export type CastMember = z.infer<typeof castMemberSchema>;
 
 export const crewMemberSchema = z

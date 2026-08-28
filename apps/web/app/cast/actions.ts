@@ -19,6 +19,11 @@ export interface CastMemberInput {
   agentName: string;
   agentPhone: string;
   agentEmail: string;
+  height: string;
+  shirtSize: string;
+  pantSize: string;
+  shoeSize: string;
+  sizingNotes: string;
 }
 
 /** Form fields are always strings; an empty one means "unset" and is stored as null. */
@@ -44,6 +49,11 @@ function validate(input: CastMemberInput) {
     agentName: toNullable(input.agentName),
     agentPhone: toNullable(input.agentPhone),
     agentEmail: toNullable(input.agentEmail),
+    height: toNullable(input.height),
+    shirtSize: toNullable(input.shirtSize),
+    pantSize: toNullable(input.pantSize),
+    shoeSize: toNullable(input.shoeSize),
+    sizingNotes: toNullable(input.sizingNotes),
   };
 }
 
@@ -70,6 +80,11 @@ export async function createCastMember(productionId: string, input: CastMemberIn
         agentName: values.agentName,
         agentPhone: values.agentPhone,
         agentEmail: values.agentEmail,
+        height: values.height,
+        shirtSize: values.shirtSize,
+        pantSize: values.pantSize,
+        shoeSize: values.shoeSize,
+        sizingNotes: values.sizingNotes,
       });
     }),
   );
@@ -98,6 +113,11 @@ export async function updateCastMember(productionId: string, id: string, input: 
           agentName: values.agentName,
           agentPhone: values.agentPhone,
           agentEmail: values.agentEmail,
+          height: values.height,
+          shirtSize: values.shirtSize,
+          pantSize: values.pantSize,
+          shoeSize: values.shoeSize,
+          sizingNotes: values.sizingNotes,
         })
         .where(and(eq(schema.castMembers.id, id), eq(schema.castMembers.productionId, productionId)));
     }),

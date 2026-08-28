@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
   StatusBadge,
+  Textarea,
   ToastAction,
   useToast,
 } from "@filmset/ui";
@@ -45,6 +46,11 @@ const emptyForm: CastMemberInput = {
   agentName: "",
   agentPhone: "",
   agentEmail: "",
+  height: "",
+  shirtSize: "",
+  pantSize: "",
+  shoeSize: "",
+  sizingNotes: "",
 };
 
 function hasContactDetails(value: CastMemberInput): boolean {
@@ -53,8 +59,13 @@ function hasContactDetails(value: CastMemberInput): boolean {
   );
 }
 
+function hasSizingDetails(value: CastMemberInput): boolean {
+  return Boolean(value.height || value.shirtSize || value.pantSize || value.shoeSize || value.sizingNotes);
+}
+
 function CastForm({ value, onChange }: { value: CastMemberInput; onChange: (next: CastMemberInput) => void }) {
   const [expanded, setExpanded] = React.useState(() => hasContactDetails(value));
+  const [sizingExpanded, setSizingExpanded] = React.useState(() => hasSizingDetails(value));
 
   return (
     <div className="flex flex-1 flex-col gap-[var(--fs-space-12)]">
@@ -163,6 +174,54 @@ function CastForm({ value, onChange }: { value: CastMemberInput; onChange: (next
           />
         </div>
       )}
+
+      <button
+        type="button"
+        onClick={() => setSizingExpanded((v) => !v)}
+        className="flex w-fit items-center gap-[4px] text-[12px] font-medium text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+      >
+        {sizingExpanded ? <ChevronDown className="size-[14px]" aria-hidden="true" /> : <ChevronRight className="size-[14px]" aria-hidden="true" />}
+        Wardrobe sizing
+      </button>
+
+      {sizingExpanded && (
+        <div className="flex flex-col gap-[var(--fs-space-8)] rounded-md bg-[var(--color-background-surface)] p-[var(--fs-space-8)]">
+          <div className="flex flex-wrap items-end gap-[var(--fs-space-8)]">
+            <Input
+              label="Height"
+              placeholder={'e.g. 5\'10"'}
+              value={value.height}
+              onChange={(e) => onChange({ ...value, height: e.target.value })}
+              containerClassName="min-w-[100px]"
+            />
+            <Input
+              label="Shirt size"
+              value={value.shirtSize}
+              onChange={(e) => onChange({ ...value, shirtSize: e.target.value })}
+              containerClassName="min-w-[100px]"
+            />
+            <Input
+              label="Pant size"
+              value={value.pantSize}
+              onChange={(e) => onChange({ ...value, pantSize: e.target.value })}
+              containerClassName="min-w-[100px]"
+            />
+            <Input
+              label="Shoe size"
+              value={value.shoeSize}
+              onChange={(e) => onChange({ ...value, shoeSize: e.target.value })}
+              containerClassName="min-w-[100px]"
+            />
+          </div>
+          <Textarea
+            label="Sizing notes"
+            placeholder="Wigs, prosthetics, allergies, anything else wardrobe/hair/makeup should know"
+            rows={2}
+            value={value.sizingNotes}
+            onChange={(e) => onChange({ ...value, sizingNotes: e.target.value })}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -220,6 +279,11 @@ export function CastSection({
       agentName: member.agentName ?? "",
       agentPhone: member.agentPhone ?? "",
       agentEmail: member.agentEmail ?? "",
+      height: member.height ?? "",
+      shirtSize: member.shirtSize ?? "",
+      pantSize: member.pantSize ?? "",
+      shoeSize: member.shoeSize ?? "",
+      sizingNotes: member.sizingNotes ?? "",
     });
   }
 
@@ -251,6 +315,11 @@ export function CastSection({
       agentName: member.agentName ?? "",
       agentPhone: member.agentPhone ?? "",
       agentEmail: member.agentEmail ?? "",
+      height: member.height ?? "",
+      shirtSize: member.shirtSize ?? "",
+      pantSize: member.pantSize ?? "",
+      shoeSize: member.shoeSize ?? "",
+      sizingNotes: member.sizingNotes ?? "",
     };
     try {
       await deleteCastMember(productionId, member.id);

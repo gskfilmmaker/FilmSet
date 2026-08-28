@@ -249,6 +249,11 @@ export async function getProductionSnapshot(userId: string, productionId: string
       agentName: c.agentName,
       agentPhone: c.agentPhone,
       agentEmail: c.agentEmail,
+      height: c.height,
+      shirtSize: c.shirtSize,
+      pantSize: c.pantSize,
+      shoeSize: c.shoeSize,
+      sizingNotes: c.sizingNotes,
     })),
     crewMembers: crewRows.map((c) => ({
       id: c.id,
@@ -285,6 +290,7 @@ export async function getProductionSnapshot(userId: string, productionId: string
       castIds: castIdsByScene.get(s.id) ?? [],
       locationId: s.locationId,
       revisionColor: s.revisionColor,
+      continuityNotes: s.continuityNotes,
     })),
     shootDays: shootDayRows.map((d) => ({
       id: d.id,

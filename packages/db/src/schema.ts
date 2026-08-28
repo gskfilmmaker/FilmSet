@@ -108,6 +108,15 @@ const contactColumns = {
   agentEmail: text("agent_email"),
 };
 
+/** Wardrobe sizing columns for cast_members — see SizingInfo in packages/core. */
+const sizingColumns = {
+  height: text("height"),
+  shirtSize: text("shirt_size"),
+  pantSize: text("pant_size"),
+  shoeSize: text("shoe_size"),
+  sizingNotes: text("sizing_notes"),
+};
+
 export const castMembers = pgTable(
   "cast_members",
   {
@@ -122,6 +131,7 @@ export const castMembers = pgTable(
     status: text("status").notNull(),
     contract: text("contract").notNull(),
     ...contactColumns,
+    ...sizingColumns,
   },
   (t) => [index("cast_members_production_idx").on(t.productionId)],
 );
@@ -221,6 +231,8 @@ export const scenes = pgTable(
     scheduleOrder: integer("schedule_order").notNull().default(0),
     /** The revision color of the script import that last changed this scene's content. */
     revisionColor: text("revision_color").notNull().default("White"),
+    /** Wardrobe/hair/makeup continuity notes — what's different in this scene from the rest of the shoot. */
+    continuityNotes: text("continuity_notes").notNull().default(""),
     locationId: text("location_id")
       .notNull()
       .references(() => locations.id),

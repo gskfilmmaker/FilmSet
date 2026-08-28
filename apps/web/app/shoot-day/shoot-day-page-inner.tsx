@@ -299,6 +299,7 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
             <InspectorSection label="Pages">{selectedScene.pageCount}</InspectorSection>
             <InspectorSection label="Cast">{castNames(selectedScene, castMemberCharacterIds, characters) || "—"}</InspectorSection>
             <InspectorSection label="Synopsis">{selectedScene.synopsis}</InspectorSection>
+            {selectedScene.continuityNotes && <InspectorSection label="Continuity">{selectedScene.continuityNotes}</InspectorSection>}
           </Inspector>
         ) : undefined
       }
@@ -546,6 +547,21 @@ function DocumentView({
           ))}
         </tbody>
       </table>
+
+      {scenes.some((s) => s.continuityNotes) && (
+        <div className="mt-[var(--fs-space-16)] text-[12px]">
+          <p className="font-semibold">Continuity Notes (Wardrobe / Hair / Makeup)</p>
+          <ul className="mt-[4px] flex flex-col gap-[2px]">
+            {scenes
+              .filter((s) => s.continuityNotes)
+              .map((s) => (
+                <li key={s.id}>
+                  Scene {s.number}: {s.continuityNotes}
+                </li>
+              ))}
+          </ul>
+        </div>
+      )}
 
       <table className="mt-[var(--fs-space-24)] w-full border-collapse text-[12px]">
         <caption className="mb-[var(--fs-space-8)] text-left font-semibold">Cast Call Times</caption>
