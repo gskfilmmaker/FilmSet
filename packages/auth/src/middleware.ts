@@ -12,14 +12,43 @@ function requireEnv(name: string): string {
  * Vercel's Edge Middleware has a hard ~25s timeout, and every route goes
  * through this function, so an unbounded auth.getUser() call here turns
  * into a site-wide 504 the moment Supabase's Auth API is slow — not just
- * on the affected page. 8s is generous for a call that normally takes
- * well under a second; aborting it early and failing open (see below)
+ * on the affected page. 6s is generous for a call that normally takes
+ * well under a second; giving up early and failing open (see below)
  * trades a rare, brief auth hiccup for keeping the site reachable.
  */
-const AUTH_CHECK_TIMEOUT_MS = 8_000;
+const AUTH_CHECK_TIMEOUT_MS = 6_000;
 
 function fetchWithTimeout(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   return fetch(input, { ...init, signal: AbortSignal.timeout(AUTH_CHECK_TIMEOUT_MS) });
+}
+
+class AuthCheckTimeoutError extends Error {}
+
+/**
+ * supabase-js's own GoTrueClient can swallow a slow/failed fetch
+ * internally (retrying, then resolving normally with `{ user: null,
+ * error }` instead of throwing) — so bounding just the underlying
+ * fetch() isn't enough to guarantee this function returns in time: a
+ * signed-in user would get bounced to /login because `user` came back
+ * null, not because Supabase actually said they were signed out. Racing
+ * the whole call against our own deadline sidesteps needing to know or
+ * trust anything about that internal retry/error behavior — if Supabase
+ * hasn't answered by the deadline, we stop waiting, full stop.
+ */
+function withDeadline<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new AuthCheckTimeoutError(`Auth check exceeded ${ms}ms`)), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err);
+      },
+    );
+  });
 }
 
 /**
@@ -47,12 +76,12 @@ export async function updateSession(request: NextRequest) {
 
   let user: Awaited<ReturnType<typeof supabase.auth.getUser>>["data"]["user"] = null;
   try {
-    ({
-      data: { user },
-    } = await supabase.auth.getUser());
+    const result = await withDeadline(supabase.auth.getUser(), AUTH_CHECK_TIMEOUT_MS);
+    user = result.data.user;
   } catch (err) {
     // Supabase didn't answer in time (or errored outright) — fail open
-    // rather than 504 the whole site. Page- and action-level auth checks
+    // rather than 504 the whole site or bounce a real signed-in user back
+    // to /login. Page- and action-level auth checks
     // (requireUser/requireCurrentProduction, backed by Postgres RLS) are
     // the real security boundary and still apply; this only affects the
     // redirect-to-login UX for this one request.
