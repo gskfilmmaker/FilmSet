@@ -186,6 +186,181 @@ commit;
 
 This has been verified end-to-end against a populated test database (see "Verification performed before this PR was opened" below) — applying it after the migration restores `productions` to its exact pre-migration column set, policies, and data.
 
+### Recommended: single atomic script (safer than Steps 1–4 above)
+
+Steps 1–4 above rely on the SQL Editor keeping one transaction open across several separate "Run" clicks — reasonable, but not something to bet a live production migration on without confirming the Editor actually preserves session state that way. **This script removes that assumption entirely.** It is one paste, one "Run" click, one Postgres statement batch: captures the BEFORE baseline into temp tables, applies the migration, checks every invariant, and — this is the load-bearing part — a failed check calls `raise exception`, which Postgres propagates up and automatically rolls back everything in the entire batch, with no separate `rollback;` command needed and no dependency on the Editor's session behavior between clicks. If it reaches the final `commit;`, every check already passed.
+
+Two of the checks below **hard-abort automatically** — not just warn — matching the stop conditions from the review direction: exactly one Vrindavan row must exist before touching anything, and exactly one distinct production creator must exist (the backfill's single-org assumption). If the second one fires and you've reviewed the owner list and are fine proceeding anyway, that's the one case where you'd fall back to the manual Steps 1–4 runbook instead — this script is intentionally strict by default.
+
+```sql
+begin;
+
+-- ============================================================================
+-- BEFORE baseline, captured into temp tables (dropped automatically at
+-- commit or rollback — nothing left behind either way).
+-- ============================================================================
+create temp table _p1a_before_production on commit drop as
+select id, name, created_by, created_at
+from public.productions
+where name = 'Vrindavan Mein Param Aanand';
+
+create temp table _p1a_before_members on commit drop as
+select production_id, user_id, role
+from public.production_members
+where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand');
+
+create temp table _p1a_before_counts on commit drop as
+select
+  (select count(*) from public.scenes where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as scenes,
+  (select count(*) from public.characters where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as characters,
+  (select count(*) from public.cast_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as cast_members,
+  (select count(*) from public.crew_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as crew_members,
+  (select count(*) from public.shoot_days where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as shoot_days,
+  (select count(*) from public.script_pages where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as script_pages,
+  (select count(*) from public.breakdown_elements where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as breakdown_elements,
+  (select count(*) from public.call_sheets where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as call_sheets,
+  (select count(*) from public.documents where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as documents;
+
+-- ============================================================================
+-- Pre-flight — abort BEFORE touching anything if either stop condition from
+-- the review direction isn't met.
+-- ============================================================================
+do $$
+declare
+  v_vrindavan_count int;
+  v_owner_count int;
+begin
+  select count(*) into v_vrindavan_count from public.productions where name = 'Vrindavan Mein Param Aanand';
+  if v_vrindavan_count != 1 then
+    raise exception 'PRE-FLIGHT ABORT: expected exactly 1 production named ''Vrindavan Mein Param Aanand'', found %. Not safe to proceed — resolve this before re-running.', v_vrindavan_count;
+  end if;
+
+  select count(*) into v_owner_count from (select distinct created_by from public.productions) x;
+  if v_owner_count != 1 then
+    raise exception 'PRE-FLIGHT ABORT: found % distinct production creators, expected exactly 1. The migration backfills every production into ONE organization owned by the earliest creator — with more than one distinct owner, review docs/audits/VRINDAVAN_MIGRATION_IMPACT.md''s "Known limitations" #3 before proceeding. If this is expected and fine, use the manual Steps 1-4 runbook instead of this script.', v_owner_count;
+  end if;
+end $$;
+
+-- ============================================================================
+-- Migration 0016 — paste verbatim from
+-- packages/db/migrations/0016_organization_governance.sql, unmodified.
+-- ============================================================================
+-- <<< PASTE THE FULL, UNMODIFIED CONTENTS OF
+--     packages/db/migrations/0016_organization_governance.sql HERE >>>
+
+-- ============================================================================
+-- Post-migration invariant checks. ANY failure raises an exception, which
+-- rolls back this entire transaction — the migration statements above
+-- included — automatically.
+-- ============================================================================
+do $$
+declare
+  v_before_id text;
+  v_after_id text;
+  v_before_created_by uuid;
+  v_after_created_by uuid;
+  v_before_created_at timestamptz;
+  v_after_created_at timestamptz;
+  v_after_org_id text;
+  v_vrindavan_count_after int;
+  v_org_name text;
+  v_missing_org_count int;
+  v_before_members_count int;
+  v_after_members_count int;
+  v_members_diff_count int;
+  v_counts_match boolean;
+begin
+  -- 1. Vrindavan's identity is byte-identical to the baseline; organization_id is populated.
+  select id, created_by, created_at into v_before_id, v_before_created_by, v_before_created_at from _p1a_before_production;
+  select id, created_by, created_at, organization_id into v_after_id, v_after_created_by, v_after_created_at, v_after_org_id
+    from public.productions where name = 'Vrindavan Mein Param Aanand';
+
+  if v_before_id is distinct from v_after_id then
+    raise exception 'INVARIANT FAILED: production id changed (% -> %)', v_before_id, v_after_id;
+  end if;
+  if v_before_created_by is distinct from v_after_created_by then
+    raise exception 'INVARIANT FAILED: created_by changed (% -> %)', v_before_created_by, v_after_created_by;
+  end if;
+  if v_before_created_at is distinct from v_after_created_at then
+    raise exception 'INVARIANT FAILED: created_at changed (% -> %)', v_before_created_at, v_after_created_at;
+  end if;
+  if v_after_org_id is null then
+    raise exception 'INVARIANT FAILED: organization_id is still null after migration';
+  end if;
+
+  -- 2. No duplicate Vrindavan row was created.
+  select count(*) into v_vrindavan_count_after from public.productions where name = 'Vrindavan Mein Param Aanand';
+  if v_vrindavan_count_after != 1 then
+    raise exception 'INVARIANT FAILED: expected exactly 1 Vrindavan row after migration, found %', v_vrindavan_count_after;
+  end if;
+
+  -- 3. Organization name is exactly "GSK Productions Inc."
+  select o.name into v_org_name from public.organizations o where o.id = v_after_org_id;
+  if v_org_name is distinct from 'GSK Productions Inc.' then
+    raise exception 'INVARIANT FAILED: organization name is ''%'', expected ''GSK Productions Inc.''', v_org_name;
+  end if;
+
+  -- 4. Every production has an organization.
+  select count(*) into v_missing_org_count from public.productions where organization_id is null;
+  if v_missing_org_count != 0 then
+    raise exception 'INVARIANT FAILED: % production(s) still missing organization_id', v_missing_org_count;
+  end if;
+
+  -- 5. production_members is byte-identical to the baseline (row-for-row, both directions).
+  select count(*) into v_before_members_count from _p1a_before_members;
+  select count(*) into v_after_members_count from public.production_members
+    where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand');
+  if v_before_members_count != v_after_members_count then
+    raise exception 'INVARIANT FAILED: production_members row count changed (% -> %)', v_before_members_count, v_after_members_count;
+  end if;
+
+  select count(*) into v_members_diff_count from (
+    (select production_id, user_id, role from _p1a_before_members
+     except
+     select production_id, user_id, role from public.production_members
+       where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    union all
+    (select production_id, user_id, role from public.production_members
+       where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')
+     except
+     select production_id, user_id, role from _p1a_before_members)
+  ) x;
+  if v_members_diff_count != 0 then
+    raise exception 'INVARIANT FAILED: production_members rows differ from baseline (% mismatched row(s))', v_members_diff_count;
+  end if;
+
+  -- 6. Every content-table count is unchanged.
+  select
+    b.scenes = (select count(*) from public.scenes where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    and b.characters = (select count(*) from public.characters where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    and b.cast_members = (select count(*) from public.cast_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    and b.crew_members = (select count(*) from public.crew_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    and b.shoot_days = (select count(*) from public.shoot_days where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    and b.script_pages = (select count(*) from public.script_pages where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    and b.breakdown_elements = (select count(*) from public.breakdown_elements where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    and b.call_sheets = (select count(*) from public.call_sheets where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    and b.documents = (select count(*) from public.documents where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+  into v_counts_match
+  from _p1a_before_counts b;
+
+  if not v_counts_match then
+    raise exception 'INVARIANT FAILED: one or more content-table counts changed for Vrindavan Mein Param Aanand';
+  end if;
+
+  raise notice 'ALL P1A INVARIANTS PASSED for Vrindavan Mein Param Aanand — safe to commit.';
+end $$;
+
+commit;
+```
+
+If this script's `commit;` at the end runs without any `raise exception` having fired, every invariant above held and the migration is applied. If any check fails, Postgres has already rolled back the entire transaction — the migration's DDL/DML included — before the error message reaches you; nothing is left half-applied.
+
+**This exact script was tested against real, local PostgreSQL 16 in three scenarios before being added here, not just written and assumed correct:**
+
+1. **Success path** — populated test database (simulated Vrindavan plus a second production, with real content rows attached). Ran to completion, printed `ALL P1A INVARIANTS PASSED`, committed. Confirmed afterward: both productions correctly backfilled into one "GSK Productions Inc." organization, and the temp tables were gone (`on commit drop` cleaned them up automatically).
+2. **Pre-flight abort** — a database with two distinct production creators. The script raised `PRE-FLIGHT ABORT` before touching anything and rolled back. Confirmed afterward: the `organizations` table doesn't even exist, `productions.organization_id` doesn't exist, both productions and their membership rows are completely unchanged.
+3. **Post-migration invariant failure** — a deliberately sabotaged copy of this exact script (one extra statement injected right after the migration body to corrupt the organization's name) to prove the rollback catches a genuine failure occurring *after* the DDL has already run, not just a failure that happens to occur before it. The script raised `INVARIANT FAILED` and rolled back. Confirmed afterward: `organizations` table doesn't exist, `organization_id` column doesn't exist, Vrindavan's row and its content (a test character row) are completely untouched — everything the migration had already done inside the transaction was undone.
+
 ## Why this migration does not touch Vrindavan's identity or content
 
 - **Not name-matched.** The migration never searches for `'Vrindavan Mein Param Aanand'` by name or looks up its `production_id`. A name search is fragile — a whitespace or capitalization difference would silently fail to match and leave the row un-backfilled. Instead, the backfill is driven entirely by `productions.created_by` and `productions.created_at`, columns that already exist and already apply to every row, Vrindavan's included, without this migration needing to know its id in advance.
