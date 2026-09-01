@@ -3,6 +3,7 @@
 import { Shell } from "@/components/shell";
 import type { Production, Scene } from "@filmset/core";
 import { Button, Input, useToast } from "@filmset/ui";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { updateFullName } from "./actions";
@@ -53,6 +54,14 @@ export function SettingsForm({
           <a href="/forgot-password" className="text-[13px] text-[var(--color-action-primary)] hover:underline">
             Change password →
           </a>
+        </section>
+
+        <section className="flex flex-col gap-[var(--fs-space-8)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
+          <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Departments</h2>
+          <p className="text-[13px] text-[var(--color-text-secondary)]">Manage department heads, membership, and permissions.</p>
+          <Link href="/settings/departments" className="self-start text-[13px] text-[var(--color-action-primary)] hover:underline">
+            View departments →
+          </Link>
         </section>
 
         <p className="flex items-center justify-center gap-[6px] text-[12px] text-[var(--color-text-tertiary)]">

@@ -1,6 +1,7 @@
 "use server";
 
 import { requireUser } from "@filmset/auth/server";
+import { STANDARD_DEPARTMENTS } from "@filmset/core";
 import { runAsUser, schema, type Tx } from "@filmset/db/server";
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
@@ -69,6 +70,11 @@ export async function createProduction(formData: FormData) {
       const organizationId = await getOrCreateOwnOrganizationId(tx, user.id, user.email);
       await tx.insert(schema.productions).values({ id, name, phase: "Development", createdBy: user.id, organizationId });
       await tx.insert(schema.productionMembers).values({ productionId: id, userId: user.id, role: "Producer" });
+      // P1b's migration backfilled the standard department list for every
+      // production that existed at cutover time; a production created
+      // afterward needs the same seed here, or its Departments screen
+      // (apps/web/app/settings/departments) would start empty forever.
+      await tx.insert(schema.departments).values(STANDARD_DEPARTMENTS.map((name) => ({ id: crypto.randomUUID(), productionId: id, name })));
       await tx.update(schema.profiles).set({ activeProductionId: id }).where(eq(schema.profiles.id, user.id));
     }),
   );
