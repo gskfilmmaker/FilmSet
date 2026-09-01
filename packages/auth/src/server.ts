@@ -2,6 +2,7 @@ import "server-only";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import type { ProductionRole } from "./index";
+import { AUTH_UPSTREAM_DEADLINE_MS, AuthCheckTimeoutError, resilientFetch, withDeadline } from "./resilience";
 
 function requireEnv(name: string): string {
   const value = process.env[name];
@@ -19,6 +20,7 @@ function requireEnv(name: string): string {
 export async function getServerSupabase() {
   const cookieStore = await cookies();
   return createServerClient(requireEnv("NEXT_PUBLIC_SUPABASE_URL"), requireEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY"), {
+    global: { fetch: resilientFetch(AUTH_UPSTREAM_DEADLINE_MS) },
     cookies: {
       getAll() {
         return cookieStore.getAll();
@@ -42,14 +44,64 @@ export interface SessionUser {
   email: string | null;
 }
 
-/** Returns the signed-in user, or null if there isn't one. Never throws for "no session". */
-export async function getSessionUser(): Promise<SessionUser | null> {
+/**
+ * The five outcomes an auth check can reach — kept distinguishable
+ * internally (for logging/diagnostics) even though most callers only
+ * need the collapsed authenticated/not-authenticated view `getSessionUser`
+ * exposes. Never includes token/cookie contents — only what's safe to log
+ * (a status and, for `error`, a message string).
+ */
+export type AuthCheckResult =
+  | { status: "authenticated"; user: SessionUser }
+  | { status: "unauthenticated" }
+  | { status: "upstream_timeout" }
+  | { status: "upstream_error"; message: string };
+
+/**
+ * THE AUTHENTICATION BOUNDARY. Every Server Component/Server Action that
+ * needs to know who's signed in goes through this, directly or via
+ * `getSessionUser`/`requireUser` below.
+ *
+ * FAILS CLOSED: if the upstream Supabase Auth API times out
+ * (`AUTH_UPSTREAM_DEADLINE_MS`, shared with middleware.ts's routing
+ * check via resilience.ts) or errors outright, this returns a
+ * non-authenticated result — it never fabricates or reuses a stale
+ * identity, and it never treats "we couldn't verify" as "verified."
+ * This is deliberately a stricter posture than middleware.ts's routing
+ * decision (see that file's docstring): a routing layer that skips a
+ * redirect it can't currently compute is an availability trade-off,
+ * but the boundary that actually gates data access and mutations must
+ * never grant privileges because identity verification failed.
+ */
+export async function checkAuth(): Promise<AuthCheckResult> {
   const supabase = await getServerSupabase();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-  return { id: user.id, email: user.email ?? null };
+  try {
+    const {
+      data: { user },
+    } = await withDeadline(supabase.auth.getUser(), AUTH_UPSTREAM_DEADLINE_MS);
+    if (!user) return { status: "unauthenticated" };
+    return { status: "authenticated", user: { id: user.id, email: user.email ?? null } };
+  } catch (err) {
+    if (err instanceof AuthCheckTimeoutError) {
+      console.error("[auth] upstream auth check timed out", { deadlineMs: AUTH_UPSTREAM_DEADLINE_MS });
+      return { status: "upstream_timeout" };
+    }
+    // Log only a message, never the raw error/response object — it may
+    // wrap header or cookie data we don't want in logs.
+    const message = err instanceof Error ? err.message : "unknown error";
+    console.error("[auth] upstream auth check failed", { message });
+    return { status: "upstream_error", message };
+  }
+}
+
+/**
+ * Returns the signed-in user, or null if there isn't one — including
+ * when there isn't one because the upstream check couldn't be verified
+ * in time. Never throws for "no session"; never fabricates a user.
+ */
+export async function getSessionUser(): Promise<SessionUser | null> {
+  const result = await checkAuth();
+  return result.status === "authenticated" ? result.user : null;
 }
 
 /** Throws if there's no signed-in user — use at the top of a protected Server Action / Route Handler. */
