@@ -469,7 +469,7 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
             </CommandItem>
             <CommandItem value="Shoot Day Call Sheet" onSelect={() => go("/shoot-day")}>
               <Building2 className="size-[14px] text-[var(--color-text-tertiary)]" aria-hidden="true" />
-              Today's Shoot Day
+              Today&apos;s Shoot Day
             </CommandItem>
             <CommandItem value="FilmSet AI" onSelect={() => go("/ai")}>
               <Sparkles className="size-[14px] text-[var(--color-action-primary)]" aria-hidden="true" />
