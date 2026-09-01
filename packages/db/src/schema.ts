@@ -123,10 +123,161 @@ export const productionMembers = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => profiles.id, { onDelete: "cascade" }),
+    /** Still the authoritative value read by every existing Server Action/assertRole() call — unchanged by P1b. */
     role: text("role").notNull(),
+    /**
+     * P1b addition: the same membership row's new, richer role reference —
+     * nullable, additive. Existing code keeps reading `role` (text);
+     * `authorize()` (packages/auth/src/authorize.ts) reads `roleId` instead.
+     * Both point at the same real-world role for every row this migration
+     * backfills; they can diverge later once custom roles exist, which is
+     * exactly the point (a text column can't express a custom role).
+     */
+    roleId: text("role_id").references(() => roles.id, { onDelete: "set null" }),
+    /** ACTIVE | SCHEDULED | SUSPENDED | EXPIRED | REVOKED (AUTHORIZATION_GAP_ANALYSIS.md §7). Existing rows default/backfill to ACTIVE — accurate, not a guess: every row that exists today grants access today. */
+    status: text("status").notNull().default("ACTIVE"),
+    effectiveFrom: timestamp("effective_from", { withTimezone: true }),
+    effectiveUntil: timestamp("effective_until", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [primaryKey({ columns: [t.productionId, t.userId] })],
+);
+
+/**
+ * P1b — authorization foundation (see docs/audits/VRINDAVAN_MIGRATION_IMPACT.md
+ * and docs/security/{SECURITY_ARCHITECTURE_V1,PERMISSION_MATRIX_V1}.md,
+ * docs/audits/AUTHORIZATION_GAP_ANALYSIS.md). Nothing below is wired into
+ * any existing Server Action yet — packages/auth/src/authorize.ts is a new,
+ * standalone decision function this schema backs, not yet called from
+ * apps/web. Existing `assertRole()`-based checks are completely untouched.
+ *
+ * `permissions` is a catalog/vocabulary table (PERMISSION_MATRIX_V1.md §1-2)
+ * — a fixed `resource.action` string per row, seeded by the migration, not
+ * user-editable through any UI in this phase.
+ */
+export const permissions = pgTable("permissions", {
+  /** e.g. "schedule.manage" — the string `authorize()` checks against. */
+  key: text("key").primaryKey(),
+  /** e.g. "schedule" */
+  domain: text("domain").notNull(),
+  /** e.g. "manage" */
+  action: text("action").notNull(),
+  description: text("description").notNull(),
+});
+
+/**
+ * A named bundle of permissions (PERMISSION_MATRIX_V1.md §4). `organizationId`
+ * null means a system template role (seeded by the migration, shared by
+ * every organization); non-null means a custom role scoped to that one
+ * organization (Part 7's explicit custom-role requirement) — no UI creates
+ * custom roles yet in this phase, but the schema doesn't block it later.
+ */
+export const roles = pgTable(
+  "roles",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    isSystemTemplate: boolean("is_system_template").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [unique("roles_org_name_unique").on(t.organizationId, t.name)],
+);
+
+export const rolePermissions = pgTable(
+  "role_permissions",
+  {
+    roleId: text("role_id")
+      .notNull()
+      .references(() => roles.id, { onDelete: "cascade" }),
+    permission: text("permission")
+      .notNull()
+      .references(() => permissions.key, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.roleId, t.permission] })],
+);
+
+/**
+ * Department/HOD model (LOGISTICS_DOMAIN_MODEL.md §5) — the concrete fix
+ * for AUTHORIZATION_GAP_ANALYSIS.md §5's HOD gap: `crew_members.isHod` and
+ * `crew_members.department` (free text) are NOT touched or removed by this
+ * migration — they stay the display layer (sort order, Contact Sheet
+ * grouping) exactly as the domain model's own migration note specifies.
+ * `departments` is the new source of truth `authorize()` actually checks.
+ */
+export const departments = pgTable(
+  "departments",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    parentDepartmentId: text("parent_department_id").references((): AnyPgColumn => departments.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("departments_production_idx").on(t.productionId), unique("departments_production_name_unique").on(t.productionId, t.name)],
+);
+
+export const departmentMemberships = pgTable(
+  "department_memberships",
+  {
+    departmentId: text("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    roleId: text("role_id").references(() => roles.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("ACTIVE"),
+    effectiveFrom: timestamp("effective_from", { withTimezone: true }),
+    effectiveUntil: timestamp("effective_until", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.departmentId, t.userId] })],
+);
+
+/** The authoritative "who is HOD of *this* department" record — what authorize() actually checks, replacing crew_members.isHod's display-only flag (AUTHORIZATION_GAP_ANALYSIS.md §5). */
+export const departmentHeadAssignments = pgTable(
+  "department_head_assignments",
+  {
+    departmentId: text("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.departmentId, t.userId] })],
+);
+
+/** Department-scoped permission grants layered on top of a role's bundle (LOGISTICS_DOMAIN_MODEL.md §5). */
+export const departmentPermissions = pgTable(
+  "department_permissions",
+  {
+    departmentId: text("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "cascade" }),
+    permission: text("permission")
+      .notNull()
+      .references(() => permissions.key, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.departmentId, t.permission] })],
+);
+
+/** Ties a department to the budget_lines rows it should see/manage — what makes "Wardrobe HOD sees Wardrobe budget, not Camera budget" enforceable (LOGISTICS_DOMAIN_MODEL.md §5). */
+export const departmentBudgetScopes = pgTable(
+  "department_budget_scopes",
+  {
+    departmentId: text("department_id")
+      .notNull()
+      .references(() => departments.id, { onDelete: "cascade" }),
+    budgetLineId: text("budget_line_id")
+      .notNull()
+      .references(() => budgetLines.id, { onDelete: "cascade" }),
+  },
+  (t) => [primaryKey({ columns: [t.departmentId, t.budgetLineId] })],
 );
 
 export const characters = pgTable(

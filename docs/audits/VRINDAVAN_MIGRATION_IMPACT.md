@@ -1,6 +1,6 @@
-# Vrindavan Mein Param Aanand — P1a Migration Impact
+# Vrindavan Mein Param Aanand — P1a / P1b Migration Impact
 
-**Required by the P1a authorization before any schema change affecting production data.** This document covers migration `packages/db/migrations/0016_organization_governance.sql`: what it changes, why it's safe for the live "Vrindavan Mein Param Aanand" production, how to verify that before and after applying it, and how to reverse it if needed.
+**Required before any schema change affecting production data.** Covers `packages/db/migrations/0016_organization_governance.sql` (P1a) below, and `packages/db/migrations/0017_authorization_foundation.sql` (P1b) further down. **Per the owner's staged migration-train decision, neither this document's P1a section's live-cutover runbook nor P1b's schema have been run against live Supabase — 0016 is drafted/verified locally in PR #24 (still open, not merged); 0017 (this PR) is drafted/verified locally and is not authorized for a live cutover yet either.** A single, final combined cutover script covering every pending migration will be produced when the owner authorizes it — see P1b's own section for what's confirmed so far.
 
 ## Scope of this change
 
@@ -448,3 +448,111 @@ See the "Owner Runbook" above — the normal path is `rollback;` inside Step 4's
 | Organization membership exists for the current owner | Simulated: `organization_memberships` row confirmed present with role `Owner` |
 | RLS production isolation remains intact | Simulated, with a real RLS test as the non-superuser `authenticated` role: owner sees their productions, an unrelated user sees none — and `production_members`' policies are byte-unchanged from 0001 |
 | No table unrelated to organization governance is modified | Structural: the migration file's only `alter table` statements target `productions` (add one column) — grep-verifiable, no other table is referenced by any `alter`/`create`/`drop` statement |
+
+---
+
+# P1b — Authorization Foundation Migration Impact
+
+Covers `packages/db/migrations/0017_authorization_foundation.sql`: the permission vocabulary, role templates, and Department/HOD model (`docs/security/PERMISSION_MATRIX_V1.md`, `docs/security/SECURITY_ARCHITECTURE_V1.md` §1, `docs/audits/AUTHORIZATION_GAP_ANALYSIS.md` §3-5, `docs/audits/LOGISTICS_DOMAIN_MODEL.md` §5), plus `packages/auth/src/authorize.ts`'s `evaluateAuthorization()` decision engine.
+
+**Status: draft, not authorized for a live cutover.** Per the owner's staged migration-train decision (moving off "verify one migration live, then merge" to "prepare everything, one controlled combined cutover later"), this PR stays open as a draft, stacked on the still-unmerged P1a PR (#24). **Nothing in this PR is run against live Supabase.**
+
+## Scope
+
+Schema + a pure, unit-tested decision function + a DB-backed loader — nothing wired into any existing Server Action. Explicitly not in this PR: Logistics (Booking/Approval engines, Travel/Accommodation/Transport/Catering), Session/MFA/step-up authentication, field-level sensitivity masking, or any UI (Security Center, role editor, department assignment screens). Those are later work per `AUTHORIZATION_GAP_ANALYSIS.md` §11's dependency chain.
+
+What the migration adds:
+
+1. `permissions` — the `resource.action` vocabulary catalog (71 rows, `PERMISSION_MATRIX_V1.md` §1-2).
+2. `roles` / `role_permissions` — 27 system template roles (the ~25 named in `PERMISSION_MATRIX_V1.md` §4, plus `Director`/`Crew` preserved from the app's current `PRODUCTION_ROLES` so every existing `production_members.role` value maps onto a real role with zero exceptions).
+3. `production_members.role_id` / `.status` / `.effective_from` / `.effective_until` — additive columns. `role` (text) is completely untouched; every existing Server Action and RLS policy that reads it is unaffected. `role_id` is backfilled for every existing row via a closed 7-value literal match (not a fuzzy name search), `status` defaults to `'ACTIVE'` (accurate — every row that exists today does grant access today).
+4. `departments` — backfilled with one row per `packages/core`'s existing `STANDARD_DEPARTMENTS` entry, per existing production. `crew_members.department`/`.isHod` are untouched (LOGISTICS_DOMAIN_MODEL.md §5's own migration note: they stay the display layer).
+5. `department_memberships`, `department_head_assignments`, `department_permissions`, `department_budget_scopes` — created; only `department_permissions` is backfilled (structural data — see below), the other three start empty (see "Why no HOD backfill" below).
+6. RLS on every new table, read-only (no insert/update/delete policy for any of them — default-deny, since no feature writes to them yet).
+
+## Why this migration does not touch Vrindavan's content
+
+- No reference anywhere in the file to `scenes`, `characters`, `cast_members`, `shoot_days`, `call_sheets`, `documents`, `script_pages`, `breakdown_elements` — grep-verifiable, same guarantee as 0016.
+- `production_members.role` (text), and every existing RLS policy on every existing table, is untouched. Who can see/edit Vrindavan's data today is decided exactly the same way after this migration as before it.
+- `crew_members.department`/`.isHod` are read by nothing in this migration and written by nothing in this migration.
+
+## Why no HOD/department-membership backfill
+
+`crew_members` has no `userId` column — cast/crew are recorded by name, not linked to a real Supabase Auth account (confirmed by reading `packages/db/src/schema.ts`). There is no reliable way to map an existing `crew_members.isHod = true` row to a real user id, so auto-populating `department_head_assignments`/`department_memberships` from it would mean guessing, not migrating. Assigning real users to departments/HOD roles is future data-entry work (a UI this PR does not build) — `departments` (the structural list) is backfilled; who's assigned to them is not.
+
+## The authorize() engine
+
+`packages/auth/src/authorize.ts` exports `evaluateAuthorization(principal, action, resource, now?)` — a pure function (no I/O), matching `SECURITY_ARCHITECTURE_V1.md` §1's explicit design requirement ("this is a single, testable, pure function"). `apps/web/lib/authorize.ts` is the DB-backed half: `loadAuthorizationPrincipal()` queries the real schema and composes with `evaluateAuthorization()`, mirroring how `apps/web/lib/authz.ts` already composes `@filmset/auth`'s primitives against production_members today. **Neither is called from any existing Server Action.**
+
+**Cross-department leak prevention** (`AUTHORIZATION_GAP_ANALYSIS.md` §5's concrete requirement — "a Wardrobe HOD may manage Wardrobe data but should not automatically see Camera budget lines"): `departments.manage`/`departments.assign_hod` are granted **only** when `department_head_assignments` records this principal as head of the specific department in the request — never from a role's permission bundle, structurally enforced by `addRoleGrant()` refusing to add them from *any* role data, not merely by them being absent from the seed data. `budget.view_detail` is granted via `department_permissions` (seeded per-department, read only for the department matching the request).
+
+## A real bug this verification caught and fixed before this PR was opened
+
+The migration's first draft put `budget.view_detail` directly in `role_department_head`'s/`role_department_coordinator`'s permission bundle — reachable via `production_members.role_id`, which has no per-department context. Live-Postgres verification (below) caught it concretely: a simulated Costume HOD was granted `budget.view_detail` on a Camera department resource, which should have been denied. Fixed by moving `budget.view_detail` out of the role bundle entirely and into `department_permissions` (seeded per department), which `evaluateAuthorization()` only ever consults for the department matching the resource being checked. Re-verified clean afterward (see below) — documented here rather than silently corrected, since it's exactly the kind of mistake this whole model exists to prevent, and it's worth the owner seeing that the verification process actually caught something real, not just green-lit the first draft.
+
+## Verification performed before this PR was opened
+
+1. **Migration applies cleanly**: full `0000`-`0017` chain replayed against a fresh local PostgreSQL 16 instance (same methodology as P1a) — zero errors. Re-verified after the `budget.view_detail` fix above.
+2. **Seed data correctness**: 71 permissions, 27 roles confirmed; per-role permission counts spot-checked (e.g. Production Super Admin = all 71, External Viewer = 0, Platform Security Admin = exactly the 11 `security.*`/`permissions.*` permissions).
+3. **`production_members.role_id` backfill**: every existing row (simulated Producer/Department Head/Crew memberships) got a non-null `role_id` matching its `role` text value; zero rows left null.
+4. **`departments` backfill**: 25 rows created per existing production (2 simulated productions → 50 rows total), Vrindavan's `id`/`created_by`/`created_at` confirmed unchanged throughout.
+5. **RLS**: tested as the non-superuser `authenticated` role — a department member sees departments/their own department_memberships row; a stranger sees zero departments anywhere.
+6. **`evaluateAuthorization()` unit tests**: 23 tests in `packages/auth/src/authorize.test.ts` — the required scenarios (membership status ACTIVE/SUSPENDED/REVOKED, effective-date windows, default-deny, Platform Security Admin bypass), department scoping, and a dedicated cross-department leak suite (Costume HOD allowed on Costume, denied on Camera, for both `departments.manage` and `budget.view_detail`; a Department Coordinator denied HOD-only actions even within their own department; a dual-department head correctly scoped independently per department), plus mutation-safety and determinism invariants matching the pattern established in P0A's test suite.
+7. **End-to-end verification against real Postgres, through the actual DB-loader query logic** (not just unit tests with hand-built fixtures): a standalone script exercising the same queries `apps/web/lib/authorize.ts`'s `loadAuthorizationPrincipal()` runs, against the seeded local database, feeding the result into the real `evaluateAuthorization()`. Confirmed: Costume HOD → `departments.manage` on Wardrobe (own dept) ALLOW, on Camera DENY; `budget.view_detail` on Wardrobe ALLOW, on Camera DENY; Producer → `budget.approve` ALLOW, → `security.users.manage` DENY; a stranger → `schedule.view` DENY. This is what caught the bug described above — the unit tests alone (built from hand-written fixtures) did not, since the fixtures didn't reproduce the seed data's actual shape.
+
+## Rollback
+
+```sql
+begin;
+
+drop policy if exists "production members read department budget scopes" on public.department_budget_scopes;
+drop policy if exists "production members read department permission grants" on public.department_permissions;
+drop policy if exists "production members read HOD assignments" on public.department_head_assignments;
+drop policy if exists "read own or co-department membership rows" on public.department_memberships;
+drop policy if exists "members read departments" on public.departments;
+drop policy if exists "read role_permissions for a visible role" on public.role_permissions;
+drop policy if exists "read system template roles or own org's custom roles" on public.roles;
+drop policy if exists "any authenticated user reads the permission catalog" on public.permissions;
+
+drop function if exists public.is_department_member(text);
+drop function if exists public.is_department_head(text);
+
+drop table if exists public.department_budget_scopes;
+drop table if exists public.department_permissions;
+drop table if exists public.department_head_assignments;
+drop table if exists public.department_memberships;
+drop table if exists public.departments;
+
+drop index if exists public.production_members_role_idx;
+alter table public.production_members drop column if exists effective_until;
+alter table public.production_members drop column if exists effective_from;
+alter table public.production_members drop column if exists status;
+alter table public.production_members drop column if exists role_id;
+
+drop table if exists public.role_permissions;
+drop table if exists public.roles;
+drop table if exists public.permissions;
+
+commit;
+```
+
+Verified against the local test database — restores `production_members` and every existing table to their exact pre-0017 shape; `productions`/`production_members.role`/`organizations` (0016) are untouched by this rollback, matching 0017 not having touched them either.
+
+## Known limitations / risks
+
+1. **Not run against live Supabase.** Per the staged strategy, this waits for one combined cutover with 0016 (and any further P1-tier migrations) — not run independently.
+2. **Seed bundle fidelity is a good-faith, not pixel-perfect, reading of `PERMISSION_MATRIX_V1.md` §4.** Several named exceptions in that table (e.g. "Travel Coordinator: `travel.approve` at the operational-requirement stage only, not final confirmation") describe approval-*stage* scoping that doesn't exist yet (`ApprovalWorkflow`/`ApprovalStage` are Logistics/`LOGISTICS_DOMAIN_MODEL.md` §0.2, explicitly out of scope here) — the seed grants the plain permission today; stage-scoping is a real gap to close when the Approval Engine lands, not something this migration can express yet.
+3. **`department_permissions`' `budget.view_detail` grant doesn't distinguish Department Head/Coordinator from a plain Department Member** — anyone with a `department_memberships` row for a department can see that department's budget detail once one exists, not just its head/coordinator. A documented simplification, not a data leak across departments (still correctly scoped to the one department), but a narrower nuance the doc's text doesn't fully resolve either way — worth a second look before this becomes real, department-assignable functionality.
+4. **`authorize()` is unwired.** Nothing in `apps/web` calls it. Every existing screen's behavior, and its `assertRole()`-based authorization, is completely unaffected by this PR — which also means this PR delivers no user-visible security improvement by itself; it is foundation only, exactly as scoped.
+
+## Acceptance tests — mapped to what verifies each one
+
+| Required item | Verified how |
+|---|---|
+| Permission vocabulary seeded | 71 rows, `PERMISSION_MATRIX_V1.md` §1-2 vocabulary, confirmed live |
+| Role templates seeded, including custom-role-capable schema | 27 roles confirmed live; `roles.organization_id` nullable-vs-set distinguishes system template from custom, per Part 7 |
+| Department schema | `departments`/`department_memberships`/`department_head_assignments`/`department_permissions`/`department_budget_scopes` created and RLS-protected, confirmed live |
+| DepartmentMembership | Table created; confirmed correctly join-scoped by department in `evaluateAuthorization()`'s test suite and the live end-to-end run |
+| HOD assignment model | `department_head_assignments` is the sole source of `departments.manage`/`assign_hod` grants — confirmed live (Costume HOD allowed on Costume, denied on Camera) |
+| Cross-department leak tests | 23 unit tests including a dedicated leak-prevention suite, plus the live end-to-end run against real Postgres — both catch the exact scenario the model exists to prevent |
+| Vrindavan-safe migration impact update | This document |
