@@ -280,6 +280,242 @@ export const departmentBudgetScopes = pgTable(
   (t) => [primaryKey({ columns: [t.departmentId, t.budgetLineId] })],
 );
 
+/**
+ * Booking + Approval Engine (LOGISTICS_DOMAIN_MODEL.md §0.1-0.3;
+ * docs/audits/LOGISTICS_IMPLEMENTATION_READINESS.md §4-5) — the shared
+ * substrate every Logistics subdomain (Travel, Accommodation,
+ * Transportation, Catering) will attach to, built first per that
+ * document's recommended order since no subdomain can reuse a lifecycle
+ * that doesn't exist yet. None of the subdomain tables exist as schema —
+ * `bookings.subjectType`/`subjectId` stay null until the first one does.
+ *
+ * Nothing here is wired into any Server Action or UI. This is schema
+ * only, exactly like P1b's authorization foundation was before its own
+ * wiring plan — no booking screen, no approval UI, no Server Action reads
+ * or writes any of these tables yet.
+ */
+export const bookings = pgTable(
+  "bookings",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    /** TRAVEL | HOTEL | VEHICLE | LOCATION | EQUIPMENT | CATERING | SERVICE | OTHER (LOGISTICS_DOMAIN_MODEL.md §0.1). */
+    type: text("type").notNull(),
+    /** REQUESTED → ... → COMPLETED → RECONCILED, or a cancellation/refund side branch — see §0.1's full BookingStatus lifecycle. */
+    status: text("status").notNull().default("REQUESTED"),
+    requestedBy: uuid("requested_by")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "restrict" }),
+    departmentId: text("department_id").references(() => departments.id, { onDelete: "set null" }),
+    /**
+     * Polymorphic link to the type-specific detail record (a future
+     * TravelBooking, AccommodationBooking, VehicleBooking, CateringOrder,
+     * ...) — no FK is possible since no subdomain table exists yet. Both
+     * columns are written by whichever subdomain migration lands first,
+     * not by this one.
+     */
+    subjectType: text("subject_type"),
+    subjectId: text("subject_id"),
+    vendorRef: text("vendor_ref"),
+    cost: numeric("cost", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("bookings_production_idx").on(t.productionId), index("bookings_department_idx").on(t.departmentId)],
+);
+
+export const bookingQuotes = pgTable(
+  "booking_quotes",
+  {
+    id: text("id").primaryKey(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    vendorRef: text("vendor_ref").notNull(),
+    cost: numeric("cost", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").notNull(),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("booking_quotes_booking_idx").on(t.bookingId)],
+);
+
+export const bookingConfirmations = pgTable(
+  "booking_confirmations",
+  {
+    id: text("id").primaryKey(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    confirmationRef: text("confirmation_ref").notNull(),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("booking_confirmations_booking_idx").on(t.bookingId)],
+);
+
+/** A structured diff when a confirmed booking changes (LOGISTICS_DOMAIN_MODEL.md §0.1's BookingChange). */
+export const bookingChanges = pgTable(
+  "booking_changes",
+  {
+    id: text("id").primaryKey(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    changeType: text("change_type").notNull(),
+    beforeState: jsonb("before_state"),
+    afterState: jsonb("after_state"),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("booking_changes_booking_idx").on(t.bookingId)],
+);
+
+/** Terminal record with reason + refund state — one per booking, matching the callSheets/shootDays 1:1 PK pattern. */
+export const bookingCancellations = pgTable("booking_cancellations", {
+  bookingId: text("booking_id")
+    .primaryKey()
+    .references(() => bookings.id, { onDelete: "cascade" }),
+  reason: text("reason").notNull(),
+  refundState: text("refund_state"),
+  cancelledAt: timestamp("cancelled_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+/**
+ * A named, reusable approval chain scoped to a production
+ * (LOGISTICS_DOMAIN_MODEL.md §0.2) — e.g. "Standard Travel Approval". No
+ * module gets a hard-coded approval `if` chain; a new booking type reuses
+ * this with a different stage list, not new code.
+ */
+export const approvalWorkflows = pgTable(
+  "approval_workflows",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("approval_workflows_production_idx").on(t.productionId)],
+);
+
+/** One step in a workflow: the permission a decider must hold, and its order in the chain. */
+export const approvalStages = pgTable(
+  "approval_stages",
+  {
+    id: text("id").primaryKey(),
+    workflowId: text("workflow_id")
+      .notNull()
+      .references(() => approvalWorkflows.id, { onDelete: "cascade" }),
+    order: integer("order").notNull(),
+    requiredPermission: text("required_permission")
+      .notNull()
+      .references(() => permissions.key, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("approval_stages_workflow_idx").on(t.workflowId), unique("approval_stages_workflow_order_unique").on(t.workflowId, t.order)],
+);
+
+/** A condition attached to a stage (amount threshold, department, booking type) — a generic type/value pair rather than one column per condition shape, so a new condition type doesn't need a migration. */
+export const approvalRules = pgTable(
+  "approval_rules",
+  {
+    id: text("id").primaryKey(),
+    stageId: text("stage_id")
+      .notNull()
+      .references(() => approvalStages.id, { onDelete: "cascade" }),
+    conditionType: text("condition_type").notNull(),
+    conditionValue: text("condition_value").notNull(),
+  },
+  (t) => [index("approval_rules_stage_idx").on(t.stageId)],
+);
+
+/** One instance of a workflow running against one Booking. */
+export const approvalRequests = pgTable(
+  "approval_requests",
+  {
+    id: text("id").primaryKey(),
+    workflowId: text("workflow_id")
+      .notNull()
+      .references(() => approvalWorkflows.id, { onDelete: "restrict" }),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    status: text("status").notNull().default("PENDING"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("approval_requests_booking_idx").on(t.bookingId), index("approval_requests_workflow_idx").on(t.workflowId)],
+);
+
+/**
+ * One stage's decision — feeds the Production Audit stream
+ * (AUDIT_EVENT_CATALOG.md) once that exists. This table doubles as
+ * LOGISTICS_DOMAIN_MODEL.md §0.1's `BookingApproval`: a booking's
+ * approval history is its `approvalRequests` joined to their
+ * `approvalDecisions`, not a separate, duplicate record.
+ */
+export const approvalDecisions = pgTable(
+  "approval_decisions",
+  {
+    id: text("id").primaryKey(),
+    requestId: text("request_id")
+      .notNull()
+      .references(() => approvalRequests.id, { onDelete: "cascade" }),
+    stageId: text("stage_id")
+      .notNull()
+      .references(() => approvalStages.id, { onDelete: "restrict" }),
+    decidedBy: uuid("decided_by")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "restrict" }),
+    decision: text("decision").notNull(),
+    note: text("note"),
+    decidedAt: timestamp("decided_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("approval_decisions_request_idx").on(t.requestId)],
+);
+
+/**
+ * Logistics ↔ Finance (LOGISTICS_DOMAIN_MODEL.md §0.3): a forward-looking
+ * financial obligation created when a Booking reaches APPROVED — not yet
+ * an Expense. `expenses.bookingId` (added below) is where a Commitment
+ * becomes today's real Actual once paid; no vendor/cost data is
+ * duplicated between the two, the Booking stays the single source.
+ */
+export const commitments = pgTable(
+  "commitments",
+  {
+    id: text("id").primaryKey(),
+    bookingId: text("booking_id")
+      .notNull()
+      .references(() => bookings.id, { onDelete: "cascade" }),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    currency: text("currency").notNull(),
+    budgetLineId: text("budget_line_id").references(() => budgetLines.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("commitments_booking_idx").on(t.bookingId), index("commitments_budget_line_idx").on(t.budgetLineId)],
+);
+
+/** A Commitment becomes an Invoice when the vendor bills it, before it becomes an Actual (`expenses` row) when paid. */
+export const invoices = pgTable(
+  "invoices",
+  {
+    id: text("id").primaryKey(),
+    commitmentId: text("commitment_id")
+      .notNull()
+      .references(() => commitments.id, { onDelete: "cascade" }),
+    vendorRef: text("vendor_ref").notNull(),
+    amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+    invoiceNumber: text("invoice_number"),
+    receivedAt: timestamp("received_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("invoices_commitment_idx").on(t.commitmentId)],
+);
+
 export const characters = pgTable(
   "characters",
   {
@@ -565,6 +801,8 @@ export const expenses = pgTable(
     date: text("date").notNull().default(""),
     invoiceNumber: text("invoice_number"),
     documentPath: text("document_path"),
+    /** Links this Actual back to the Booking that produced it (LOGISTICS_DOMAIN_MODEL.md §0.3) — null for every expense today, since no booking exists yet to link to. set null, not cascade: an expense record is a financial fact that outlives the booking bookkeeping trail. */
+    bookingId: text("booking_id").references(() => bookings.id, { onDelete: "set null" }),
   },
   (t) => [index("expenses_production_idx").on(t.productionId)],
 );
