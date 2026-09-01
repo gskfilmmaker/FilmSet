@@ -1,0 +1,76 @@
+name: CI
+
+# Required on every PR targeting main and every push to main (P0B). No step
+# in this workflow requires live Vrindavan, production Supabase, or
+# production Vercel credentials — the build step uses synthetic,
+# non-functional placeholder values (see the `env` block below) so a PR
+# can be validated without any production secret ever reaching CI.
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel a stale run when a PR receives a new commit, so superseded builds
+# don't keep burning minutes once a newer commit is what actually matters.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Synthetic, non-functional values — not secrets, never real credentials.
+  # `pnpm build` only needs these to be non-empty strings (see
+  # packages/auth/src/{browser,server,middleware}.ts's requireEnv and
+  # packages/db/src/client.ts) to construct clients; nothing in the build
+  # step makes a network call to Supabase, so an unreachable placeholder
+  # URL is sufficient and deliberate — it proves the build can't
+  # accidentally touch production infrastructure.
+  NEXT_PUBLIC_SUPABASE_URL: "https://ci-placeholder.supabase.co"
+  NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: "ci-placeholder-publishable-key"
+  DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_placeholder"
+  ANTHROPIC_API_KEY: "ci-placeholder-key"
+
+jobs:
+  ci:
+    name: Install, lint, typecheck, test, build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          # Matches the repo's own pinned packageManager (root package.json)
+          # exactly, so CI resolves the lockfile the same way a
+          # contributor's local install does.
+          version: 10.33.0
+
+      - name: Install Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - name: Install dependencies (lockfile-enforced, no floating installs)
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Unit tests
+        run: pnpm test
+
+      - name: Integration tests
+        run: |
+          echo "No integration test suite exists yet in this repository."
+          echo "This step is wired as required infrastructure ahead of P1's"
+          echo "authorization test suite (see docs/audits/IMPLEMENTATION_ROADMAP.md"
+          echo "'Test Strategy') landing real integration coverage here."
+          echo "Deliberately not claiming a passing suite that doesn't exist."
+
+      - name: Production build
+        run: pnpm build
