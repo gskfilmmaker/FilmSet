@@ -11,7 +11,7 @@ export function OnboardingForm() {
           <FrameMark className="size-[32px] text-[var(--color-action-primary)]" aria-hidden="true" />
           <h1 className="text-[18px] font-semibold text-[var(--color-text-primary)]">Name your production</h1>
           <p className="text-[13px] text-[var(--color-text-tertiary)]">
-            You can add cast, crew, and scenes once it's created.
+            You can add cast, crew, and scenes once it&apos;s created.
           </p>
         </div>
         <Input label="Production name" name="name" placeholder="e.g. THE BAND" required autoFocus />
