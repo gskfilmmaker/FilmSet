@@ -14,6 +14,178 @@ What the migration does, in order:
 4. Locks `organization_id` to `NOT NULL` now that every row has a value.
 5. Adds RLS (mirroring the existing `production_members` pattern exactly) so organization data is visible only to its members.
 
+## Owner Runbook — exact order, copy-paste into Supabase SQL Editor
+
+Four steps, in this order. Do not skip the BEFORE step — the AFTER step is only meaningful as a diff against it. Everything is wrapped in an explicit transaction so a bad result can be rolled back before anything is committed.
+
+### Step 1 — BEFORE: baseline (run first, save every result)
+
+```sql
+-- 1a. Vrindavan's current identity — save this whole row.
+select id, name, created_by, created_at
+from public.productions
+where name = 'Vrindavan Mein Param Aanand';
+
+-- 1b. Exactly one row expected. If this is anything other than 1, STOP —
+-- do not proceed to Step 2 — and report back before continuing.
+select count(*) as vrindavan_count
+from public.productions
+where name = 'Vrindavan Mein Param Aanand';
+
+-- 1c. production_members mapped to Vrindavan today — save this output.
+select production_id, user_id, role
+from public.production_members
+where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')
+order by user_id;
+
+-- 1d. Content-table counts — save every number here.
+select
+  (select count(*) from public.scenes where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as scenes,
+  (select count(*) from public.characters where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as characters,
+  (select count(*) from public.cast_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as cast_members,
+  (select count(*) from public.crew_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as crew_members,
+  (select count(*) from public.shoot_days where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as shoot_days,
+  (select count(*) from public.script_pages where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as script_pages,
+  (select count(*) from public.breakdown_elements where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as breakdown_elements,
+  (select count(*) from public.call_sheets where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as call_sheets,
+  (select count(*) from public.documents where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as documents;
+
+-- 1e. Sanity check the backfill's single-owner assumption. If this returns
+-- MORE THAN ONE ROW, STOP and report back before continuing — it means
+-- more than one distinct user has created a production today, and the
+-- backfill (Step 2) would put every production into one org owned by
+-- whichever of them created the earliest one, which may not be what you
+-- want.
+select distinct created_by from public.productions;
+```
+
+### Step 2 — APPLY: run the migration inside an explicit transaction
+
+Open `packages/db/migrations/0016_organization_governance.sql` from this PR's branch, copy its **entire contents**, and paste it into the SQL Editor between the `begin;` and the line below it — do not run `commit;` yet.
+
+```sql
+begin;
+
+-- <<< paste the full, unmodified contents of
+--     packages/db/migrations/0016_organization_governance.sql here >>>
+```
+
+Run it. Expect no errors. **Stay in this same SQL Editor session/transaction** — do not close the tab or start a new query window — and go straight to Step 3. Postgres lets the current transaction see its own uncommitted changes, so you can verify before deciding to keep them.
+
+### Step 3 — AFTER: verify, still inside the same open transaction
+
+```sql
+-- 3a. Vrindavan's identity — id/created_by/created_at must be IDENTICAL to
+-- Step 1a. organization_id should now be populated (not null).
+select id, name, created_by, created_at, organization_id
+from public.productions
+where name = 'Vrindavan Mein Param Aanand';
+
+-- 3b. Still exactly one Vrindavan row — must equal Step 1b (no duplicate
+-- was created).
+select count(*) as vrindavan_count
+from public.productions
+where name = 'Vrindavan Mein Param Aanand';
+
+-- 3c. Organization exists and is named exactly "GSK Productions Inc."
+select o.id, o.name, o.created_by
+from public.organizations o
+join public.productions p on p.organization_id = o.id
+where p.name = 'Vrindavan Mein Param Aanand';
+
+-- 3d. Organization membership exists for the owner.
+select om.organization_id, om.user_id, om.role
+from public.organization_memberships om
+join public.productions p on p.organization_id = om.organization_id
+where p.name = 'Vrindavan Mein Param Aanand';
+
+-- 3e. production_members must match Step 1c exactly — same rows, unchanged.
+select production_id, user_id, role
+from public.production_members
+where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')
+order by user_id;
+
+-- 3f. Content-table counts — every number must match Step 1d exactly.
+select
+  (select count(*) from public.scenes where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as scenes,
+  (select count(*) from public.characters where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as characters,
+  (select count(*) from public.cast_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as cast_members,
+  (select count(*) from public.crew_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as crew_members,
+  (select count(*) from public.shoot_days where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as shoot_days,
+  (select count(*) from public.script_pages where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as script_pages,
+  (select count(*) from public.breakdown_elements where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as breakdown_elements,
+  (select count(*) from public.call_sheets where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as call_sheets,
+  (select count(*) from public.documents where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as documents;
+
+-- 3g. No production anywhere is missing an organization — must be 0.
+select count(*) as productions_missing_org from public.productions where organization_id is null;
+
+-- 3h. RLS policies present and correctly defined (see the RLS note below
+-- for what this can and can't prove).
+select tablename, policyname, cmd
+from pg_policies
+where schemaname = 'public'
+  and tablename in ('organizations', 'organization_memberships', 'productions', 'production_members')
+order by tablename, policyname;
+-- Confirm the four productions policies and four production_members
+-- policies are present with the same names/definitions they had before
+-- (nothing here should look new or different — this migration doesn't
+-- touch them). Four new policies each on organizations and
+-- organization_memberships should also appear.
+```
+
+**On RLS (query 3h) — an honest limit of what SQL Editor verification can prove:** the Supabase SQL Editor connects as the `postgres` superuser, which bypasses Row Level Security entirely. No query run there — before, during, or after this migration — can literally demonstrate "a stranger is blocked from seeing Vrindavan's data," because the Editor's own connection is never subject to that block. What query 3h *can* prove is that the policies which enforce that isolation still exist, unchanged, with the same definitions as before. Combined with query 3e (`production_members` — the table those policies key off — is unchanged), that's the strongest confirmation available from SQL Editor alone. An actual behavioral proof (a real second account genuinely can't see Vrindavan) requires testing through the live app itself, not the SQL Editor.
+
+### Step 4 — Decision: commit or roll back
+
+Look at every result from Step 3 against its Step 1 baseline.
+
+- **Everything matches, exactly as described above** → run:
+  ```sql
+  commit;
+  ```
+- **Anything looks wrong** — a changed id, a missing row, a count that moved, an unexpected duplicate → run:
+  ```sql
+  rollback;
+  ```
+  This discards everything from Step 2 as if it never ran; Vrindavan's data is completely unaffected since nothing was ever committed. Report back with what looked wrong before retrying anything.
+
+### Emergency rollback — only if a bad result was already committed
+
+Use this only if Step 4's `commit;` already ran and a problem surfaced afterward — not the normal path (that's `rollback;` in Step 4, before committing).
+
+```sql
+begin;
+
+drop policy if exists "select org memberships as member" on public.organization_memberships;
+drop policy if exists "insert own org membership or owner adds member" on public.organization_memberships;
+drop policy if exists "update org memberships as owner" on public.organization_memberships;
+drop policy if exists "delete org memberships as owner or self" on public.organization_memberships;
+
+drop policy if exists "select organizations as member" on public.organizations;
+drop policy if exists "insert own organization" on public.organizations;
+drop policy if exists "update organizations as owner" on public.organizations;
+drop policy if exists "delete organizations as owner" on public.organizations;
+
+drop function if exists public.is_organization_member(text);
+drop function if exists public.is_organization_owner(text);
+
+drop index if exists public.productions_organization_idx;
+drop index if exists public.organization_memberships_user_idx;
+drop index if exists public.organizations_created_by_idx;
+
+alter table public.productions drop column if exists organization_id;
+
+drop table if exists public.organization_memberships;
+drop table if exists public.organizations;
+
+-- Verify productions/production_members look right, THEN:
+commit;
+-- (or `rollback;` if something here looks wrong too.)
+```
+
+This has been verified end-to-end against a populated test database (see "Verification performed before this PR was opened" below) — applying it after the migration restores `productions` to its exact pre-migration column set, policies, and data.
+
 ## Why this migration does not touch Vrindavan's identity or content
 
 - **Not name-matched.** The migration never searches for `'Vrindavan Mein Param Aanand'` by name or looks up its `production_id`. A name search is fragile — a whitespace or capitalization difference would silently fail to match and leave the row un-backfilled. Instead, the backfill is driven entirely by `productions.created_by` and `productions.created_at`, columns that already exist and already apply to every row, Vrindavan's included, without this migration needing to know its id in advance.
@@ -70,110 +242,19 @@ This is real execution against real PostgreSQL, not a syntax read-through — bu
 
 ## Rollback
 
-Reverses only what this migration added. Never touches `productions` (beyond dropping the one column), `production_members`, or any production-scoped table.
-
-```sql
-drop policy if exists "select org memberships as member" on public.organization_memberships;
-drop policy if exists "insert own org membership or owner adds member" on public.organization_memberships;
-drop policy if exists "update org memberships as owner" on public.organization_memberships;
-drop policy if exists "delete org memberships as owner or self" on public.organization_memberships;
-
-drop policy if exists "select organizations as member" on public.organizations;
-drop policy if exists "insert own organization" on public.organizations;
-drop policy if exists "update organizations as owner" on public.organizations;
-drop policy if exists "delete organizations as owner" on public.organizations;
-
-drop function if exists public.is_organization_member(text);
-drop function if exists public.is_organization_owner(text);
-
-drop index if exists public.productions_organization_idx;
-drop index if exists public.organization_memberships_user_idx;
-drop index if exists public.organizations_created_by_idx;
-
-alter table public.productions drop column if exists organization_id;
-
-drop table if exists public.organization_memberships;
-drop table if exists public.organizations;
-```
-
-Verified end-to-end against the populated test database (step 8 above) — applying this after the migration restores `productions` to its exact pre-migration column set, policies, and data.
-
-## Verification queries for the owner — run in Supabase SQL Editor
-
-### Before applying the migration (baseline — confirms current state)
-
-```sql
--- Vrindavan's current identity, for comparison after migration.
-select id, name, created_by, created_at
-from public.productions
-where name = 'Vrindavan Mein Param Aanand';
-
--- Confirm production_members today.
-select production_id, user_id, role
-from public.production_members
-where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand');
-```
-
-Save this output somewhere before proceeding — it's what the "after" queries below get compared against.
-
-### After applying the migration
-
-```sql
--- 1. Vrindavan's id, created_by, and created_at must be IDENTICAL to the baseline above.
-select id, name, created_by, created_at, organization_id
-from public.productions
-where name = 'Vrindavan Mein Param Aanand';
-
--- 2. Exactly one organization exists, and Vrindavan belongs to it.
-select o.id, o.name, o.created_by, o.created_at
-from public.organizations o
-join public.productions p on p.organization_id = o.id
-where p.name = 'Vrindavan Mein Param Aanand';
-
--- 3. The organization has exactly the expected owner as a member.
-select om.organization_id, om.user_id, om.role
-from public.organization_memberships om
-join public.productions p on p.organization_id = om.organization_id
-where p.name = 'Vrindavan Mein Param Aanand';
-
--- 4. production_members is byte-identical to the baseline (same rows).
-select production_id, user_id, role
-from public.production_members
-where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand');
-
--- 5. organization_id is NOT NULL for every production (structural check).
-select count(*) as productions_missing_org
-from public.productions
-where organization_id is null;
--- Expect 0.
-
--- 6. No production belongs to more than one organization (trivially true —
--- organization_id is a single column — but confirms the column type/shape).
-select id, count(*) from public.productions group by id having count(*) > 1;
--- Expect 0 rows.
-
--- 7. Sanity check that no production-content table was touched: row counts
--- for scenes/cast/crew/shoot_days should match whatever they were before
--- this migration ran (compare against your own pre-migration count if you
--- want extra assurance — this migration doesn't reference these tables at
--- all, so they cannot have changed).
-select
-  (select count(*) from public.scenes where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as scenes,
-  (select count(*) from public.cast_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as cast_members,
-  (select count(*) from public.crew_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as crew_members,
-  (select count(*) from public.shoot_days where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as shoot_days;
-```
+See the "Owner Runbook" above — the normal path is `rollback;` inside Step 4's still-open transaction (nothing was ever committed, so nothing needs undoing). The "Emergency rollback" block in that same section is the SQL to use only if a bad result was already committed. Both are verified end-to-end against the populated test database (Verification step 8 below) — applying it after the migration restores `productions` to its exact pre-migration column set, policies, and data.
 
 ### What's code-provable vs. what needs live confirmation
 
 | Claim | How it's known |
 |---|---|
-| Migration applies without SQL errors | **Proven** — executed against real PostgreSQL 16 in this PR's verification (see above) |
-| Vrindavan's `id`/`created_by`/`created_at` unchanged | **Proven in simulation** (synthetic data standing in for Vrindavan) — needs query 1 above run against the real row for final confirmation |
-| Every production ends up in exactly one organization | **Proven in simulation** — needs query 5 above against real data |
-| `production_members` / RLS isolation unaffected | **Proven in simulation**, including a live RLS test (owner vs. stranger role) — needs query 4 above against real data for final confirmation |
-| No screenplay/scene/cast/crew/schedule/file content altered | **Structurally guaranteed** — the migration file contains no reference to any of those tables (grep-verifiable) — query 7 above is an optional extra check, not required to prove this since the migration literally cannot touch those tables |
-| Rollback restores exact pre-migration state | **Proven in simulation** (step 8 above) — not something that needs live re-verification unless the rollback is actually used |
+| Migration applies without SQL errors | **Proven** — executed against real PostgreSQL 16 in this PR's verification (see below) |
+| Vrindavan's `id`/`created_by`/`created_at` unchanged | **Proven in simulation** (synthetic data standing in for Vrindavan) — Runbook Step 3a is the live confirmation |
+| Every production ends up in exactly one organization | **Proven in simulation** — Runbook Step 3g is the live confirmation |
+| `production_members` unaffected | **Proven in simulation** — Runbook Step 3e is the live confirmation |
+| RLS isolation unaffected | **Proven in simulation**, including a live RLS test as a non-superuser role (owner vs. stranger) — the SQL Editor itself cannot re-prove this behaviorally (superuser bypasses RLS); Runbook Step 3h confirms the policies are structurally unchanged, which combined with Step 3e is the strongest live confirmation available from SQL Editor alone |
+| No screenplay/scene/cast/crew/schedule/file content altered | **Structurally guaranteed** — the migration file contains no reference to any of those tables (grep-verifiable) — Runbook Step 3f is an optional extra check, not required to prove this since the migration literally cannot touch those tables |
+| Rollback restores exact pre-migration state | **Proven in simulation** (Verification step 8 below) — not something that needs live re-verification unless the rollback is actually used |
 
 ## Known limitations / risks before applying to live Supabase
 
