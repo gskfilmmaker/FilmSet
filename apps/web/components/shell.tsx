@@ -23,6 +23,7 @@ import {
   type SidebarItem,
 } from "@filmset/ui";
 import {
+  BedDouble,
   Building2,
   CalendarDays,
   Check,
@@ -54,6 +55,7 @@ const navItems: (SidebarItem & { href: string })[] = [
   { id: "wardrobe", label: "Wardrobe & Continuity", href: "/wardrobe", icon: <Shirt className="size-full" /> },
   { id: "locations", label: "Locations", href: "/locations", icon: <MapPin className="size-full" /> },
   { id: "set", label: "Set", href: "/shoot-day", icon: <Building2 className="size-full" /> },
+  { id: "accommodation", label: "Accommodation", href: "/accommodation", icon: <BedDouble className="size-full" /> },
   { id: "money", label: "Money", href: "/money", icon: <Wallet className="size-full" /> },
   { id: "documents", label: "Documents", href: "/documents", icon: <FolderOpen className="size-full" /> },
 ];

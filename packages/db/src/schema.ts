@@ -516,6 +516,116 @@ export const invoices = pgTable(
   (t) => [index("invoices_commitment_idx").on(t.commitmentId)],
 );
 
+/**
+ * Accommodation domain (LOGISTICS_DOMAIN_MODEL.md §2) — the first real
+ * Logistics subdomain built on the Booking Engine above. Scoped to
+ * AccommodationProperty/RoomType/Stay for a first working v1;
+ * AccommodationContract/RoomBlock/RoomAssignment (bulk, negotiated-rate
+ * block bookings) are deliberately deferred — see
+ * packages/db/migrations/0020_accommodation_domain.sql's header comment.
+ *
+ * Unlike the Booking Engine tables above (deliberately unwired at 0018),
+ * this is wired into real Server Actions
+ * (apps/web/app/accommodation/actions.ts) and a real screen from the
+ * start, so every table here has full read+write RLS, not read-only.
+ */
+export const accommodationProperties = pgTable(
+  "accommodation_properties",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    /** HOTEL | APARTMENT | HOUSE | TRAILER | OTHER (LOGISTICS_DOMAIN_MODEL.md §2). */
+    type: text("type").notNull().default("HOTEL"),
+    address: text("address"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accommodation_properties_production_idx").on(t.productionId)],
+);
+
+export const roomTypes = pgTable(
+  "room_types",
+  {
+    id: text("id").primaryKey(),
+    propertyId: text("property_id")
+      .notNull()
+      .references(() => accommodationProperties.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    capacity: integer("capacity").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("room_types_property_idx").on(t.propertyId)],
+);
+
+/**
+ * The traveler-facing record (LOGISTICS_DOMAIN_MODEL.md §2's Stay) — also
+ * the AccommodationBooking subtype: this Stay IS the `bookings` row's
+ * subject (subjectType: "ACCOMMODATION_STAY", subjectId: stays.id), so
+ * there's no separate wrapper table duplicating the link `bookingId`
+ * already carries the other way.
+ *
+ * personType/castMemberId/crewMemberId: cast and crew are two separate
+ * tables in this schema (no unified "people" table), so the polymorphic
+ * personRef the domain model calls for is two nullable real foreign keys
+ * plus a DB check constraint pinning exactly one of them, rather than a
+ * stringly-typed id column.
+ */
+export const stays = pgTable(
+  "stays",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    propertyId: text("property_id")
+      .notNull()
+      .references(() => accommodationProperties.id, { onDelete: "restrict" }),
+    roomTypeId: text("room_type_id").references(() => roomTypes.id, { onDelete: "set null" }),
+    /** "CAST" | "CREW" — enforced together with castMemberId/crewMemberId by a DB check constraint (packages/db/migrations/0020_accommodation_domain.sql). */
+    personType: text("person_type").notNull(),
+    castMemberId: text("cast_member_id").references((): AnyPgColumn => castMembers.id, { onDelete: "cascade" }),
+    crewMemberId: text("crew_member_id").references((): AnyPgColumn => crewMembers.id, { onDelete: "cascade" }),
+    checkIn: timestamp("check_in", { withTimezone: true }).notNull(),
+    checkOut: timestamp("check_out", { withTimezone: true }).notNull(),
+    roomNumber: text("room_number"),
+    /** Explicit sharing pairing — §2's RoomAssignment "sharing flag", without the full RoomBlock/RoomAssignment layer this v1 defers. */
+    sharedWithStayId: text("shared_with_stay_id").references((): AnyPgColumn => stays.id, { onDelete: "set null" }),
+    /** Set once bookStay() creates the matching bookings row in the same transaction. */
+    bookingId: text("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("stays_production_idx").on(t.productionId),
+    index("stays_property_idx").on(t.propertyId),
+    index("stays_cast_member_idx").on(t.castMemberId),
+    index("stays_crew_member_idx").on(t.crewMemberId),
+    index("stays_booking_idx").on(t.bookingId),
+  ],
+);
+
+/** A structured diff when a Stay changes (LOGISTICS_DOMAIN_MODEL.md §2's AccommodationChange), mirroring bookingChanges' shape. */
+export const accommodationChanges = pgTable(
+  "accommodation_changes",
+  {
+    id: text("id").primaryKey(),
+    stayId: text("stay_id")
+      .notNull()
+      .references(() => stays.id, { onDelete: "cascade" }),
+    changeType: text("change_type").notNull(),
+    beforeState: jsonb("before_state"),
+    afterState: jsonb("after_state"),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("accommodation_changes_stay_idx").on(t.stayId)],
+);
+
 export const characters = pgTable(
   "characters",
   {
