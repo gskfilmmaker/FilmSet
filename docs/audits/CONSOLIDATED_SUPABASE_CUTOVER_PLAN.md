@@ -16,60 +16,88 @@ PRs #26 (P1c), #27 (P2), #28 (P3), and #29 (P4) added no migrations — docs and
 
 One paste, one execution, one transaction — applies both pending migrations in sequence and checks invariants for both before ever committing. Built and tested exactly the same way as each migration's own individual atomic script (see `VRINDAVAN_MIGRATION_IMPACT.md`), concatenated in migration order with one combined pre-flight and one combined post-check.
 
-**Tested against real, local PostgreSQL 16, both paths:**
-- **Success**: applied against a simulated pre-existing Vrindavan production (with content rows) — committed cleanly, printed `ALL CUTOVER INVARIANTS PASSED (0016 + 0017)`. Confirmed afterward: 71 permissions, 27 roles, 25 departments, `production_members.role_id` backfilled, Vrindavan's `id`/`created_by`/`created_at` unchanged.
-- **Failure**: applied against a simulated multi-owner scenario (the same stop condition from the P1a review direction) — the pre-flight check aborted before either migration's DDL ran, and every subsequent statement in the batch correctly failed as "transaction is aborted." Confirmed afterward: neither `organizations` nor `permissions` tables exist, both original productions completely untouched.
-- **0018 addition**: migration itself verified separately against real Postgres (18 prior migrations applied in sequence, then 0018) — full functional pass through Booking → Approval Engine → Commitment → Invoice → linked `expenses` Actual, plus RLS confirmed three ways as the real `authenticated` role: a production member reads every row in the chain, a cross-production outsider reads zero rows, and an authenticated insert is correctly denied (no write policy exists, matching every other table this cutover adds). 0018 is purely additive (new tables + one nullable column) with no existing-data risk, so it doesn't need its own separate success/failure scenario pair the way 0016 (which alters a real production's row) did — its invariants below are folded into the same combined script and post-check.
+**Revised after the first real pre-flight run against live Supabase caught a wrong assumption.** The original version of this script matched Vrindavan by name (capital P) and required exactly one production and one distinct creator. A real, read-only check against live Supabase (run by the owner's chosen cutover operator, before ever touching anything) found: the real name is spelled `'Vrindavan Mein param Aanand'` (lowercase p); two rows carry that exact name; and three productions exist across two distinct creators (`gskcreatives@gmail.com`, owner of `THE BAND`; `gskproductionsinc@gmail.com`, owner of both Vrindavan rows — confirmed by the owner to be the same company on two accounts). The pre-flight correctly aborted before touching anything. See `VRINDAVAN_MIGRATION_IMPACT.md`'s P1a section for the full account of what was found and fixed — the same fix (migration 0016's org-membership backfill now covers every distinct creator, not just one; the pre-flight/post-check below is now anchored to the three specific reviewed production ids, not name/count heuristics) is what's pasted into the combined script below.
+
+**Tested against real, local PostgreSQL 16, both this revision and the original:**
+- **Success**: applied against a database seeded to the exact live shape the pre-flight check reported (three productions — `THE BAND` empty, plus the two Vrindavan rows with their real ids/creators/timestamps — two distinct creators) — committed cleanly, printed `ALL CUTOVER INVARIANTS PASSED (0016 + 0017 + 0018)`. Confirmed afterward: 71 permissions, 27 roles, 25 × 3 departments, `production_members.role_id` backfilled, both distinct creators are now Owner members of the one organization, the authoritative Vrindavan production's `id`/`created_by`/`created_at` unchanged, and the older duplicate plus `THE BAND` are unchanged except for gaining `organization_id`.
+- **Failure**: applied against a database missing one of the three known productions — the pre-flight check aborted before any migration's DDL ran, naming exactly which expected production wasn't found, and every subsequent statement in the batch correctly failed as "transaction is aborted." Confirmed afterward: neither `organizations` nor `permissions` tables exist, the productions that did exist were completely untouched.
+- **0018 addition**: migration itself verified separately against real Postgres (18 prior migrations applied in sequence, then 0018) — full functional pass through Booking → Approval Engine → Commitment → Invoice → linked `expenses` Actual, plus RLS confirmed three ways as the real `authenticated` role: a production member reads every row in the chain, a cross-production outsider reads zero rows, and an authenticated insert is correctly denied (no write policy exists, matching every other table this cutover adds). 0018 is purely additive (new tables + one nullable column) with no existing-data risk, so it doesn't need its own separate success/failure scenario pair the way 0016 (which alters real production rows) did — its invariants below are folded into the same combined script and post-check.
 
 ```sql
 begin;
 
 -- ============================================================================
--- PRE-FLIGHT — aborts before touching anything if either stop condition
--- from the P1a review direction isn't met.
+-- PRE-FLIGHT — aborts before touching anything unless the live database
+-- still matches exactly the state reviewed with the owner: three specific
+-- productions, by id and name, no more, no fewer. See
+-- VRINDAVAN_MIGRATION_IMPACT.md's P1a section for the full account of why
+-- this replaced the original name/count-based check.
 -- ============================================================================
 do $$
 declare
-  v_vrindavan_count int;
-  v_owner_count int;
+  v_band_count int;
+  v_vrindavan_new_count int;
+  v_vrindavan_old_count int;
+  v_total_count int;
 begin
-  select count(*) into v_vrindavan_count from public.productions where name = 'Vrindavan Mein Param Aanand';
-  if v_vrindavan_count != 1 then
-    raise exception 'PRE-FLIGHT ABORT: expected exactly 1 production named ''Vrindavan Mein Param Aanand'', found %. Not safe to proceed.', v_vrindavan_count;
+  select count(*) into v_band_count from public.productions
+    where id = '27b53fc1-f331-4914-85df-3e5958f76fe5' and name = 'THE BAND';
+  if v_band_count != 1 then
+    raise exception 'PRE-FLIGHT ABORT: expected production 27b53fc1-f331-4914-85df-3e5958f76fe5 named ''THE BAND'', found %. Live data no longer matches the reviewed state — stop and re-verify.', v_band_count;
   end if;
 
-  select count(*) into v_owner_count from (select distinct created_by from public.productions) x;
-  if v_owner_count != 1 then
-    raise exception 'PRE-FLIGHT ABORT: found % distinct production creators, expected exactly 1. Review docs/audits/VRINDAVAN_MIGRATION_IMPACT.md before proceeding.', v_owner_count;
+  select count(*) into v_vrindavan_new_count from public.productions
+    where id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6' and name = 'Vrindavan Mein param Aanand';
+  if v_vrindavan_new_count != 1 then
+    raise exception 'PRE-FLIGHT ABORT: expected the authoritative Vrindavan production a5d6802a-b40c-475e-8336-eda13cdc3bf6 named ''Vrindavan Mein param Aanand'', found %. Not safe to proceed.', v_vrindavan_new_count;
+  end if;
+
+  select count(*) into v_vrindavan_old_count from public.productions
+    where id = '84aa7175-f464-41a0-a6d5-bd330cdb0468' and name = 'Vrindavan Mein param Aanand';
+  if v_vrindavan_old_count != 1 then
+    raise exception 'PRE-FLIGHT ABORT: expected the older duplicate Vrindavan production 84aa7175-f464-41a0-a6d5-bd330cdb0468 named ''Vrindavan Mein param Aanand'', found %. Live data no longer matches the reviewed state — stop and re-verify.', v_vrindavan_old_count;
+  end if;
+
+  select count(*) into v_total_count from public.productions;
+  if v_total_count != 3 then
+    raise exception 'PRE-FLIGHT ABORT: expected exactly 3 productions total (matching the reviewed live state), found %. A production may have been added or removed since review — stop and re-verify before proceeding.', v_total_count;
   end if;
 end $$;
 
 -- ============================================================================
 -- BEFORE baseline — captured into temp tables, dropped automatically at
--- commit or rollback.
+-- commit or rollback. Anchored to the authoritative Vrindavan production's
+-- id (owner-confirmed), not its name — two rows share that name live.
 -- ============================================================================
 create temp table _cutover_before_production on commit drop as
 select id, name, created_by, created_at
 from public.productions
-where name = 'Vrindavan Mein Param Aanand';
+where id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6';
 
 create temp table _cutover_before_members on commit drop as
 select production_id, user_id, role
 from public.production_members
-where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand');
+where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6';
 
 create temp table _cutover_before_counts on commit drop as
 select
-  (select count(*) from public.scenes where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as scenes,
-  (select count(*) from public.characters where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as characters,
-  (select count(*) from public.cast_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as cast_members,
-  (select count(*) from public.crew_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as crew_members,
-  (select count(*) from public.shoot_days where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as shoot_days,
-  (select count(*) from public.script_pages where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as script_pages,
-  (select count(*) from public.breakdown_elements where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as breakdown_elements,
-  (select count(*) from public.call_sheets where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as call_sheets,
-  (select count(*) from public.documents where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as documents,
-  (select count(*) from public.expenses where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')) as expenses;
+  (select count(*) from public.scenes where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as scenes,
+  (select count(*) from public.characters where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as characters,
+  (select count(*) from public.cast_members where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as cast_members,
+  (select count(*) from public.crew_members where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as crew_members,
+  (select count(*) from public.shoot_days where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as shoot_days,
+  (select count(*) from public.script_pages where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as script_pages,
+  (select count(*) from public.breakdown_elements where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as breakdown_elements,
+  (select count(*) from public.call_sheets where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as call_sheets,
+  (select count(*) from public.documents where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as documents,
+  (select count(*) from public.expenses where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6') as expenses;
+
+-- Baseline the two other known productions' identity too, so the post-check
+-- can confirm they were left untouched other than gaining an organization_id.
+create temp table _cutover_before_others on commit drop as
+select id, name, created_by, created_at
+from public.productions
+where id in ('84aa7175-f464-41a0-a6d5-bd330cdb0468', '27b53fc1-f331-4914-85df-3e5958f76fe5');
 
 create temp table _cutover_before_production_count on commit drop as
 select count(*) as n from public.productions;
@@ -125,15 +153,27 @@ alter table public.productions add column organization_id text references public
 -- or capitalization difference would silently fail to match). Instead it
 -- creates exactly one organization, "GSK Productions Inc." (the owner's
 -- named company — already used as the app's own brand-footer credit, see
--- apps/web/components/shell.tsx's BrandFooter), owned by whichever user
--- created the earliest-existing production row, and backfills every
--- existing production into it regardless of which user technically holds
--- created_by on that individual row. This is correct for the current
--- single-owner state of the app (one company producing possibly multiple
--- productions under one account) and is safe even if productions has zero
--- rows (a fresh database, e.g. local dev or CI) — every statement below is
--- then a no-op with no rows to act on, and the final NOT NULL constraint
--- still applies cleanly since no row would violate it.
+-- apps/web/components/shell.tsx's BrandFooter), and backfills every
+-- existing production into it.
+--
+-- Live-data correction (found via the actual pre-cutover read-only check
+-- against Supabase, before this migration was ever run live): the account
+-- is not single-owner. Real productions exist with two distinct
+-- `created_by` values (gskcreatives@gmail.com and
+-- gskproductionsinc@gmail.com — confirmed by the owner to be the same
+-- company operating under two accounts). The org itself still has exactly
+-- one `created_by` (whichever user created the earliest-existing
+-- production row, for a stable, deterministic choice — this only affects
+-- the `organizations.created_by` column, not who has access), but
+-- membership is backfilled for EVERY distinct production creator, not
+-- just the org's own `created_by` — otherwise a second real account whose
+-- productions get placed in this org would not itself be a member of it.
+-- Safe even if productions has zero rows (a fresh database, e.g. local
+-- dev or CI) — every statement below is then a no-op with no rows to act
+-- on, and the final NOT NULL constraint still applies cleanly since no
+-- row would violate it. Also safe and correct for the original
+-- single-owner case (one distinct creator resolves to one membership row,
+-- identical to the previous behavior).
 -- ============================================================================
 insert into public.organizations (id, name, created_by, created_at)
 select
@@ -146,8 +186,10 @@ order by p.created_at asc
 limit 1;
 
 insert into public.organization_memberships (organization_id, user_id, role, created_at)
-select o.id, o.created_by, 'Owner', now()
-from public.organizations o;
+select o.id, creators.created_by, 'Owner', now()
+from public.organizations o
+cross join (select distinct created_by from public.productions) creators
+on conflict (organization_id, user_id) do nothing;
 
 update public.productions
 set organization_id = (select id from public.organizations limit 1)
@@ -1139,6 +1181,10 @@ declare
   v_after_members_count int;
   v_members_diff_count int;
   v_counts_match boolean;
+  v_others_diff_count int;
+  v_creator_count int;
+  v_membership_count int;
+  v_missing_membership_count int;
   v_permissions_count int;
   v_roles_count int;
   v_missing_roleid_count int;
@@ -1154,7 +1200,7 @@ begin
   -- ===== 0016 invariants =====
   select id, created_by, created_at into v_before_id, v_before_created_by, v_before_created_at from _cutover_before_production;
   select id, created_by, created_at, organization_id into v_after_id, v_after_created_by, v_after_created_at, v_after_org_id
-    from public.productions where name = 'Vrindavan Mein Param Aanand';
+    from public.productions where id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6';
 
   if v_before_id is distinct from v_after_id then
     raise exception 'INVARIANT FAILED (0016): production id changed (% -> %)', v_before_id, v_after_id;
@@ -1169,9 +1215,9 @@ begin
     raise exception 'INVARIANT FAILED (0016): organization_id is still null after migration';
   end if;
 
-  select count(*) into v_vrindavan_count_after from public.productions where name = 'Vrindavan Mein Param Aanand';
-  if v_vrindavan_count_after != 1 then
-    raise exception 'INVARIANT FAILED (0016): expected exactly 1 Vrindavan row after migration, found %', v_vrindavan_count_after;
+  select count(*) into v_vrindavan_count_after from public.productions where name = 'Vrindavan Mein param Aanand';
+  if v_vrindavan_count_after != 2 then
+    raise exception 'INVARIANT FAILED (0016): expected exactly 2 ''Vrindavan Mein param Aanand'' rows after migration (the authoritative one plus the known older duplicate), found %', v_vrindavan_count_after;
   end if;
 
   select o.name into v_org_name from public.organizations o where o.id = v_after_org_id;
@@ -1184,9 +1230,36 @@ begin
     raise exception 'INVARIANT FAILED (0016): % production(s) still missing organization_id', v_missing_org_count;
   end if;
 
+  select count(*) into v_others_diff_count from (
+    select p.id from public.productions p
+    join _cutover_before_others b on b.id = p.id
+    where p.name is distinct from b.name
+       or p.created_by is distinct from b.created_by
+       or p.created_at is distinct from b.created_at
+  ) x;
+  if v_others_diff_count != 0 then
+    raise exception 'INVARIANT FAILED (0016): % of the two known non-authoritative productions (THE BAND, the older Vrindavan duplicate) changed identity beyond organization_id', v_others_diff_count;
+  end if;
+
+  select count(*) into v_creator_count from (select distinct created_by from public.productions) x;
+  select count(*) into v_membership_count from public.organization_memberships where organization_id = v_after_org_id;
+  select count(*) into v_missing_membership_count from (
+    select distinct p.created_by from public.productions p
+    where not exists (
+      select 1 from public.organization_memberships om
+      where om.organization_id = v_after_org_id and om.user_id = p.created_by
+    )
+  ) x;
+  if v_missing_membership_count != 0 then
+    raise exception 'INVARIANT FAILED (0016): % distinct production creator(s) are not organization_memberships rows for %', v_missing_membership_count, v_after_org_id;
+  end if;
+  if v_membership_count != v_creator_count then
+    raise exception 'INVARIANT FAILED (0016): expected % organization_memberships rows (one per distinct production creator), found %', v_creator_count, v_membership_count;
+  end if;
+
   select count(*) into v_before_members_count from _cutover_before_members;
   select count(*) into v_after_members_count from public.production_members
-    where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand');
+    where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6';
   if v_before_members_count != v_after_members_count then
     raise exception 'INVARIANT FAILED (0016): production_members row count changed (% -> %)', v_before_members_count, v_after_members_count;
   end if;
@@ -1195,10 +1268,10 @@ begin
     (select production_id, user_id, role from _cutover_before_members
      except
      select production_id, user_id, role from public.production_members
-       where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+       where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
     union all
     (select production_id, user_id, role from public.production_members
-       where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand')
+       where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6'
      except
      select production_id, user_id, role from _cutover_before_members)
   ) x;
@@ -1207,21 +1280,21 @@ begin
   end if;
 
   select
-    b.scenes = (select count(*) from public.scenes where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.characters = (select count(*) from public.characters where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.cast_members = (select count(*) from public.cast_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.crew_members = (select count(*) from public.crew_members where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.shoot_days = (select count(*) from public.shoot_days where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.script_pages = (select count(*) from public.script_pages where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.breakdown_elements = (select count(*) from public.breakdown_elements where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.call_sheets = (select count(*) from public.call_sheets where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.documents = (select count(*) from public.documents where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
-    and b.expenses = (select count(*) from public.expenses where production_id = (select id from public.productions where name = 'Vrindavan Mein Param Aanand'))
+    b.scenes = (select count(*) from public.scenes where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.characters = (select count(*) from public.characters where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.cast_members = (select count(*) from public.cast_members where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.crew_members = (select count(*) from public.crew_members where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.shoot_days = (select count(*) from public.shoot_days where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.script_pages = (select count(*) from public.script_pages where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.breakdown_elements = (select count(*) from public.breakdown_elements where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.call_sheets = (select count(*) from public.call_sheets where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.documents = (select count(*) from public.documents where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
+    and b.expenses = (select count(*) from public.expenses where production_id = 'a5d6802a-b40c-475e-8336-eda13cdc3bf6')
   into v_counts_match
   from _cutover_before_counts b;
 
   if not v_counts_match then
-    raise exception 'INVARIANT FAILED (0016/0017/0018): one or more content-table counts changed for Vrindavan Mein Param Aanand';
+    raise exception 'INVARIANT FAILED (0016/0017/0018): one or more content-table counts changed for the authoritative Vrindavan production';
   end if;
 
   -- ===== 0017 invariants =====
@@ -1280,7 +1353,7 @@ begin
     raise exception 'INVARIANT FAILED (0018): expected 0 expenses with a non-null booking_id immediately after migration, found %', v_expenses_with_booking_count;
   end if;
 
-  raise notice 'ALL CUTOVER INVARIANTS PASSED (0016 + 0017 + 0018) for Vrindavan Mein Param Aanand — safe to commit.';
+  raise notice 'ALL CUTOVER INVARIANTS PASSED (0016 + 0017 + 0018) for Vrindavan Mein param Aanand (a5d6802a-b40c-475e-8336-eda13cdc3bf6) — safe to commit.';
 end $$;
 
 commit;
@@ -1290,11 +1363,13 @@ commit;
 
 ## Vrindavan invariant checks (summary — full detail above)
 
-- Production `id`, `created_by`, `created_at` byte-identical before/after.
-- Exactly one production named "Vrindavan Mein Param Aanand" — before and after (no duplicate).
-- `production_members` rows for Vrindavan byte-identical before/after (both directions — additions and removals both caught).
-- Every content-table count (scenes, characters, cast_members, crew_members, shoot_days, script_pages, breakdown_elements, call_sheets, documents) unchanged.
-- `organization_id` populated, organization named exactly "GSK Productions Inc."
+- Authoritative Vrindavan production (`a5d6802a-b40c-475e-8336-eda13cdc3bf6`) `id`, `created_by`, `created_at` byte-identical before/after.
+- Exactly two productions named "Vrindavan Mein param Aanand" (lowercase p) — the authoritative one plus the known older duplicate — before and after (no *new* duplicate created).
+- `THE BAND` and the older Vrindavan duplicate byte-identical before/after except for gaining `organization_id`.
+- `production_members` rows for the authoritative Vrindavan production byte-identical before/after (both directions — additions and removals both caught).
+- Every content-table count (scenes, characters, cast_members, crew_members, shoot_days, script_pages, breakdown_elements, call_sheets, documents) unchanged for the authoritative production.
+- `organization_id` populated on every production, organization named exactly "GSK Productions Inc."
+- Every distinct production creator (2, as reviewed) is an Owner member of that one organization.
 - Every `production_members` row with a recognized role text has a non-null `role_id`.
 - Department count matches `productions_count × 25` exactly.
 - Permission/role catalog counts match their expected seed sizes (71 / 27).
@@ -1417,7 +1492,7 @@ CI (`.github/workflows/ci.yml`) only runs automatically on PRs targeting `main` 
 ## Smoke-test checklist (after cutover + merges, before declaring done)
 
 1. Login with an existing account — normal sign-in flow works.
-2. Load the Vrindavan Mein Param Aanand dashboard/overview — data renders, nothing errors.
+2. Load the Vrindavan Mein param Aanand (authoritative, `a5d6802a-b40c-475e-8336-eda13cdc3bf6`) dashboard/overview — data renders, nothing errors.
 3. Logout, then log back in immediately — no redirect loop, no stale session issue.
 4. Load a protected page requiring production membership (e.g. `/schedule`, `/cast`) — loads normally.
 5. Owner/admin (Producer role) access — can still reach Settings, Team management, budget pages exactly as before.
@@ -1428,7 +1503,7 @@ CI (`.github/workflows/ci.yml`) only runs automatically on PRs targeting `main` 
 ## What must be verified before deployment
 
 - [ ] Combined atomic script committed successfully against live Supabase, invariants confirmed via its own output plus the owner's independent spot-check queries (`VRINDAVAN_MIGRATION_IMPACT.md`'s Owner Runbook queries, run against the real Vrindavan row).
-- [ ] `select distinct created_by from public.productions;` reviewed **before** running the cutover — confirms the single-owner assumption still holds against real, current data (the pre-flight check also enforces this automatically, but a human review first is the belt to its suspenders).
+- [x] Live production identity confirmed by a real, read-only pre-flight check before this revision was written — three productions (`THE BAND`, and two rows named `Vrindavan Mein param Aanand`), two distinct creators (`gskcreatives@gmail.com`, `gskproductionsinc@gmail.com`). The combined script's own pre-flight now hard-aborts unless live data still matches this exact reviewed state, by id — a human review first (as originally planned here) is no longer the only guard against drift; the script itself now re-verifies it every run.
 - [ ] All stacked PRs' local verification (lint/typecheck/test/build) re-run one final time on each branch immediately before its retarget-and-merge step, not relied on from when it was originally opened.
 - [ ] Smoke-test checklist above completed on the live deployed app after the final merge.
 - [ ] No `assertRole()`/`authorize()` behavior has changed anywhere — P1a/P1b/P1c/P5 are additive-only; this is a structural property of the code (verifiable by re-reading the diffs), not something that needs separate live testing, but worth confirming nothing drifted between when each PR was written and when it's actually deployed.
