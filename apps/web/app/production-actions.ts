@@ -1,7 +1,7 @@
 "use server";
 
 import { requireUser } from "@filmset/auth/server";
-import { runAsUser, schema } from "@filmset/db/server";
+import { runAsUser, schema, type Tx } from "@filmset/db/server";
 import { and, eq } from "drizzle-orm";
 import { redirect } from "next/navigation";
 
@@ -30,6 +30,29 @@ export async function listMyProductions(): Promise<MyProduction[]> {
 }
 
 /**
+ * Every production must belong to an organization (P1a — see
+ * docs/audits/VRINDAVAN_MIGRATION_IMPACT.md). Real organization
+ * onboarding/selection UX doesn't exist yet (that's later work, once P1b's
+ * authorize() engine lands), so for now this reuses the caller's first
+ * existing organization membership if they have one, or creates a personal
+ * one named after them. One user, one organization, for the moment — the
+ * same shape the P1a migration's backfill gave the existing account.
+ */
+async function getOrCreateOwnOrganizationId(tx: Tx, userId: string, userEmail: string | null): Promise<string> {
+  const [existing] = await tx
+    .select({ organizationId: schema.organizationMemberships.organizationId })
+    .from(schema.organizationMemberships)
+    .where(eq(schema.organizationMemberships.userId, userId))
+    .limit(1);
+  if (existing) return existing.organizationId;
+
+  const organizationId = crypto.randomUUID();
+  await tx.insert(schema.organizations).values({ id: organizationId, name: `${userEmail ?? "My"} Organization`, createdBy: userId });
+  await tx.insert(schema.organizationMemberships).values({ organizationId, userId, role: "Owner" });
+  return organizationId;
+}
+
+/**
  * Creates a new production, makes the caller its Producer, and makes it
  * their active production. Used both by onboarding (a brand-new account's
  * first production) and by the project switcher's "New production" form —
@@ -43,7 +66,8 @@ export async function createProduction(formData: FormData) {
   const id = crypto.randomUUID();
   await runAsUser(user.id, (db) =>
     db.transaction(async (tx) => {
-      await tx.insert(schema.productions).values({ id, name, phase: "Development", createdBy: user.id });
+      const organizationId = await getOrCreateOwnOrganizationId(tx, user.id, user.email);
+      await tx.insert(schema.productions).values({ id, name, phase: "Development", createdBy: user.id, organizationId });
       await tx.insert(schema.productionMembers).values({ productionId: id, userId: user.id, role: "Producer" });
       await tx.update(schema.profiles).set({ activeProductionId: id }).where(eq(schema.profiles.id, user.id));
     }),

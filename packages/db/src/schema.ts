@@ -59,6 +59,39 @@ export const profiles = pgTable("profiles", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * The governance layer above productions — P1a foundation only (see
+ * docs/audits/VRINDAVAN_MIGRATION_IMPACT.md). One organization can own many
+ * productions; membership here is deliberately minimal (no roles/permission
+ * vocabulary yet — that's P1b's `authorize()` engine and Department schema,
+ * not this). Existing production access continues to be governed entirely
+ * by `productionMembers`, unchanged by this table's existence.
+ */
+export const organizations = pgTable("organizations", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  createdBy: uuid("created_by")
+    .notNull()
+    .references(() => profiles.id, { onDelete: "restrict" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const organizationMemberships = pgTable(
+  "organization_memberships",
+  {
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "cascade" }),
+    /** Free-text for now, matching production_members' pattern — no enforced vocabulary until P1b. */
+    role: text("role").notNull().default("Owner"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.organizationId, t.userId] })],
+);
+
 export const productions = pgTable("productions", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
@@ -66,6 +99,16 @@ export const productions = pgTable("productions", {
   createdBy: uuid("created_by")
     .notNull()
     .references(() => profiles.id, { onDelete: "restrict" }),
+  /**
+   * Every production belongs to exactly one organization (P1a). Restrict,
+   * not cascade: an organization can't be deleted out from under a
+   * production it still owns — that's a decision the app should force
+   * explicitly (reassign or delete the production first), never an
+   * implicit side effect of deleting the org row.
+   */
+  organizationId: text("organization_id")
+    .notNull()
+    .references(() => organizations.id, { onDelete: "restrict" }),
   /** The script's current revision color (White/Blue/Pink/...) — see packages/core's revision-colors module. Advances only when a revision import actually changes/adds a scene. */
   scriptRevisionColor: text("script_revision_color").notNull().default("White"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

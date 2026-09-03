@@ -1,4 +1,5 @@
 import "dotenv/config";
+import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "../src/schema";
@@ -50,9 +51,27 @@ async function main() {
 
   console.log(`[seed] Seeding "${theBandProduction.name}" (${theBandProduction.id})…`);
 
+  // P1a: every production needs an organization_id. Reuse the owner's
+  // existing organization if this seed has run before (or the P1a
+  // migration's backfill already gave them one); otherwise create one.
+  const [existingMembership] = await db
+    .select({ organizationId: schema.organizationMemberships.organizationId })
+    .from(schema.organizationMemberships)
+    .where(eq(schema.organizationMemberships.userId, ownerId))
+    .limit(1);
+
+  const organizationId = existingMembership?.organizationId ?? `org_seed_${ownerId}`;
+  if (!existingMembership) {
+    await db
+      .insert(schema.organizations)
+      .values({ id: organizationId, name: "GSK Productions Inc.", createdBy: ownerId })
+      .onConflictDoNothing();
+    await db.insert(schema.organizationMemberships).values({ organizationId, userId: ownerId, role: "Owner" }).onConflictDoNothing();
+  }
+
   await db
     .insert(schema.productions)
-    .values({ id: theBandProduction.id, name: theBandProduction.name, phase: theBandProduction.phase, createdBy: ownerId })
+    .values({ id: theBandProduction.id, name: theBandProduction.name, phase: theBandProduction.phase, createdBy: ownerId, organizationId })
     .onConflictDoUpdate({
       target: schema.productions.id,
       set: { name: theBandProduction.name, phase: theBandProduction.phase },
