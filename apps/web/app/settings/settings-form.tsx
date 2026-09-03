@@ -64,6 +64,14 @@ export function SettingsForm({
           </Link>
         </section>
 
+        <section className="flex flex-col gap-[var(--fs-space-8)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
+          <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Security Center</h2>
+          <p className="text-[13px] text-[var(--color-text-secondary)]">Review active sessions, login history, and access explanations.</p>
+          <Link href="/security" className="self-start text-[13px] text-[var(--color-action-primary)] hover:underline">
+            Open Security Center →
+          </Link>
+        </section>
+
         <p className="flex items-center justify-center gap-[6px] text-[12px] text-[var(--color-text-tertiary)]">
           {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no benefit from next/image here */}
           <img src="/brand/gsk-productions-logo.png" alt="" aria-hidden="true" className="h-[13px] w-auto shrink-0 opacity-70" />
