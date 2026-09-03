@@ -117,7 +117,7 @@ select count(*) as n from public.productions;
 -- to how production access is granted — production_members and its RLS
 -- policies (0001_rls_and_auth_trigger.sql) are completely untouched by this
 -- migration. That is intentional: P1a must not alter who can see or edit
--- Vrindavan Mein Param Aanand's data, only add a governance layer above it.
+-- Vrindavan Mein param Aanand's data, only add a governance layer above it.
 -- ============================================================================
 
 -- ============================================================================
@@ -141,7 +141,7 @@ create table public.organization_memberships (
 -- ============================================================================
 -- productions.organization_id — added NULLABLE first, deliberately: the
 -- backfill below must be able to populate every existing row (including
--- Vrindavan Mein Param Aanand's) before the NOT NULL constraint locks it
+-- Vrindavan Mein param Aanand's) before the NOT NULL constraint locks it
 -- in. No existing production row's id, name, phase, script_revision_color,
 -- created_by, or created_at changes — this only adds a new column.
 -- ============================================================================
@@ -149,8 +149,10 @@ alter table public.productions add column organization_id text references public
 
 -- ============================================================================
 -- Backfill — data-driven, not name-matched. This migration does not search
--- for "Vrindavan Mein Param Aanand" by name or id (fragile — a whitespace
--- or capitalization difference would silently fail to match). Instead it
+-- for "Vrindavan Mein param Aanand" by name or id (fragile — a whitespace
+-- or capitalization difference would silently fail to match, exactly as
+-- happened to this file's own pre-flight check the first time it ran
+-- against live data, before this comment was corrected). Instead it
 -- creates exactly one organization, "GSK Productions Inc." (the owner's
 -- named company — already used as the app's own brand-footer credit, see
 -- apps/web/components/shell.tsx's BrandFooter), and backfills every
