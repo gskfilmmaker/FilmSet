@@ -45,15 +45,27 @@ alter table public.productions add column organization_id text references public
 -- or capitalization difference would silently fail to match). Instead it
 -- creates exactly one organization, "GSK Productions Inc." (the owner's
 -- named company — already used as the app's own brand-footer credit, see
--- apps/web/components/shell.tsx's BrandFooter), owned by whichever user
--- created the earliest-existing production row, and backfills every
--- existing production into it regardless of which user technically holds
--- created_by on that individual row. This is correct for the current
--- single-owner state of the app (one company producing possibly multiple
--- productions under one account) and is safe even if productions has zero
--- rows (a fresh database, e.g. local dev or CI) — every statement below is
--- then a no-op with no rows to act on, and the final NOT NULL constraint
--- still applies cleanly since no row would violate it.
+-- apps/web/components/shell.tsx's BrandFooter), and backfills every
+-- existing production into it.
+--
+-- Live-data correction (found via the actual pre-cutover read-only check
+-- against Supabase, before this migration was ever run live): the account
+-- is not single-owner. Real productions exist with two distinct
+-- `created_by` values (gskcreatives@gmail.com and
+-- gskproductionsinc@gmail.com — confirmed by the owner to be the same
+-- company operating under two accounts). The org itself still has exactly
+-- one `created_by` (whichever user created the earliest-existing
+-- production row, for a stable, deterministic choice — this only affects
+-- the `organizations.created_by` column, not who has access), but
+-- membership is backfilled for EVERY distinct production creator, not
+-- just the org's own `created_by` — otherwise a second real account whose
+-- productions get placed in this org would not itself be a member of it.
+-- Safe even if productions has zero rows (a fresh database, e.g. local
+-- dev or CI) — every statement below is then a no-op with no rows to act
+-- on, and the final NOT NULL constraint still applies cleanly since no
+-- row would violate it. Also safe and correct for the original
+-- single-owner case (one distinct creator resolves to one membership row,
+-- identical to the previous behavior).
 -- ============================================================================
 insert into public.organizations (id, name, created_by, created_at)
 select
@@ -66,8 +78,10 @@ order by p.created_at asc
 limit 1;
 
 insert into public.organization_memberships (organization_id, user_id, role, created_at)
-select o.id, o.created_by, 'Owner', now()
-from public.organizations o;
+select o.id, creators.created_by, 'Owner', now()
+from public.organizations o
+cross join (select distinct created_by from public.productions) creators
+on conflict (organization_id, user_id) do nothing;
 
 update public.productions
 set organization_id = (select id from public.organizations limit 1)
