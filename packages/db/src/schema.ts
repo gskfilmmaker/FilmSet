@@ -752,6 +752,132 @@ export const movementLegPassengers = pgTable(
   ],
 );
 
+/**
+ * Catering domain (LOGISTICS_DOMAIN_MODEL.md §6) — the third real
+ * Logistics subdomain. DietaryProfile/DietaryRequirement are explicitly
+ * sensitive per §6's mandate; the "who sees a named person's allergy
+ * info vs. only an anonymized headcount" split is enforced by
+ * apps/web/app/catering/actions.ts at the app layer (the same interim
+ * Producer-only gate every write action in this train uses), not by a
+ * tighter RLS policy — see 0022_catering_domain.sql's header comment.
+ * CraftService folds into mealServices.mealType = "CRAFT" rather than a
+ * separate table; MealCount is computed live by Server Actions, never
+ * stored, per §6's own "generated view, never a separately-maintained
+ * document" principle — see that same migration's header comment.
+ */
+export const dietaryProfiles = pgTable(
+  "dietary_profiles",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    personType: text("person_type").notNull(),
+    castMemberId: text("cast_member_id").references((): AnyPgColumn => castMembers.id, { onDelete: "cascade" }),
+    crewMemberId: text("crew_member_id").references((): AnyPgColumn => crewMembers.id, { onDelete: "cascade" }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("dietary_profiles_production_idx").on(t.productionId),
+    index("dietary_profiles_cast_member_idx").on(t.castMemberId),
+    index("dietary_profiles_crew_member_idx").on(t.crewMemberId),
+  ],
+);
+
+/** The structured half of a profile (e.g. "Nut allergy — Severe") — free-text notes live on dietaryProfiles itself. */
+export const dietaryRequirements = pgTable(
+  "dietary_requirements",
+  {
+    id: text("id").primaryKey(),
+    profileId: text("profile_id")
+      .notNull()
+      .references(() => dietaryProfiles.id, { onDelete: "cascade" }),
+    requirementType: text("requirement_type").notNull(),
+    /** PREFERENCE | MILD | SEVERE. */
+    severity: text("severity").notNull().default("PREFERENCE"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("dietary_requirements_profile_idx").on(t.profileId)],
+);
+
+export const cateringVendors = pgTable(
+  "catering_vendors",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    contact: text("contact"),
+    contractTerms: text("contract_terms"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("catering_vendors_production_idx").on(t.productionId)],
+);
+
+/** mealType "CRAFT" covers LOGISTICS_DOMAIN_MODEL.md §6's CraftService case — see 0022's header comment. */
+export const mealServices = pgTable(
+  "meal_services",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    date: timestamp("date", { withTimezone: true }).notNull(),
+    /** BREAKFAST | LUNCH | DINNER | CRAFT. */
+    mealType: text("meal_type").notNull(),
+    locationId: text("location_id").references(() => locations.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("meal_services_production_idx").on(t.productionId)],
+);
+
+/** Who's expected at a service — same polymorphic person pattern as stays/movementLegPassengers. */
+export const mealServiceAssignments = pgTable(
+  "meal_service_assignments",
+  {
+    id: text("id").primaryKey(),
+    serviceId: text("service_id")
+      .notNull()
+      .references(() => mealServices.id, { onDelete: "cascade" }),
+    personType: text("person_type").notNull(),
+    castMemberId: text("cast_member_id").references((): AnyPgColumn => castMembers.id, { onDelete: "cascade" }),
+    crewMemberId: text("crew_member_id").references((): AnyPgColumn => crewMembers.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("meal_service_assignments_service_idx").on(t.serviceId),
+    index("meal_service_assignments_cast_member_idx").on(t.castMemberId),
+    index("meal_service_assignments_crew_member_idx").on(t.crewMemberId),
+  ],
+);
+
+/** The Booking (0018) subtype: a CateringOrder IS the bookings row's subject (subjectType "CATERING_ORDER", subjectId: cateringOrders.id) — status lives on the linked bookings row, not duplicated here. */
+export const cateringOrders = pgTable(
+  "catering_orders",
+  {
+    id: text("id").primaryKey(),
+    serviceId: text("service_id")
+      .notNull()
+      .references(() => mealServices.id, { onDelete: "cascade" }),
+    vendorId: text("vendor_id").references(() => cateringVendors.id, { onDelete: "set null" }),
+    bookingId: text("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("catering_orders_service_idx").on(t.serviceId),
+    index("catering_orders_vendor_idx").on(t.vendorId),
+    index("catering_orders_booking_idx").on(t.bookingId),
+  ],
+);
+
 export const characters = pgTable(
   "characters",
   {
