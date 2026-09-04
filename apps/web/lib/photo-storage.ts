@@ -2,11 +2,13 @@ import "server-only";
 import { getServerSupabase } from "@filmset/auth/server";
 
 /**
- * Cast headshots and Location/set photos, in one private Storage bucket
- * (see packages/db/migrations/0010_photo_storage_bucket.sql for the RLS
- * that scopes every read/write to production membership). Not public —
- * every display path goes through resolvePhotoUrls' signed URLs, never a
- * direct bucket URL.
+ * Cast/crew headshots, Location/set photos, and production logos, in one
+ * private Storage bucket (see packages/db/migrations/0010_photo_storage_bucket.sql
+ * for the RLS that scopes every read/write to production membership — it
+ * trusts only the first path segment, the production id, so adding new
+ * PhotoEntityType values here needs no new migration). Not public — every
+ * display path goes through resolvePhotoUrls' signed URLs, never a direct
+ * bucket URL.
  */
 const BUCKET = "production-photos";
 const SIGNED_URL_TTL_SECONDS = 60 * 60;
@@ -14,7 +16,7 @@ const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
 /** No SVG — it can carry active script content and isn't a headshot/set-photo format anyone needs here. */
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]);
 
-export type PhotoEntityType = "cast" | "location";
+export type PhotoEntityType = "cast" | "location" | "crew" | "production";
 
 function extensionFor(file: File): string {
   const fromName = file.name.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "");

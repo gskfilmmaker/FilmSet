@@ -113,6 +113,10 @@ export const productions = pgTable("productions", {
     .references(() => organizations.id, { onDelete: "restrict" }),
   /** The script's current revision color (White/Blue/Pink/...) — see packages/core's revision-colors module. Advances only when a revision import actually changes/adds a scene. */
   scriptRevisionColor: text("script_revision_color").notNull().default("White"),
+  /** Storage object path in the production-photos bucket (same convention as castMembers.photoPath) — never a public URL. */
+  logoPath: text("logo_path"),
+  /** Hex color, e.g. "#1A2B3C" — the credential badge's header band. Null falls back to a default in the badge component, not a DB default. */
+  brandColor: text("brand_color"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -1088,6 +1092,8 @@ export const crewMembers = pgTable(
     isHod: boolean("is_hod").notNull().default(false),
     contract: text("contract").notNull().default("Pending"),
     walkieChannel: text("walkie_channel"),
+    /** Storage object path in the production-photos bucket — same convention as castMembers.photoPath (0011). */
+    photoPath: text("photo_path"),
     ...contactColumns,
   },
   (t) => [index("crew_members_production_idx").on(t.productionId)],

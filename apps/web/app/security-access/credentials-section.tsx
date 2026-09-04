@@ -1,7 +1,8 @@
 "use client";
 
 import { Button, EmptyState, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, StatusBadge, useToast } from "@filmset/ui";
-import { CreditCard, Pencil, Trash2 } from "lucide-react";
+import { CreditCard, IdCard, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 import { createCredential, deleteCredential, updateCredential, type CredentialInput } from "./actions";
@@ -280,6 +281,15 @@ export function CredentialsSection({
                   <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
                     <StatusBadge tone={statusTone[credential.status]}>{humanizeEnum(credential.status)}</StatusBadge>
                     <StatusBadge tone="neutral">{humanizeEnum(credential.assuranceLevel)}</StatusBadge>
+                    <Link
+                      href={`/security-access/badge/${credential.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`View badge for ${credential.credentialNumber}`}
+                      className="inline-flex size-[var(--fs-control-height)] items-center justify-center rounded-md text-[var(--color-text-secondary)] transition-colors hover:bg-[var(--color-background-elevated)] hover:text-[var(--color-text-primary)]"
+                    >
+                      <IdCard className="size-[14px]" aria-hidden="true" />
+                    </Link>
                     {canManage && (
                       <>
                         <Button

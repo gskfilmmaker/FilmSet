@@ -1,6 +1,7 @@
 "use server";
 
 import { requireProductionMember } from "@/lib/authz";
+import { deleteEntityPhoto, uploadEntityPhoto } from "@/lib/photo-storage";
 import type { CrewMember } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
@@ -76,4 +77,26 @@ export async function deleteCrewMember(productionId: string, id: string) {
   await runAsUser(user.id, (db) =>
     db.delete(schema.crewMembers).where(and(eq(schema.crewMembers.id, id), eq(schema.crewMembers.productionId, productionId))),
   );
+}
+
+export async function uploadCrewPhoto(productionId: string, id: string, formData: FormData) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const file = formData.get("photo");
+  if (!(file instanceof File) || file.size === 0) throw new Error("No photo selected.");
+
+  const [existing] = await runAsUser(user.id, (db) =>
+    db
+      .select({ photoPath: schema.crewMembers.photoPath })
+      .from(schema.crewMembers)
+      .where(and(eq(schema.crewMembers.id, id), eq(schema.crewMembers.productionId, productionId)))
+      .limit(1),
+  );
+  if (!existing) throw new Error("Crew member not found in this production.");
+
+  const path = await uploadEntityPhoto(productionId, "crew", id, file);
+  await runAsUser(user.id, (db) =>
+    db.update(schema.crewMembers).set({ photoPath: path }).where(and(eq(schema.crewMembers.id, id), eq(schema.crewMembers.productionId, productionId))),
+  );
+  if (existing.photoPath) await deleteEntityPhoto(existing.photoPath);
 }
