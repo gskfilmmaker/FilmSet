@@ -30,7 +30,6 @@ import {
   createEquipmentVendor,
   deleteCatalogItem,
   deleteEquipmentVendor,
-  EQUIPMENT_CURRENCIES,
   setCatalogItemDopApproval,
   setDirectorApproval,
   setDopApproval,
@@ -39,6 +38,7 @@ import {
   type EquipmentCatalogItemInput,
   type EquipmentVendorInput,
 } from "./actions";
+import { EQUIPMENT_CURRENCIES } from "./currency";
 
 export interface VendorRow {
   id: string;
