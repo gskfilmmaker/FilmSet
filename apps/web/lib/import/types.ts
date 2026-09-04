@@ -1,10 +1,10 @@
 /**
  * Shared types for the file-import pipeline (CSV/XLSX contact lists,
  * PDF/text production documents) — one flow reused across /cast, /crew,
- * /locations, /money, /transport, /accommodation, and /catering instead
- * of a bespoke importer per page.
+ * /locations, /money, /transport, /accommodation, /catering, and
+ * /equipment instead of a bespoke importer per page.
  */
-export type ImportEntityType = "cast" | "crew" | "location" | "expense" | "vehicle" | "driver" | "property" | "vendor";
+export type ImportEntityType = "cast" | "crew" | "location" | "expense" | "vehicle" | "driver" | "property" | "vendor" | "equipmentVendor" | "equipmentCatalogItem";
 
 export interface ImportFieldSpec {
   key: string;
@@ -60,6 +60,20 @@ export const IMPORT_FIELDS: Record<ImportEntityType, ImportFieldSpec[]> = {
     { key: "name", label: "Name", required: true, aliases: ["name", "vendor", "vendor name", "company"] },
     { key: "contact", label: "Contact", aliases: ["contact", "phone", "email", "contact info"] },
     { key: "contractTerms", label: "Contract terms", aliases: ["contract", "contract terms", "terms"] },
+  ],
+  equipmentVendor: [
+    { key: "name", label: "Name", required: true, aliases: ["name", "vendor", "vendor name", "company", "rental house"] },
+    { key: "contact", label: "Contact", aliases: ["contact", "phone", "email", "contact info"] },
+    { key: "contractTerms", label: "Contract terms", aliases: ["contract", "contract terms", "terms"] },
+  ],
+  equipmentCatalogItem: [
+    { key: "name", label: "Item", required: true, aliases: ["name", "item", "item name", "equipment", "equipment name"] },
+    { key: "department", label: "Department", aliases: ["department", "dept"] },
+    { key: "category", label: "Category", aliases: ["category", "type"] },
+    { key: "vendor", label: "Vendor", aliases: ["vendor", "vendor name", "rental house", "supplier"] },
+    { key: "dailyRate", label: "Daily rate", aliases: ["daily rate", "rate", "price", "day rate", "cost"] },
+    { key: "currency", label: "Currency", aliases: ["currency"] },
+    { key: "notes", label: "Notes", aliases: ["notes", "comment", "comments"] },
   ],
 };
 

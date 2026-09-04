@@ -29,8 +29,10 @@ const ENTITY_LABEL: Record<ImportEntityType, string> = {
   driver: "drivers",
   property: "properties",
   vendor: "vendors",
+  equipmentVendor: "equipment vendors",
+  equipmentCatalogItem: "equipment",
 };
-const DOCUMENT_CAPABLE: ImportEntityType[] = ["cast", "crew", "location", "vehicle", "driver", "property", "vendor"];
+const DOCUMENT_CAPABLE: ImportEntityType[] = ["cast", "crew", "location", "vehicle", "driver", "property", "vendor", "equipmentVendor", "equipmentCatalogItem"];
 
 function isTabular(file: File): boolean {
   return /\.(csv|xlsx|xls)$/i.test(file.name);

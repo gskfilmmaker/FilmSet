@@ -878,6 +878,90 @@ export const cateringOrders = pgTable(
   ],
 );
 
+/** Equipment domain (0023) — Camera / Grip & Electric / Sound. Same shape as cateringVendors. */
+export const equipmentVendors = pgTable(
+  "equipment_vendors",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    contact: text("contact"),
+    contractTerms: text("contract_terms"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("equipment_vendors_production_idx").on(t.productionId)],
+);
+
+/** A vendor's approved-for-this-production equipment list — dopApproved is set by the Camera department's HOD (see 0023's header comment for why there's no dedicated "DOP" role). */
+export const equipmentCatalogItems = pgTable(
+  "equipment_catalog_items",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    vendorId: text("vendor_id")
+      .notNull()
+      .references(() => equipmentVendors.id, { onDelete: "cascade" }),
+    /** "Camera" | "Grip & Electric" | "Sound" — packages/core's STANDARD_DEPARTMENTS values. */
+    department: text("department").notNull(),
+    category: text("category"),
+    name: text("name").notNull(),
+    dailyRate: numeric("daily_rate", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    dopApproved: boolean("dop_approved").notNull().default(false),
+    dopApprovedBy: uuid("dop_approved_by").references(() => profiles.id, { onDelete: "set null" }),
+    dopApprovedAt: timestamp("dop_approved_at", { withTimezone: true }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("equipment_catalog_items_production_idx").on(t.productionId), index("equipment_catalog_items_vendor_idx").on(t.vendorId)],
+);
+
+/** One equipment line item on one shoot day — the Booking (0018) subtype plus the owner's three-role sign-off (DOP / Director / Producer), each an independent boolean + who + when. */
+export const equipmentBookings = pgTable(
+  "equipment_bookings",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    shootDayId: text("shoot_day_id")
+      .notNull()
+      .references(() => shootDays.id, { onDelete: "cascade" }),
+    catalogItemId: text("catalog_item_id")
+      .notNull()
+      .references(() => equipmentCatalogItems.id, { onDelete: "restrict" }),
+    quantity: integer("quantity").notNull().default(1),
+    /** Snapshot of the negotiated per-unit daily rate at booking time — may differ from the catalog item's reference dailyRate. */
+    rate: numeric("rate", { precision: 12, scale: 2 }),
+    currency: text("currency"),
+    bookingId: text("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    dopApproved: boolean("dop_approved").notNull().default(false),
+    dopApprovedBy: uuid("dop_approved_by").references(() => profiles.id, { onDelete: "set null" }),
+    dopApprovedAt: timestamp("dop_approved_at", { withTimezone: true }),
+    directorApproved: boolean("director_approved").notNull().default(false),
+    directorApprovedBy: uuid("director_approved_by").references(() => profiles.id, { onDelete: "set null" }),
+    directorApprovedAt: timestamp("director_approved_at", { withTimezone: true }),
+    producerApproved: boolean("producer_approved").notNull().default(false),
+    producerApprovedBy: uuid("producer_approved_by").references(() => profiles.id, { onDelete: "set null" }),
+    producerApprovedAt: timestamp("producer_approved_at", { withTimezone: true }),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("equipment_bookings_production_idx").on(t.productionId),
+    index("equipment_bookings_shoot_day_idx").on(t.shootDayId),
+    index("equipment_bookings_catalog_item_idx").on(t.catalogItemId),
+    index("equipment_bookings_booking_idx").on(t.bookingId),
+  ],
+);
+
 export const characters = pgTable(
   "characters",
   {

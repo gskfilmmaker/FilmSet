@@ -26,6 +26,7 @@ import {
   BedDouble,
   Building2,
   CalendarDays,
+  Camera,
   Car,
   Check,
   ChefHat,
@@ -60,6 +61,7 @@ const navItems: (SidebarItem & { href: string })[] = [
   { id: "accommodation", label: "Accommodation", href: "/accommodation", icon: <BedDouble className="size-full" /> },
   { id: "transport", label: "Transport", href: "/transport", icon: <Car className="size-full" /> },
   { id: "catering", label: "Catering", href: "/catering", icon: <ChefHat className="size-full" /> },
+  { id: "equipment", label: "Equipment", href: "/equipment", icon: <Camera className="size-full" /> },
   { id: "money", label: "Money", href: "/money", icon: <Wallet className="size-full" /> },
   { id: "documents", label: "Documents", href: "/documents", icon: <FolderOpen className="size-full" /> },
 ];
