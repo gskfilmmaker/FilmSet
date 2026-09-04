@@ -1,5 +1,6 @@
 "use client";
 
+import { ImportPanel } from "@/components/import-panel";
 import { Shell } from "@/components/shell";
 import type { Production, Scene } from "@filmset/core";
 import {
@@ -968,12 +969,18 @@ export function TransportSection({
         <h1 className="text-[22px] font-semibold leading-[28px] text-[var(--color-text-primary)]">Transport</h1>
 
         <section className="flex flex-col gap-[var(--fs-space-12)]">
-          <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Vehicles</h2>
+          <div className="flex items-center justify-between gap-[var(--fs-space-16)]">
+            <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Vehicles</h2>
+            <ImportPanel productionId={productionId} entityType="vehicle" />
+          </div>
           <VehiclesList productionId={productionId} vehicles={vehicles} onChanged={onChanged} />
         </section>
 
         <section className="flex flex-col gap-[var(--fs-space-12)]">
-          <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Drivers</h2>
+          <div className="flex items-center justify-between gap-[var(--fs-space-16)]">
+            <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Drivers</h2>
+            <ImportPanel productionId={productionId} entityType="driver" />
+          </div>
           <DriversList productionId={productionId} drivers={drivers} crewMembers={crewMembers} onChanged={onChanged} />
         </section>
 

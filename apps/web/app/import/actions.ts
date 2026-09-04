@@ -1,15 +1,26 @@
 "use server";
 
+import { createProperty, updateProperty, type PropertyInput } from "@/app/accommodation/actions";
 import { createCastMember, updateCastMember, type CastMemberInput } from "@/app/cast/actions";
+import { createVendor, type VendorInput } from "@/app/catering/actions";
 import { createCrewMember, updateCrewMember, type CrewMemberInput } from "@/app/crew/actions";
 import { createLocation, updateLocation, type LocationInput } from "@/app/locations/actions";
 import { createExpense, type ExpenseInput } from "@/app/money/actions";
+import { createDriver, createVehicle, updateVehicle, type DriverInput, type VehicleInput } from "@/app/transport/actions";
 import { requireProductionMember } from "@/lib/authz";
-import { extractCastCandidates, extractCrewCandidates, extractLocationCandidates } from "@/lib/ai";
+import {
+  extractCastCandidates,
+  extractCrewCandidates,
+  extractDriverCandidates,
+  extractLocationCandidates,
+  extractPropertyCandidates,
+  extractVehicleCandidates,
+  extractVendorCandidates,
+} from "@/lib/ai";
 import { parseDocxText } from "@/lib/import/parse-docx";
 import { parsePdfText } from "@/lib/import/parse-pdf";
 import { candidatesFromTabular, parseTabular } from "@/lib/import/parse-tabular";
-import type { ImportCandidate, ImportEntityType, ImportPreviewResult } from "@/lib/import/types";
+import { IMPORT_FIELDS, type ImportCandidate, type ImportEntityType, type ImportPreviewResult } from "@/lib/import/types";
 import { getProductionSnapshot } from "@/lib/queries";
 import type { Expense } from "@filmset/core";
 import { requireUser } from "@filmset/auth/server";
@@ -38,6 +49,36 @@ async function existingKeysFor(entityType: ImportEntityType, productionId: strin
     for (const member of snapshot.crewMembers) map.set(member.name.toLowerCase(), member.id);
   } else if (entityType === "location") {
     for (const location of snapshot.locations) map.set(location.name.toLowerCase(), location.id);
+  } else if (entityType === "vehicle") {
+    const rows = await runAsUser(userId, (db) =>
+      db.select({ id: schema.vehicles.id, identifier: schema.vehicles.identifier }).from(schema.vehicles).where(eq(schema.vehicles.productionId, productionId)),
+    );
+    for (const v of rows) map.set(v.identifier.toLowerCase(), v.id);
+  } else if (entityType === "driver") {
+    const rows = await runAsUser(userId, (db) =>
+      db
+        .select({ id: schema.drivers.id, externalName: schema.drivers.externalName, crewMemberId: schema.drivers.crewMemberId })
+        .from(schema.drivers)
+        .where(eq(schema.drivers.productionId, productionId)),
+    );
+    const crewNameById = new Map(snapshot.crewMembers.map((c) => [c.id, c.name]));
+    for (const d of rows) {
+      const name = d.externalName ?? (d.crewMemberId ? crewNameById.get(d.crewMemberId) : undefined);
+      if (name) map.set(name.toLowerCase(), d.id);
+    }
+  } else if (entityType === "property") {
+    const rows = await runAsUser(userId, (db) =>
+      db
+        .select({ id: schema.accommodationProperties.id, name: schema.accommodationProperties.name })
+        .from(schema.accommodationProperties)
+        .where(eq(schema.accommodationProperties.productionId, productionId)),
+    );
+    for (const p of rows) map.set(p.name.toLowerCase(), p.id);
+  } else if (entityType === "vendor") {
+    const rows = await runAsUser(userId, (db) =>
+      db.select({ id: schema.cateringVendors.id, name: schema.cateringVendors.name }).from(schema.cateringVendors).where(eq(schema.cateringVendors.productionId, productionId)),
+    );
+    for (const v of rows) map.set(v.name.toLowerCase(), v.id);
   }
   return map;
 }
@@ -63,6 +104,10 @@ const DOCUMENT_EXTRACTORS: Partial<Record<ImportEntityType, (text: string) => Pr
   cast: async (text) => (await extractCastCandidates(text)).map((r) => ({ fields: { characterName: r.characterName, actorName: r.actorName, notes: r.notes } })),
   crew: async (text) => (await extractCrewCandidates(text)).map((r) => ({ fields: { name: r.name, department: r.department, role: r.role, notes: r.notes } })),
   location: async (text) => (await extractLocationCandidates(text)).map((r) => ({ fields: { name: r.name, address: r.address, notes: r.notes } })),
+  vehicle: async (text) => (await extractVehicleCandidates(text)).map((r) => ({ fields: { identifier: r.identifier, type: r.type, capacity: r.capacity, notes: r.notes } })),
+  driver: async (text) => (await extractDriverCandidates(text)).map((r) => ({ fields: { name: r.name, notes: r.notes } })),
+  property: async (text) => (await extractPropertyCandidates(text)).map((r) => ({ fields: { name: r.name, type: r.type, address: r.address, notes: r.notes } })),
+  vendor: async (text) => (await extractVendorCandidates(text)).map((r) => ({ fields: { name: r.name, contact: r.contact, contractTerms: r.contractTerms } })),
 };
 
 /** Preview step for a .pdf or .docx upload — extracts text, then an AI Suggest call proposes structured candidates. Logged to ai_suggestion_log for the same audit trail every other AI suggestion gets. Never writes to production data. */
@@ -82,7 +127,7 @@ export async function previewDocumentImport(productionId: string, entityType: Im
 
   const extracted = await extractor(text);
   const existingKeys = await existingKeysFor(entityType, productionId, user.id);
-  const identityKey = entityType === "cast" ? "characterName" : "name";
+  const identityKey = IMPORT_FIELDS[entityType].find((f) => f.required)?.key ?? "name";
   const candidates: ImportCandidate[] = extracted.map((record) => {
     const identity = record.fields[identityKey];
     const matchedId = identity ? existingKeys.get(identity.toLowerCase()) : undefined;
@@ -114,6 +159,12 @@ export async function commitImport(productionId: string, entityType: ImportEntit
   if (selected.length === 0) return { created: 0, updated: 0 };
 
   const snapshot = await getProductionSnapshot(user.id, productionId);
+  const existingVehicles =
+    entityType === "vehicle" ? await runAsUser(user.id, (db) => db.select().from(schema.vehicles).where(eq(schema.vehicles.productionId, productionId))) : [];
+  const existingProperties =
+    entityType === "property"
+      ? await runAsUser(user.id, (db) => db.select().from(schema.accommodationProperties).where(eq(schema.accommodationProperties.productionId, productionId)))
+      : [];
   let created = 0;
   let updated = 0;
 
@@ -204,6 +255,60 @@ export async function commitImport(productionId: string, entityType: ImportEntit
         invoiceNumber: candidate.fields.invoiceNumber ?? "",
       };
       await createExpense(productionId, input);
+      created++;
+    } else if (entityType === "vehicle") {
+      const existing = candidate.matchedId ? existingVehicles.find((v) => v.id === candidate.matchedId) : undefined;
+      const identifier = candidate.fields.identifier ?? existing?.identifier;
+      if (!identifier) continue;
+      const parsedCapacity = candidate.fields.capacity ? Number(candidate.fields.capacity.replace(/[^0-9]/g, "")) : undefined;
+      const input: VehicleInput = {
+        identifier,
+        type: candidate.fields.type ?? existing?.type ?? "PRODUCTION_VEHICLE",
+        capacity: parsedCapacity && Number.isFinite(parsedCapacity) && parsedCapacity > 0 ? parsedCapacity : (existing?.capacity ?? 1),
+        notes: candidate.fields.notes ?? existing?.notes ?? "",
+      };
+      if (existing) {
+        await updateVehicle(productionId, existing.id, input);
+        updated++;
+      } else {
+        await createVehicle(productionId, input);
+        created++;
+      }
+    } else if (entityType === "driver") {
+      // No updateDriver action exists — a matched row already has a driver record, so there's nothing to change; skip rather than duplicate.
+      if (candidate.matchedId) continue;
+      const name = candidate.fields.name;
+      if (!name) continue;
+      const crewMatch = snapshot.crewMembers.find((c) => c.name.toLowerCase() === name.toLowerCase());
+      const input: DriverInput = crewMatch
+        ? { crewMemberId: crewMatch.id, externalName: "", notes: candidate.fields.notes ?? "" }
+        : { crewMemberId: null, externalName: name, notes: candidate.fields.notes ?? "" };
+      await createDriver(productionId, input);
+      created++;
+    } else if (entityType === "property") {
+      const existing = candidate.matchedId ? existingProperties.find((p) => p.id === candidate.matchedId) : undefined;
+      const name = candidate.fields.name ?? existing?.name;
+      if (!name) continue;
+      const input: PropertyInput = {
+        name,
+        type: candidate.fields.type ?? existing?.type ?? "HOTEL",
+        address: candidate.fields.address ?? existing?.address ?? "",
+        notes: candidate.fields.notes ?? existing?.notes ?? "",
+      };
+      if (existing) {
+        await updateProperty(productionId, existing.id, input);
+        updated++;
+      } else {
+        await createProperty(productionId, input);
+        created++;
+      }
+    } else if (entityType === "vendor") {
+      // No updateVendor action exists — a matched row already has a vendor record; skip rather than duplicate.
+      if (candidate.matchedId) continue;
+      const name = candidate.fields.name;
+      if (!name) continue;
+      const input: VendorInput = { name, contact: candidate.fields.contact ?? "", contractTerms: candidate.fields.contractTerms ?? "" };
+      await createVendor(productionId, input);
       created++;
     }
   }

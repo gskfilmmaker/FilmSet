@@ -20,8 +20,17 @@ import { Trash2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
-const ENTITY_LABEL: Record<ImportEntityType, string> = { cast: "cast", crew: "crew", location: "locations", expense: "invoices" };
-const DOCUMENT_CAPABLE: ImportEntityType[] = ["cast", "crew", "location"];
+const ENTITY_LABEL: Record<ImportEntityType, string> = {
+  cast: "cast",
+  crew: "crew",
+  location: "locations",
+  expense: "invoices",
+  vehicle: "vehicles",
+  driver: "drivers",
+  property: "properties",
+  vendor: "vendors",
+};
+const DOCUMENT_CAPABLE: ImportEntityType[] = ["cast", "crew", "location", "vehicle", "driver", "property", "vendor"];
 
 function isTabular(file: File): boolean {
   return /\.(csv|xlsx|xls)$/i.test(file.name);
