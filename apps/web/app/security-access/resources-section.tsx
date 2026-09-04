@@ -4,7 +4,7 @@ import { Button, Checkbox, EmptyState, Input, Select, SelectContent, SelectItem,
 import { DoorClosed, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { createResource, deleteResource, updateResource, type ResourceInput } from "./actions";
+import { createResource, deleteResource, previewNextResourceCode, updateResource, type ResourceInput } from "./actions";
 import {
   ASSURANCE_LEVELS,
   OCCUPANCY_POLICIES,
@@ -63,12 +63,15 @@ function ResourceForm({
   resourceOptions,
   locationOptions,
   excludeId,
+  codePreview,
 }: {
   value: ResourceInput;
   onChange: (next: ResourceInput) => void;
   resourceOptions: PersonOption[];
   locationOptions: PersonOption[];
   excludeId: string | null;
+  /** Next auto-assignable code, shown as a placeholder — null while editing an existing resource or still loading. */
+  codePreview: string | null;
 }) {
   const parentChoices = resourceOptions.filter((o) => o.id !== excludeId);
   return (
@@ -121,7 +124,13 @@ function ResourceForm({
           </SelectContent>
         </Select>
       </div>
-      <Input label="Code" placeholder="Optional" value={value.code ?? ""} onChange={(e) => onChange({ ...value, code: e.target.value })} containerClassName="w-[110px]" />
+      <Input
+        label="Code"
+        placeholder={codePreview ? `Auto: ${codePreview}` : "Optional"}
+        value={value.code ?? ""}
+        onChange={(e) => onChange({ ...value, code: e.target.value })}
+        containerClassName="w-[130px]"
+      />
       <div className="flex flex-col gap-[4px]">
         <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Security level</label>
         <Select value={value.securityLevel} onValueChange={(v) => onChange({ ...value, securityLevel: v as SecurityLevel })}>
@@ -227,8 +236,23 @@ export function ResourcesSection({
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editForm, setEditForm] = React.useState<ResourceInput>(emptyForm);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [codePreview, setCodePreview] = React.useState<string | null>(null);
 
   const resourceOptions: PersonOption[] = resources.map((r) => ({ id: r.id, label: r.name }));
+
+  React.useEffect(() => {
+    if (!adding) {
+      setCodePreview(null);
+      return;
+    }
+    let cancelled = false;
+    previewNextResourceCode(productionId).then((preview) => {
+      if (!cancelled) setCodePreview(preview);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [adding, productionId]);
 
   async function onAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -313,7 +337,7 @@ export function ResourcesSection({
               {canManage && editingId === resource.id ? (
                 <li className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
                   <form onSubmit={(e) => onSaveEdit(e, resource.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
-                    <ResourceForm value={editForm} onChange={setEditForm} resourceOptions={resourceOptions} locationOptions={locationOptions} excludeId={resource.id} />
+                    <ResourceForm value={editForm} onChange={setEditForm} resourceOptions={resourceOptions} locationOptions={locationOptions} excludeId={resource.id} codePreview={null} />
                     <Button type="submit" loading={pendingId === resource.id} disabled={pendingId !== null}>
                       Save
                     </Button>
@@ -374,7 +398,7 @@ export function ResourcesSection({
           onSubmit={onAdd}
           className="flex flex-col items-end gap-[var(--fs-space-8)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-12)] sm:flex-row sm:flex-wrap"
         >
-          <ResourceForm value={addForm} onChange={setAddForm} resourceOptions={resourceOptions} locationOptions={locationOptions} excludeId={null} />
+          <ResourceForm value={addForm} onChange={setAddForm} resourceOptions={resourceOptions} locationOptions={locationOptions} excludeId={null} codePreview={codePreview} />
           <Button type="submit" loading={saving} disabled={saving}>
             Add
           </Button>

@@ -1,6 +1,7 @@
 "use server";
 
 import { requireProductionMember } from "@/lib/authz";
+import { issueNextEntityNumber, peekNextEntityNumber } from "@/lib/id-registry";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
 import { and, eq } from "drizzle-orm";
@@ -98,10 +99,16 @@ export interface CredentialInput {
   validUntil: string | null;
 }
 
+/**
+ * Blank credentialNumber is allowed through here — createCredential fills it
+ * in with an auto-issued number (see issueNextEntityNumber); updateCredential
+ * requires an explicit value, since silently reassigning a new number on
+ * edit would violate the "a credential's number never changes once issued"
+ * convention (docs/security/ID_NUMBERING_CONVENTION.md).
+ */
 function validateCredential(input: CredentialInput) {
   if (!input.identityId) throw new Error("Choose which identity this credential belongs to.");
   const credentialNumber = input.credentialNumber.trim();
-  if (!credentialNumber) throw new Error("Credential number is required.");
   const validFrom = input.validFrom?.trim() ? new Date(input.validFrom) : null;
   const validUntil = input.validUntil?.trim() ? new Date(input.validUntil) : null;
   if (validFrom && validUntil && validFrom > validUntil) throw new Error("Valid-from must be before valid-until.");
@@ -132,9 +139,10 @@ export async function createCredential(productionId: string, input: CredentialIn
   await requireSecurityAdmin(productionId);
   const values = validateCredential(input);
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) =>
-    db.insert(schema.accessCredentials).values({ id, productionId, publicReference: generatePublicReference(), ...values }),
-  );
+  await runAsUser(user.id, async (db) => {
+    const credentialNumber = values.credentialNumber || (await issueNextEntityNumber(db, productionId, "CREDENTIAL"));
+    await db.insert(schema.accessCredentials).values({ id, productionId, publicReference: generatePublicReference(), ...values, credentialNumber });
+  });
   return id;
 }
 
@@ -142,9 +150,17 @@ export async function updateCredential(productionId: string, id: string, input: 
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateCredential(input);
+  if (!values.credentialNumber) throw new Error("Credential number is required.");
   await runAsUser(user.id, (db) =>
     db.update(schema.accessCredentials).set(values).where(and(eq(schema.accessCredentials.id, id), eq(schema.accessCredentials.productionId, productionId))),
   );
+}
+
+/** Read-only preview for the Add-credential form — see peekNextEntityNumber's own doc comment. */
+export async function previewNextCredentialNumber(productionId: string): Promise<string> {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  return runAsUser(user.id, (db) => peekNextEntityNumber(db, productionId, "CREDENTIAL"));
 }
 
 export async function deleteCredential(productionId: string, id: string) {
@@ -194,12 +210,23 @@ function validateResource(input: ResourceInput) {
   };
 }
 
+/** Read-only preview for the Add-resource form — shown as the field's placeholder, never prefilled as real text (see issueNextEntityNumber's own doc comment for why). */
+export async function previewNextResourceCode(productionId: string): Promise<string> {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  return runAsUser(user.id, (db) => peekNextEntityNumber(db, productionId, "RESOURCE"));
+}
+
+/** Left blank, a resource gets an auto-issued code on create; a typed value is used as-is. Editing to blank clears it — a resource's code, unlike a credential's number, isn't core to what the record is. */
 export async function createResource(productionId: string, input: ResourceInput) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateResource(input);
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) => db.insert(schema.accessResources).values({ id, productionId, ...values }));
+  await runAsUser(user.id, async (db) => {
+    const code = values.code ?? (await issueNextEntityNumber(db, productionId, "RESOURCE"));
+    await db.insert(schema.accessResources).values({ id, productionId, ...values, code });
+  });
   return id;
 }
 
@@ -250,12 +277,23 @@ function validateCheckpoint(input: CheckpointInput) {
   };
 }
 
+/** Read-only preview for the Add-checkpoint form — shown as the field's placeholder, never prefilled as real text (see issueNextEntityNumber's own doc comment for why). */
+export async function previewNextCheckpointCode(productionId: string): Promise<string> {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  return runAsUser(user.id, (db) => peekNextEntityNumber(db, productionId, "CHECKPOINT"));
+}
+
+/** Left blank, a checkpoint gets an auto-issued code on create; a typed value is used as-is. */
 export async function createCheckpoint(productionId: string, input: CheckpointInput) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateCheckpoint(input);
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) => db.insert(schema.accessCheckpoints).values({ id, productionId, ...values }));
+  await runAsUser(user.id, async (db) => {
+    const code = values.code ?? (await issueNextEntityNumber(db, productionId, "CHECKPOINT"));
+    await db.insert(schema.accessCheckpoints).values({ id, productionId, ...values, code });
+  });
   return id;
 }
 

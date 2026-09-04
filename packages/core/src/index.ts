@@ -43,6 +43,8 @@ export const productionSchema = z.object({
   logoPath: z.string().nullable(),
   /** Hex color (e.g. "#1A2B3C") — the credential badge's header band. Null falls back to a default in the badge component. */
   brandColor: z.string().nullable(),
+  /** The ID-numbering prefix (e.g. "VMPA"). Null falls back to a derived default (production name initials) — see apps/web/lib/id-registry.ts. */
+  shortCode: z.string().nullable(),
 });
 export type Production = z.infer<typeof productionSchema>;
 

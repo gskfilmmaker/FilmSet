@@ -7,7 +7,8 @@ import { Button, Input, useToast } from "@filmset/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { updateBrandColor, updateFullName, uploadProductionLogo } from "./actions";
+import { deriveShortCode } from "@/lib/id-format";
+import { updateBrandColor, updateFullName, updateShortCode, uploadProductionLogo } from "./actions";
 
 const DEFAULT_BRAND_COLOR = "#111318";
 
@@ -19,7 +20,7 @@ export function SettingsForm({
   logoUrl,
   canManageBranding,
 }: {
-  production: Pick<Production, "id" | "name" | "phase" | "logoPath" | "brandColor">;
+  production: Pick<Production, "id" | "name" | "phase" | "logoPath" | "brandColor" | "shortCode">;
   scenes: Pick<Scene, "id" | "number" | "setName" | "dayNight" | "intExt" | "shootDayId">[];
   userEmail: string | null;
   fullName: string;
@@ -32,6 +33,8 @@ export function SettingsForm({
   const [saving, setSaving] = React.useState(false);
   const [brandColor, setBrandColor] = React.useState(production.brandColor ?? DEFAULT_BRAND_COLOR);
   const [savingColor, setSavingColor] = React.useState(false);
+  const [shortCode, setShortCode] = React.useState(production.shortCode ?? deriveShortCode(production.name));
+  const [savingShortCode, setSavingShortCode] = React.useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,6 +60,19 @@ export function SettingsForm({
       toast({ tone: "danger", title: "Couldn't save brand color", description: err instanceof Error ? err.message : "Please try again." });
     } finally {
       setSavingColor(false);
+    }
+  }
+
+  async function onSaveShortCode() {
+    setSavingShortCode(true);
+    try {
+      await updateShortCode(production.id, shortCode);
+      toast({ tone: "success", title: "ID prefix saved" });
+      router.refresh();
+    } catch (err) {
+      toast({ tone: "danger", title: "Couldn't save ID prefix", description: err instanceof Error ? err.message : "Please try again." });
+    } finally {
+      setSavingShortCode(false);
     }
   }
 
@@ -118,6 +134,19 @@ export function SettingsForm({
                 </div>
                 <Button onClick={onSaveBrandColor} loading={savingColor} disabled={savingColor}>
                   Save color
+                </Button>
+              </div>
+              <div className="flex items-end gap-[var(--fs-space-8)]">
+                <Input
+                  label="ID prefix"
+                  description="Used for auto-generated credential numbers and resource/checkpoint codes, e.g. VMPA-CR-000001."
+                  value={shortCode}
+                  onChange={(e) => setShortCode(e.target.value.toUpperCase())}
+                  containerClassName="w-[140px]"
+                  maxLength={8}
+                />
+                <Button onClick={onSaveShortCode} loading={savingShortCode} disabled={savingShortCode}>
+                  Save prefix
                 </Button>
               </div>
             </>

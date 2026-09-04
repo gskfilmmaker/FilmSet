@@ -23,6 +23,17 @@ export async function updateBrandColor(productionId: string, brandColor: string 
   await runAsUser(user.id, (db) => db.update(schema.productions).set({ brandColor: trimmed }).where(eq(schema.productions.id, productionId)));
 }
 
+const SHORT_CODE = /^[A-Z0-9]{2,8}$/;
+
+/** Null falls back to a derived default (production name initials) — see apps/web/lib/id-registry.ts. */
+export async function updateShortCode(productionId: string, shortCode: string | null) {
+  const user = await requireUser();
+  await requireProductionMember(productionId, ["Producer"]);
+  const trimmed = shortCode?.trim().toUpperCase() || null;
+  if (trimmed && !SHORT_CODE.test(trimmed)) throw new Error("Short code must be 2-8 letters/numbers, e.g. VMPA.");
+  await runAsUser(user.id, (db) => db.update(schema.productions).set({ shortCode: trimmed }).where(eq(schema.productions.id, productionId)));
+}
+
 export async function uploadProductionLogo(productionId: string, formData: FormData) {
   const user = await requireUser();
   await requireProductionMember(productionId, ["Producer"]);
