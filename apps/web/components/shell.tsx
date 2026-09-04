@@ -39,6 +39,7 @@ import {
   MapPin,
   Plus,
   Settings,
+  ShieldCheck,
   Shirt,
   Sparkles,
   Users,
@@ -62,6 +63,7 @@ const navItems: (SidebarItem & { href: string })[] = [
   { id: "transport", label: "Transport", href: "/transport", icon: <Car className="size-full" /> },
   { id: "catering", label: "Catering", href: "/catering", icon: <ChefHat className="size-full" /> },
   { id: "equipment", label: "Equipment", href: "/equipment", icon: <Camera className="size-full" /> },
+  { id: "security-access", label: "Security & Access", href: "/security-access", icon: <ShieldCheck className="size-full" /> },
   { id: "money", label: "Money", href: "/money", icon: <Wallet className="size-full" /> },
   { id: "documents", label: "Documents", href: "/documents", icon: <FolderOpen className="size-full" /> },
 ];
@@ -78,6 +80,7 @@ function routeForActiveId(pathname: string): string {
   if (pathname.startsWith("/contact-sheet")) return "contact-sheet";
   if (pathname.startsWith("/wardrobe")) return "wardrobe";
   if (pathname.startsWith("/locations")) return "locations";
+  if (pathname.startsWith("/security-access")) return "security-access";
   if (pathname.startsWith("/money")) return "money";
   if (pathname.startsWith("/documents")) return "documents";
   if (pathname.startsWith("/settings")) return "settings";
