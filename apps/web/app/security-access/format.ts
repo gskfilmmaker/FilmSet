@@ -7,6 +7,12 @@ export function humanizeEnum(value: string): string {
     .join(" ");
 }
 
+/** Normalizes a timestamp field to a plain ISO string for form state — Drizzle hands back a real Date for timestamptz columns even though the row is cast through a string-typed interface, so callers that copy a DB row's value straight into editable form state need this or an untouched date field crashes validation with "x.trim is not a function". */
+export function toIsoStringOrNull(value: Date | string | null): string | null {
+  if (!value) return null;
+  return typeof value === "string" ? value : value.toISOString();
+}
+
 /** "2026-09-04T12:00:00.000Z" -> "2026-09-04 12:00" for a datetime-local input; null-safe. */
 export function toDateTimeLocalValue(value: Date | string | null): string {
   if (!value) return "";

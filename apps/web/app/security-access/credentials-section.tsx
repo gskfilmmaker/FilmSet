@@ -16,7 +16,7 @@ import {
   type CredentialType,
   type SecurityClass,
 } from "./constants";
-import { humanizeEnum, toDateTimeLocalValue } from "./format";
+import { humanizeEnum, toDateTimeLocalValue, toIsoStringOrNull } from "./format";
 import type { PersonOption } from "./identities-section";
 
 export interface CredentialRow {
@@ -232,8 +232,8 @@ export function CredentialsSection({
       credentialNumber: credential.credentialNumber,
       status: credential.status,
       assuranceLevel: credential.assuranceLevel,
-      validFrom: credential.validFrom,
-      validUntil: credential.validUntil,
+      validFrom: toIsoStringOrNull(credential.validFrom),
+      validUntil: toIsoStringOrNull(credential.validUntil),
     });
   }
 
