@@ -531,6 +531,108 @@ export async function extractVendorCandidates(rawText: string): Promise<Extracte
   return (toolUse.input as { records: ExtractedVendorCandidate[] }).records;
 }
 
+export interface ExtractedEquipmentVendorCandidate {
+  name: string;
+  contact: string;
+  contractTerms: string;
+}
+
+const equipmentVendorExtractionTool: Anthropic.Tool = {
+  name: "extract_equipment_vendor_candidates",
+  description: "Extract every camera/grip/electric/sound equipment rental vendor found in this document.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The equipment vendor's name" },
+            contact: { type: "string", description: "Phone, email, or other contact info if stated, otherwise an empty string" },
+            contractTerms: { type: "string", description: "Contract terms if stated, otherwise an empty string" },
+          },
+          required: ["name", "contact", "contractTerms"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/** Same Suggest-step pattern as extractVendorCandidates, for an equipment rental vendor list document. */
+export async function extractEquipmentVendorCandidates(rawText: string): Promise<ExtractedEquipmentVendorCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured equipment-vendor data from film production documents (camera/grip/electric/sound rental house lists, contracts). " +
+      "Only extract vendors actually named in the text — never invent one.",
+    messages: [{ role: "user", content: `Extract every equipment rental vendor from this document:\n\n${rawText}` }],
+    tools: [equipmentVendorExtractionTool],
+    tool_choice: { type: "tool", name: "extract_equipment_vendor_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any equipment vendor candidates.");
+  return (toolUse.input as { records: ExtractedEquipmentVendorCandidate[] }).records;
+}
+
+export interface ExtractedEquipmentCatalogItemCandidate {
+  name: string;
+  department: string;
+  category: string;
+  vendor: string;
+  dailyRate: string;
+  currency: string;
+  notes: string;
+}
+
+const equipmentCatalogItemExtractionTool: Anthropic.Tool = {
+  name: "extract_equipment_catalog_item_candidates",
+  description: "Extract every individual piece of equipment found in this document's approved/rental equipment list.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The equipment item's name (e.g. 'ARRI Alexa 35', 'Steadicam rig')" },
+            department: { type: "string", description: "Camera, Grip & Electric, or Sound if it can be inferred, otherwise an empty string" },
+            category: { type: "string", description: "A short category like 'Camera body', 'Lens', 'Lighting fixture' if stated, otherwise an empty string" },
+            vendor: { type: "string", description: "The rental vendor's name if stated, otherwise an empty string" },
+            dailyRate: { type: "string", description: "The daily rental rate as a plain number if stated, otherwise an empty string" },
+            currency: { type: "string", description: "The rate's currency code if stated, otherwise an empty string" },
+            notes: { type: "string", description: "Any other short context stated (empty string if none)" },
+          },
+          required: ["name", "department", "category", "vendor", "dailyRate", "currency", "notes"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/** Same Suggest-step pattern as extractPropertyCandidates, for an equipment catalog/rate-card document. */
+export async function extractEquipmentCatalogItemCandidates(rawText: string): Promise<ExtractedEquipmentCatalogItemCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured equipment-catalog data from film production documents (camera/grip/electric/sound rental rate cards, approved equipment lists). " +
+      "Only extract equipment actually named in the text — never invent an item.",
+    messages: [{ role: "user", content: `Extract every equipment item from this document:\n\n${rawText}` }],
+    tools: [equipmentCatalogItemExtractionTool],
+    tool_choice: { type: "tool", name: "extract_equipment_catalog_item_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any equipment catalog item candidates.");
+  return (toolUse.input as { records: ExtractedEquipmentCatalogItemCandidate[] }).records;
+}
+
 export async function answerQuestion(snapshot: ProductionSnapshot, question: string): Promise<string> {
   const message = await getClient().messages.create({
     model: MODEL,

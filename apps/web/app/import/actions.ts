@@ -4,6 +4,7 @@ import { createProperty, updateProperty, type PropertyInput } from "@/app/accomm
 import { createCastMember, updateCastMember, type CastMemberInput } from "@/app/cast/actions";
 import { createVendor, type VendorInput } from "@/app/catering/actions";
 import { createCrewMember, updateCrewMember, type CrewMemberInput } from "@/app/crew/actions";
+import { createCatalogItem, createEquipmentVendor, updateCatalogItem, type EquipmentCatalogItemInput, type EquipmentVendorInput } from "@/app/equipment/actions";
 import { createLocation, updateLocation, type LocationInput } from "@/app/locations/actions";
 import { createExpense, type ExpenseInput } from "@/app/money/actions";
 import { createDriver, createVehicle, updateVehicle, type DriverInput, type VehicleInput } from "@/app/transport/actions";
@@ -12,6 +13,8 @@ import {
   extractCastCandidates,
   extractCrewCandidates,
   extractDriverCandidates,
+  extractEquipmentCatalogItemCandidates,
+  extractEquipmentVendorCandidates,
   extractLocationCandidates,
   extractPropertyCandidates,
   extractVehicleCandidates,
@@ -79,6 +82,16 @@ async function existingKeysFor(entityType: ImportEntityType, productionId: strin
       db.select({ id: schema.cateringVendors.id, name: schema.cateringVendors.name }).from(schema.cateringVendors).where(eq(schema.cateringVendors.productionId, productionId)),
     );
     for (const v of rows) map.set(v.name.toLowerCase(), v.id);
+  } else if (entityType === "equipmentVendor") {
+    const rows = await runAsUser(userId, (db) =>
+      db.select({ id: schema.equipmentVendors.id, name: schema.equipmentVendors.name }).from(schema.equipmentVendors).where(eq(schema.equipmentVendors.productionId, productionId)),
+    );
+    for (const v of rows) map.set(v.name.toLowerCase(), v.id);
+  } else if (entityType === "equipmentCatalogItem") {
+    const rows = await runAsUser(userId, (db) =>
+      db.select({ id: schema.equipmentCatalogItems.id, name: schema.equipmentCatalogItems.name }).from(schema.equipmentCatalogItems).where(eq(schema.equipmentCatalogItems.productionId, productionId)),
+    );
+    for (const i of rows) map.set(i.name.toLowerCase(), i.id);
   }
   return map;
 }
@@ -108,6 +121,11 @@ const DOCUMENT_EXTRACTORS: Partial<Record<ImportEntityType, (text: string) => Pr
   driver: async (text) => (await extractDriverCandidates(text)).map((r) => ({ fields: { name: r.name, notes: r.notes } })),
   property: async (text) => (await extractPropertyCandidates(text)).map((r) => ({ fields: { name: r.name, type: r.type, address: r.address, notes: r.notes } })),
   vendor: async (text) => (await extractVendorCandidates(text)).map((r) => ({ fields: { name: r.name, contact: r.contact, contractTerms: r.contractTerms } })),
+  equipmentVendor: async (text) => (await extractEquipmentVendorCandidates(text)).map((r) => ({ fields: { name: r.name, contact: r.contact, contractTerms: r.contractTerms } })),
+  equipmentCatalogItem: async (text) =>
+    (await extractEquipmentCatalogItemCandidates(text)).map((r) => ({
+      fields: { name: r.name, department: r.department, category: r.category, vendor: r.vendor, dailyRate: r.dailyRate, currency: r.currency, notes: r.notes },
+    })),
 };
 
 /** Preview step for a .pdf or .docx upload — extracts text, then an AI Suggest call proposes structured candidates. Logged to ai_suggestion_log for the same audit trail every other AI suggestion gets. Never writes to production data. */
@@ -165,6 +183,15 @@ export async function commitImport(productionId: string, entityType: ImportEntit
     entityType === "property"
       ? await runAsUser(user.id, (db) => db.select().from(schema.accommodationProperties).where(eq(schema.accommodationProperties.productionId, productionId)))
       : [];
+  const existingEquipmentCatalogItems =
+    entityType === "equipmentCatalogItem"
+      ? await runAsUser(user.id, (db) => db.select().from(schema.equipmentCatalogItems).where(eq(schema.equipmentCatalogItems.productionId, productionId)))
+      : [];
+  const equipmentVendorIdByName = new Map<string, string>();
+  if (entityType === "equipmentCatalogItem") {
+    const rows = await runAsUser(user.id, (db) => db.select().from(schema.equipmentVendors).where(eq(schema.equipmentVendors.productionId, productionId)));
+    for (const v of rows) equipmentVendorIdByName.set(v.name.toLowerCase(), v.id);
+  }
   let created = 0;
   let updated = 0;
 
@@ -310,6 +337,44 @@ export async function commitImport(productionId: string, entityType: ImportEntit
       const input: VendorInput = { name, contact: candidate.fields.contact ?? "", contractTerms: candidate.fields.contractTerms ?? "" };
       await createVendor(productionId, input);
       created++;
+    } else if (entityType === "equipmentVendor") {
+      // No updateEquipmentVendor action exists — a matched row already has a vendor record; skip rather than duplicate.
+      if (candidate.matchedId) continue;
+      const name = candidate.fields.name;
+      if (!name) continue;
+      const input: EquipmentVendorInput = { name, contact: candidate.fields.contact ?? "", contractTerms: candidate.fields.contractTerms ?? "" };
+      await createEquipmentVendor(productionId, input);
+      created++;
+    } else if (entityType === "equipmentCatalogItem") {
+      const existing = candidate.matchedId ? existingEquipmentCatalogItems.find((i) => i.id === candidate.matchedId) : undefined;
+      const name = candidate.fields.name ?? existing?.name;
+      if (!name) continue;
+      // A catalog item always needs a vendor — resolve the row's vendor text against vendors already created this
+      // import (or already in the production), auto-creating a new equipment vendor the first time a name is seen,
+      // same as the driver importer auto-linking/creating against the crew list.
+      const vendorText = candidate.fields.vendor?.trim();
+      let vendorId = vendorText ? equipmentVendorIdByName.get(vendorText.toLowerCase()) : (existing?.vendorId ?? undefined);
+      if (!vendorId && vendorText) {
+        vendorId = await createEquipmentVendor(productionId, { name: vendorText, contact: "", contractTerms: "" });
+        equipmentVendorIdByName.set(vendorText.toLowerCase(), vendorId);
+      }
+      if (!vendorId) continue;
+      const input: EquipmentCatalogItemInput = {
+        vendorId,
+        department: candidate.fields.department ?? existing?.department ?? "Camera",
+        category: candidate.fields.category ?? existing?.category ?? "",
+        name,
+        dailyRate: candidate.fields.dailyRate ?? existing?.dailyRate ?? "",
+        currency: candidate.fields.currency ?? existing?.currency ?? "",
+        notes: candidate.fields.notes ?? existing?.notes ?? "",
+      };
+      if (existing) {
+        await updateCatalogItem(productionId, existing.id, input);
+        updated++;
+      } else {
+        await createCatalogItem(productionId, input);
+        created++;
+      }
     }
   }
 
