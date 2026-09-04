@@ -1596,6 +1596,9 @@ export const accessIdentities = pgTable(
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Soft delete — a row is never really removed, so a credential/resource/checkpoint's number is never freed for reuse. See docs/security/AUDIT_TRAIL_ACCESS_CONTROL.md. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_identities_production_idx").on(t.productionId),
@@ -1635,6 +1638,8 @@ export const accessCredentials = pgTable(
     metadata: jsonb("metadata").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_credentials_production_idx").on(t.productionId),
@@ -1670,6 +1675,8 @@ export const accessResources = pgTable(
     metadata: jsonb("metadata").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_resources_production_idx").on(t.productionId),
@@ -1692,6 +1699,8 @@ export const accessProfiles = pgTable(
     description: text("description"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_profiles_production_idx").on(t.productionId),
@@ -1717,6 +1726,8 @@ export const accessProfileRules = pgTable(
     minimumAssuranceLevel: text("minimum_assurance_level"),
     escortRequired: boolean("escort_required").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_profile_rules_profile_idx").on(t.profileId),
@@ -1737,6 +1748,8 @@ export const accessIdentityProfiles = pgTable(
     profileId: text("profile_id").notNull(),
     assignedBy: uuid("assigned_by").references(() => profiles.id, { onDelete: "set null" }),
     assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_identity_profiles_identity_idx").on(t.identityId),
@@ -1765,6 +1778,8 @@ export const accessGrants = pgTable(
     grantedBy: uuid("granted_by").references(() => profiles.id, { onDelete: "set null" }),
     reason: text("reason"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_grants_identity_idx").on(t.identityId),
@@ -1789,6 +1804,8 @@ export const accessRestrictions = pgTable(
     validUntil: timestamp("valid_until", { withTimezone: true }),
     createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_restrictions_identity_idx").on(t.identityId),
@@ -1815,6 +1832,8 @@ export const accessCheckpoints = pgTable(
     requiresOperatorConfirmation: boolean("requires_operator_confirmation").notNull().default(false),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_checkpoints_production_idx").on(t.productionId),
@@ -1847,6 +1866,8 @@ export const accessDevices = pgTable(
     capabilities: jsonb("capabilities").notNull().default({}),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_devices_production_idx").on(t.productionId),
@@ -1944,6 +1965,8 @@ export const accessTemporaryGrants = pgTable(
     status: text("status").notNull().default("PENDING"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    deletedBy: uuid("deleted_by").references(() => profiles.id, { onDelete: "set null" }),
   },
   (t) => [
     index("access_temporary_grants_identity_idx").on(t.identityId),
@@ -1951,6 +1974,29 @@ export const accessTemporaryGrants = pgTable(
     index("access_temporary_grants_status_idx").on(t.status),
     foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_temporary_grants_identity_fk" }).onDelete("cascade"),
     foreignKey({ columns: [t.resourceId, t.productionId], foreignColumns: [accessResources.id, accessResources.productionId], name: "access_temporary_grants_resource_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** Generic, append-only trail of every create/update/(soft)delete across this domain. No FK to the row it describes — that row may itself be soft-deleted, and RLS grants only select+insert, never update/delete, so the log can't be edited or purged through the app. See docs/security/AUDIT_TRAIL_ACCESS_CONTROL.md. */
+export const accessAuditLog = pgTable(
+  "access_audit_log",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    tableName: text("table_name").notNull(),
+    recordId: text("record_id").notNull(),
+    action: text("action").notNull(),
+    actor: uuid("actor").references(() => profiles.id, { onDelete: "set null" }),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    before: jsonb("before"),
+    after: jsonb("after"),
+  },
+  (t) => [
+    index("access_audit_log_production_idx").on(t.productionId),
+    index("access_audit_log_record_idx").on(t.tableName, t.recordId),
+    index("access_audit_log_occurred_at_idx").on(t.occurredAt),
   ],
 );
 

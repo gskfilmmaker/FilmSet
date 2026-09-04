@@ -1,7 +1,10 @@
 "use server";
 
+import { recordAudit } from "@/lib/audit-log";
+import { resolveAndEvaluateAccess } from "@/lib/access-evaluation";
 import { requireProductionMember } from "@/lib/authz";
 import { issueNextEntityNumber, peekNextEntityNumber } from "@/lib/id-registry";
+import type { AccessDirection } from "@filmset/auth/access-control";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
 import { and, eq } from "drizzle-orm";
@@ -65,7 +68,10 @@ export async function createIdentity(productionId: string, input: IdentityInput)
   await requireSecurityAdmin(productionId);
   const values = validateIdentity(input);
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) => db.insert(schema.accessIdentities).values({ id, productionId, ...values }));
+  await runAsUser(user.id, async (db) => {
+    await db.insert(schema.accessIdentities).values({ id, productionId, ...values });
+    await recordAudit(db, { productionId, tableName: "access_identities", recordId: id, action: "INSERT", actor: user.id, after: { id, productionId, ...values } });
+  });
   return id;
 }
 
@@ -73,17 +79,32 @@ export async function updateIdentity(productionId: string, id: string, input: Id
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateIdentity(input);
-  await runAsUser(user.id, (db) =>
-    db.update(schema.accessIdentities).set(values).where(and(eq(schema.accessIdentities.id, id), eq(schema.accessIdentities.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessIdentities)
+      .where(and(eq(schema.accessIdentities.id, id), eq(schema.accessIdentities.productionId, productionId)))
+      .limit(1);
+    await db.update(schema.accessIdentities).set(values).where(and(eq(schema.accessIdentities.id, id), eq(schema.accessIdentities.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_identities", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values } });
+  });
 }
 
 export async function deleteIdentity(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessIdentities).where(and(eq(schema.accessIdentities.id, id), eq(schema.accessIdentities.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessIdentities)
+      .where(and(eq(schema.accessIdentities.id, id), eq(schema.accessIdentities.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessIdentities)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessIdentities.id, id), eq(schema.accessIdentities.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_identities", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -143,7 +164,9 @@ export async function createCredential(productionId: string, input: CredentialIn
   const id = crypto.randomUUID();
   await runAsUser(user.id, async (db) => {
     const credentialNumber = values.credentialNumber || (await issueNextEntityNumber(db, productionId, "CREDENTIAL"));
-    await db.insert(schema.accessCredentials).values({ id, productionId, publicReference: generatePublicReference(), ...values, credentialNumber });
+    const row = { id, productionId, publicReference: generatePublicReference(), ...values, credentialNumber };
+    await db.insert(schema.accessCredentials).values(row);
+    await recordAudit(db, { productionId, tableName: "access_credentials", recordId: id, action: "INSERT", actor: user.id, after: row });
   });
   return id;
 }
@@ -153,9 +176,15 @@ export async function updateCredential(productionId: string, id: string, input: 
   await requireSecurityAdmin(productionId);
   const values = validateCredential(input);
   if (!values.credentialNumber) throw new Error("Credential number is required.");
-  await runAsUser(user.id, (db) =>
-    db.update(schema.accessCredentials).set(values).where(and(eq(schema.accessCredentials.id, id), eq(schema.accessCredentials.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessCredentials)
+      .where(and(eq(schema.accessCredentials.id, id), eq(schema.accessCredentials.productionId, productionId)))
+      .limit(1);
+    await db.update(schema.accessCredentials).set(values).where(and(eq(schema.accessCredentials.id, id), eq(schema.accessCredentials.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_credentials", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values } });
+  });
 }
 
 /** Read-only preview for the Add-credential form — see peekNextEntityNumber's own doc comment. */
@@ -168,9 +197,18 @@ export async function previewNextCredentialNumber(productionId: string): Promise
 export async function deleteCredential(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessCredentials).where(and(eq(schema.accessCredentials.id, id), eq(schema.accessCredentials.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessCredentials)
+      .where(and(eq(schema.accessCredentials.id, id), eq(schema.accessCredentials.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessCredentials)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessCredentials.id, id), eq(schema.accessCredentials.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_credentials", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -227,7 +265,9 @@ export async function createResource(productionId: string, input: ResourceInput)
   const id = crypto.randomUUID();
   await runAsUser(user.id, async (db) => {
     const code = values.code ?? (await issueNextEntityNumber(db, productionId, "RESOURCE"));
-    await db.insert(schema.accessResources).values({ id, productionId, ...values, code });
+    const row = { id, productionId, ...values, code };
+    await db.insert(schema.accessResources).values(row);
+    await recordAudit(db, { productionId, tableName: "access_resources", recordId: id, action: "INSERT", actor: user.id, after: row });
   });
   return id;
 }
@@ -237,17 +277,32 @@ export async function updateResource(productionId: string, id: string, input: Re
   await requireSecurityAdmin(productionId);
   const values = validateResource(input);
   if (values.parentResourceId === id) throw new Error("A resource can't be its own parent.");
-  await runAsUser(user.id, (db) =>
-    db.update(schema.accessResources).set(values).where(and(eq(schema.accessResources.id, id), eq(schema.accessResources.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessResources)
+      .where(and(eq(schema.accessResources.id, id), eq(schema.accessResources.productionId, productionId)))
+      .limit(1);
+    await db.update(schema.accessResources).set(values).where(and(eq(schema.accessResources.id, id), eq(schema.accessResources.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_resources", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values } });
+  });
 }
 
 export async function deleteResource(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessResources).where(and(eq(schema.accessResources.id, id), eq(schema.accessResources.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessResources)
+      .where(and(eq(schema.accessResources.id, id), eq(schema.accessResources.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessResources)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessResources.id, id), eq(schema.accessResources.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_resources", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -294,7 +349,9 @@ export async function createCheckpoint(productionId: string, input: CheckpointIn
   const id = crypto.randomUUID();
   await runAsUser(user.id, async (db) => {
     const code = values.code ?? (await issueNextEntityNumber(db, productionId, "CHECKPOINT"));
-    await db.insert(schema.accessCheckpoints).values({ id, productionId, ...values, code });
+    const row = { id, productionId, ...values, code };
+    await db.insert(schema.accessCheckpoints).values(row);
+    await recordAudit(db, { productionId, tableName: "access_checkpoints", recordId: id, action: "INSERT", actor: user.id, after: row });
   });
   return id;
 }
@@ -303,17 +360,32 @@ export async function updateCheckpoint(productionId: string, id: string, input: 
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateCheckpoint(input);
-  await runAsUser(user.id, (db) =>
-    db.update(schema.accessCheckpoints).set(values).where(and(eq(schema.accessCheckpoints.id, id), eq(schema.accessCheckpoints.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessCheckpoints)
+      .where(and(eq(schema.accessCheckpoints.id, id), eq(schema.accessCheckpoints.productionId, productionId)))
+      .limit(1);
+    await db.update(schema.accessCheckpoints).set(values).where(and(eq(schema.accessCheckpoints.id, id), eq(schema.accessCheckpoints.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_checkpoints", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values } });
+  });
 }
 
 export async function deleteCheckpoint(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessCheckpoints).where(and(eq(schema.accessCheckpoints.id, id), eq(schema.accessCheckpoints.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessCheckpoints)
+      .where(and(eq(schema.accessCheckpoints.id, id), eq(schema.accessCheckpoints.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessCheckpoints)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessCheckpoints.id, id), eq(schema.accessCheckpoints.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_checkpoints", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -373,7 +445,11 @@ export async function createDevice(productionId: string, input: DeviceInput) {
   const values = validateDevice(input);
   const id = crypto.randomUUID();
   const stamps = stampStatusTransition(user, null, values.status);
-  await runAsUser(user.id, (db) => db.insert(schema.accessDevices).values({ id, productionId, ...values, ...stamps }));
+  await runAsUser(user.id, async (db) => {
+    const row = { id, productionId, ...values, ...stamps };
+    await db.insert(schema.accessDevices).values(row);
+    await recordAudit(db, { productionId, tableName: "access_devices", recordId: id, action: "INSERT", actor: user.id, after: row });
+  });
   return id;
 }
 
@@ -382,25 +458,35 @@ export async function updateDevice(productionId: string, id: string, input: Devi
   await requireSecurityAdmin(productionId);
   const values = validateDevice(input);
   await runAsUser(user.id, async (db) => {
-    const [existing] = await db
-      .select({ status: schema.accessDevices.status })
+    const [before] = await db
+      .select()
       .from(schema.accessDevices)
       .where(and(eq(schema.accessDevices.id, id), eq(schema.accessDevices.productionId, productionId)))
       .limit(1);
-    const stamps = stampStatusTransition(user, (existing?.status as DeviceStatus) ?? null, values.status);
+    const stamps = stampStatusTransition(user, (before?.status as DeviceStatus) ?? null, values.status);
     await db
       .update(schema.accessDevices)
       .set({ ...values, ...stamps })
       .where(and(eq(schema.accessDevices.id, id), eq(schema.accessDevices.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_devices", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values, ...stamps } });
   });
 }
 
 export async function deleteDevice(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessDevices).where(and(eq(schema.accessDevices.id, id), eq(schema.accessDevices.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessDevices)
+      .where(and(eq(schema.accessDevices.id, id), eq(schema.accessDevices.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessDevices)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessDevices.id, id), eq(schema.accessDevices.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_devices", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -423,7 +509,10 @@ export async function createProfile(productionId: string, input: ProfileInput) {
   await requireSecurityAdmin(productionId);
   const values = validateProfile(input);
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) => db.insert(schema.accessProfiles).values({ id, productionId, ...values }));
+  await runAsUser(user.id, async (db) => {
+    await db.insert(schema.accessProfiles).values({ id, productionId, ...values });
+    await recordAudit(db, { productionId, tableName: "access_profiles", recordId: id, action: "INSERT", actor: user.id, after: { id, productionId, ...values } });
+  });
   return id;
 }
 
@@ -431,17 +520,32 @@ export async function updateProfile(productionId: string, id: string, input: Pro
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateProfile(input);
-  await runAsUser(user.id, (db) =>
-    db.update(schema.accessProfiles).set(values).where(and(eq(schema.accessProfiles.id, id), eq(schema.accessProfiles.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessProfiles)
+      .where(and(eq(schema.accessProfiles.id, id), eq(schema.accessProfiles.productionId, productionId)))
+      .limit(1);
+    await db.update(schema.accessProfiles).set(values).where(and(eq(schema.accessProfiles.id, id), eq(schema.accessProfiles.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_profiles", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values } });
+  });
 }
 
 export async function deleteProfile(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessProfiles).where(and(eq(schema.accessProfiles.id, id), eq(schema.accessProfiles.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessProfiles)
+      .where(and(eq(schema.accessProfiles.id, id), eq(schema.accessProfiles.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessProfiles)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessProfiles.id, id), eq(schema.accessProfiles.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_profiles", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -480,7 +584,10 @@ export async function createProfileRule(productionId: string, input: ProfileRule
   await requireSecurityAdmin(productionId);
   const values = validateProfileRule(input);
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) => db.insert(schema.accessProfileRules).values({ id, productionId, ...values }));
+  await runAsUser(user.id, async (db) => {
+    await db.insert(schema.accessProfileRules).values({ id, productionId, ...values });
+    await recordAudit(db, { productionId, tableName: "access_profile_rules", recordId: id, action: "INSERT", actor: user.id, after: { id, productionId, ...values } });
+  });
   return id;
 }
 
@@ -488,17 +595,32 @@ export async function updateProfileRule(productionId: string, id: string, input:
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateProfileRule(input);
-  await runAsUser(user.id, (db) =>
-    db.update(schema.accessProfileRules).set(values).where(and(eq(schema.accessProfileRules.id, id), eq(schema.accessProfileRules.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessProfileRules)
+      .where(and(eq(schema.accessProfileRules.id, id), eq(schema.accessProfileRules.productionId, productionId)))
+      .limit(1);
+    await db.update(schema.accessProfileRules).set(values).where(and(eq(schema.accessProfileRules.id, id), eq(schema.accessProfileRules.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_profile_rules", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values } });
+  });
 }
 
 export async function deleteProfileRule(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessProfileRules).where(and(eq(schema.accessProfileRules.id, id), eq(schema.accessProfileRules.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessProfileRules)
+      .where(and(eq(schema.accessProfileRules.id, id), eq(schema.accessProfileRules.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessProfileRules)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessProfileRules.id, id), eq(schema.accessProfileRules.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_profile_rules", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -517,18 +639,29 @@ export async function assignProfile(productionId: string, input: IdentityProfile
   if (!input.identityId) throw new Error("Choose which identity to assign.");
   if (!input.profileId) throw new Error("Choose which profile to assign.");
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) =>
-    db.insert(schema.accessIdentityProfiles).values({ id, productionId, identityId: input.identityId, profileId: input.profileId, assignedBy: user.id }),
-  );
+  await runAsUser(user.id, async (db) => {
+    const row = { id, productionId, identityId: input.identityId, profileId: input.profileId, assignedBy: user.id };
+    await db.insert(schema.accessIdentityProfiles).values(row);
+    await recordAudit(db, { productionId, tableName: "access_identity_profiles", recordId: id, action: "INSERT", actor: user.id, after: row });
+  });
   return id;
 }
 
 export async function unassignProfile(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessIdentityProfiles).where(and(eq(schema.accessIdentityProfiles.id, id), eq(schema.accessIdentityProfiles.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessIdentityProfiles)
+      .where(and(eq(schema.accessIdentityProfiles.id, id), eq(schema.accessIdentityProfiles.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessIdentityProfiles)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessIdentityProfiles.id, id), eq(schema.accessIdentityProfiles.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_identity_profiles", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -572,7 +705,11 @@ export async function createGrant(productionId: string, input: GrantInput) {
   await requireSecurityAdmin(productionId);
   const values = validateGrant(input);
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) => db.insert(schema.accessGrants).values({ id, productionId, grantedBy: user.id, ...values }));
+  await runAsUser(user.id, async (db) => {
+    const row = { id, productionId, grantedBy: user.id, ...values };
+    await db.insert(schema.accessGrants).values(row);
+    await recordAudit(db, { productionId, tableName: "access_grants", recordId: id, action: "INSERT", actor: user.id, after: row });
+  });
   return id;
 }
 
@@ -580,17 +717,32 @@ export async function updateGrant(productionId: string, id: string, input: Grant
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateGrant(input);
-  await runAsUser(user.id, (db) =>
-    db.update(schema.accessGrants).set(values).where(and(eq(schema.accessGrants.id, id), eq(schema.accessGrants.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessGrants)
+      .where(and(eq(schema.accessGrants.id, id), eq(schema.accessGrants.productionId, productionId)))
+      .limit(1);
+    await db.update(schema.accessGrants).set(values).where(and(eq(schema.accessGrants.id, id), eq(schema.accessGrants.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_grants", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values } });
+  });
 }
 
 export async function deleteGrant(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessGrants).where(and(eq(schema.accessGrants.id, id), eq(schema.accessGrants.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessGrants)
+      .where(and(eq(schema.accessGrants.id, id), eq(schema.accessGrants.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessGrants)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessGrants.id, id), eq(schema.accessGrants.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_grants", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -626,7 +778,11 @@ export async function createRestriction(productionId: string, input: Restriction
   await requireSecurityAdmin(productionId);
   const values = validateRestriction(input);
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) => db.insert(schema.accessRestrictions).values({ id, productionId, createdBy: user.id, ...values }));
+  await runAsUser(user.id, async (db) => {
+    const row = { id, productionId, createdBy: user.id, ...values };
+    await db.insert(schema.accessRestrictions).values(row);
+    await recordAudit(db, { productionId, tableName: "access_restrictions", recordId: id, action: "INSERT", actor: user.id, after: row });
+  });
   return id;
 }
 
@@ -634,17 +790,32 @@ export async function updateRestriction(productionId: string, id: string, input:
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
   const values = validateRestriction(input);
-  await runAsUser(user.id, (db) =>
-    db.update(schema.accessRestrictions).set(values).where(and(eq(schema.accessRestrictions.id, id), eq(schema.accessRestrictions.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessRestrictions)
+      .where(and(eq(schema.accessRestrictions.id, id), eq(schema.accessRestrictions.productionId, productionId)))
+      .limit(1);
+    await db.update(schema.accessRestrictions).set(values).where(and(eq(schema.accessRestrictions.id, id), eq(schema.accessRestrictions.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_restrictions", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values } });
+  });
 }
 
 export async function deleteRestriction(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessRestrictions).where(and(eq(schema.accessRestrictions.id, id), eq(schema.accessRestrictions.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessRestrictions)
+      .where(and(eq(schema.accessRestrictions.id, id), eq(schema.accessRestrictions.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessRestrictions)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessRestrictions.id, id), eq(schema.accessRestrictions.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_restrictions", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
 }
 
 // ============================================================================
@@ -691,7 +862,11 @@ export async function createTemporaryGrant(productionId: string, input: Temporar
   const values = validateTemporaryGrant(input);
   const id = crypto.randomUUID();
   const stamps = stampApproval(user, null, values.status);
-  await runAsUser(user.id, (db) => db.insert(schema.accessTemporaryGrants).values({ id, productionId, requestedBy: user.id, ...values, ...stamps }));
+  await runAsUser(user.id, async (db) => {
+    const row = { id, productionId, requestedBy: user.id, ...values, ...stamps };
+    await db.insert(schema.accessTemporaryGrants).values(row);
+    await recordAudit(db, { productionId, tableName: "access_temporary_grants", recordId: id, action: "INSERT", actor: user.id, after: row });
+  });
   return id;
 }
 
@@ -700,23 +875,112 @@ export async function updateTemporaryGrant(productionId: string, id: string, inp
   await requireSecurityAdmin(productionId);
   const values = validateTemporaryGrant(input);
   await runAsUser(user.id, async (db) => {
-    const [existing] = await db
-      .select({ status: schema.accessTemporaryGrants.status })
+    const [before] = await db
+      .select()
       .from(schema.accessTemporaryGrants)
       .where(and(eq(schema.accessTemporaryGrants.id, id), eq(schema.accessTemporaryGrants.productionId, productionId)))
       .limit(1);
-    const stamps = stampApproval(user, (existing?.status as TemporaryGrantStatus) ?? null, values.status);
+    const stamps = stampApproval(user, (before?.status as TemporaryGrantStatus) ?? null, values.status);
     await db
       .update(schema.accessTemporaryGrants)
       .set({ ...values, ...stamps })
       .where(and(eq(schema.accessTemporaryGrants.id, id), eq(schema.accessTemporaryGrants.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_temporary_grants", recordId: id, action: "UPDATE", actor: user.id, before, after: { ...before, ...values, ...stamps } });
   });
 }
 
 export async function deleteTemporaryGrant(productionId: string, id: string) {
   const user = await requireUser();
   await requireSecurityAdmin(productionId);
-  await runAsUser(user.id, (db) =>
-    db.delete(schema.accessTemporaryGrants).where(and(eq(schema.accessTemporaryGrants.id, id), eq(schema.accessTemporaryGrants.productionId, productionId))),
-  );
+  await runAsUser(user.id, async (db) => {
+    const [before] = await db
+      .select()
+      .from(schema.accessTemporaryGrants)
+      .where(and(eq(schema.accessTemporaryGrants.id, id), eq(schema.accessTemporaryGrants.productionId, productionId)))
+      .limit(1);
+    await db
+      .update(schema.accessTemporaryGrants)
+      .set({ deletedAt: new Date(), deletedBy: user.id })
+      .where(and(eq(schema.accessTemporaryGrants.id, id), eq(schema.accessTemporaryGrants.productionId, productionId)));
+    await recordAudit(db, { productionId, tableName: "access_temporary_grants", recordId: id, action: "DELETE", actor: user.id, before, after: null });
+  });
+}
+
+// ============================================================================
+// Scan verification — the actual "scan a badge and get an allow/deny" flow.
+// Any production member may operate the scanner (matching access_events'
+// own RLS: is_production_member, not Producer-only) — a security guard
+// running the gate doesn't need to be a Producer to check someone in.
+// ============================================================================
+
+export interface ScanInput {
+  checkpointId: string;
+  deviceId: string;
+  publicReference: string;
+  direction: AccessDirection | null;
+}
+
+export interface ScanOutcome {
+  allowed: boolean;
+  decision: "ALLOW" | "DENY" | "WARN";
+  reasonCode: string;
+  reason: string;
+  escortRequired: boolean;
+}
+
+/**
+ * Runs evaluateAccess() (packages/auth) against freshly-resolved database
+ * state and records the outcome to access_events — the append-only
+ * verification ledger 0025/0026 reserved for exactly this. No audit-log
+ * entry: access_events already IS this domain's own immutable trail for
+ * scan decisions (see migration 0029's header comment), so writing to
+ * access_audit_log too would just duplicate it.
+ */
+export async function verifyAccess(productionId: string, input: ScanInput): Promise<ScanOutcome> {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const publicReference = input.publicReference.trim();
+  if (!publicReference) throw new Error("Scan or enter a credential reference.");
+  if (!input.checkpointId) throw new Error("Choose which checkpoint this scan is at.");
+  if (!input.deviceId) throw new Error("Choose which device is performing this scan.");
+
+  return runAsUser(user.id, async (db) => {
+    const resolution = await resolveAndEvaluateAccess(db, {
+      productionId,
+      checkpointId: input.checkpointId,
+      deviceId: input.deviceId,
+      publicReference,
+      requestedDirection: input.direction,
+    });
+
+    // resourceId is only null when the device or checkpoint itself failed to
+    // resolve (both NOT NULL FKs on access_events) — see resolveAndEvaluateAccess's
+    // own comment. That's an edge case (the operator picked from a live
+    // dropdown), not the ordinary deny path, so there is nothing to log.
+    if (resolution.resourceId) {
+      await db.insert(schema.accessEvents).values({
+        id: crypto.randomUUID(),
+        productionId,
+        identityId: resolution.identityId,
+        credentialId: resolution.credentialId,
+        deviceId: input.deviceId,
+        checkpointId: input.checkpointId,
+        resourceId: resolution.resourceId,
+        operatorUserId: user.id,
+        eventType: "ACCESS_ATTEMPT",
+        direction: input.direction,
+        decision: resolution.decision.decision,
+        reasonCode: resolution.decision.reasonCode,
+        policySnapshot: { checkpointId: input.checkpointId, deviceId: input.deviceId },
+      });
+    }
+
+    return {
+      allowed: resolution.decision.allowed,
+      decision: resolution.decision.decision,
+      reasonCode: resolution.decision.reasonCode,
+      reason: resolution.decision.reason,
+      escortRequired: resolution.decision.escortRequired,
+    };
+  });
 }

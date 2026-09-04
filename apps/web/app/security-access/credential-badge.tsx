@@ -19,7 +19,8 @@ const DEFAULT_BRAND_COLOR = "#111318";
 
 const ACCESS_TIER: Record<SecurityClass, { label: string; color: string }> = {
   HOD: { label: "ALL ACCESS", color: "#A9791C" },
-  DIRECTOR_PRODUCER: { label: "ALL ACCESS", color: "#A9791C" },
+  DIRECTOR: { label: "ALL ACCESS", color: "#A9791C" },
+  PRODUCER: { label: "ALL ACCESS", color: "#A9791C" },
   VIP: { label: "VIP", color: "#A9791C" },
   SECURITY: { label: "SECURITY", color: "#8B2323" },
   CAST: { label: "CAST", color: "#2B3A55" },

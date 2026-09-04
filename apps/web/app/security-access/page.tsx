@@ -2,7 +2,7 @@ import { requireCurrentProduction } from "@/lib/authz";
 import { getProductionSnapshot } from "@/lib/queries";
 import { Shell } from "@/components/shell";
 import { runAsUser, schema } from "@filmset/db/server";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@filmset/ui";
 import type { CheckpointRow } from "./checkpoints-section";
 import { CheckpointsSection } from "./checkpoints-section";
@@ -24,6 +24,7 @@ import type { ResourceRow } from "./resources-section";
 import { ResourcesSection } from "./resources-section";
 import type { RestrictionRow } from "./restrictions-section";
 import { RestrictionsSection } from "./restrictions-section";
+import { ScanSection } from "./scan-section";
 import type { TemporaryGrantRow } from "./temporary-grants-section";
 import { TemporaryGrantsSection } from "./temporary-grants-section";
 
@@ -58,17 +59,61 @@ export default async function SecurityAccessPage() {
       restrictionRows,
       temporaryGrantRows,
     ] = await Promise.all([
-      db.select().from(schema.accessIdentities).where(eq(schema.accessIdentities.productionId, production.id)).orderBy(schema.accessIdentities.createdAt),
-      db.select().from(schema.accessCredentials).where(eq(schema.accessCredentials.productionId, production.id)).orderBy(schema.accessCredentials.createdAt),
-      db.select().from(schema.accessResources).where(eq(schema.accessResources.productionId, production.id)).orderBy(schema.accessResources.name),
-      db.select().from(schema.accessCheckpoints).where(eq(schema.accessCheckpoints.productionId, production.id)).orderBy(schema.accessCheckpoints.name),
-      db.select().from(schema.accessDevices).where(eq(schema.accessDevices.productionId, production.id)).orderBy(schema.accessDevices.name),
-      db.select().from(schema.accessProfiles).where(eq(schema.accessProfiles.productionId, production.id)).orderBy(schema.accessProfiles.name),
-      db.select().from(schema.accessProfileRules).where(eq(schema.accessProfileRules.productionId, production.id)).orderBy(schema.accessProfileRules.createdAt),
-      db.select().from(schema.accessIdentityProfiles).where(eq(schema.accessIdentityProfiles.productionId, production.id)).orderBy(schema.accessIdentityProfiles.assignedAt),
-      db.select().from(schema.accessGrants).where(eq(schema.accessGrants.productionId, production.id)).orderBy(schema.accessGrants.createdAt),
-      db.select().from(schema.accessRestrictions).where(eq(schema.accessRestrictions.productionId, production.id)).orderBy(schema.accessRestrictions.createdAt),
-      db.select().from(schema.accessTemporaryGrants).where(eq(schema.accessTemporaryGrants.productionId, production.id)).orderBy(schema.accessTemporaryGrants.createdAt),
+      db
+        .select()
+        .from(schema.accessIdentities)
+        .where(and(eq(schema.accessIdentities.productionId, production.id), isNull(schema.accessIdentities.deletedAt)))
+        .orderBy(schema.accessIdentities.createdAt),
+      db
+        .select()
+        .from(schema.accessCredentials)
+        .where(and(eq(schema.accessCredentials.productionId, production.id), isNull(schema.accessCredentials.deletedAt)))
+        .orderBy(schema.accessCredentials.createdAt),
+      db
+        .select()
+        .from(schema.accessResources)
+        .where(and(eq(schema.accessResources.productionId, production.id), isNull(schema.accessResources.deletedAt)))
+        .orderBy(schema.accessResources.name),
+      db
+        .select()
+        .from(schema.accessCheckpoints)
+        .where(and(eq(schema.accessCheckpoints.productionId, production.id), isNull(schema.accessCheckpoints.deletedAt)))
+        .orderBy(schema.accessCheckpoints.name),
+      db
+        .select()
+        .from(schema.accessDevices)
+        .where(and(eq(schema.accessDevices.productionId, production.id), isNull(schema.accessDevices.deletedAt)))
+        .orderBy(schema.accessDevices.name),
+      db
+        .select()
+        .from(schema.accessProfiles)
+        .where(and(eq(schema.accessProfiles.productionId, production.id), isNull(schema.accessProfiles.deletedAt)))
+        .orderBy(schema.accessProfiles.name),
+      db
+        .select()
+        .from(schema.accessProfileRules)
+        .where(and(eq(schema.accessProfileRules.productionId, production.id), isNull(schema.accessProfileRules.deletedAt)))
+        .orderBy(schema.accessProfileRules.createdAt),
+      db
+        .select()
+        .from(schema.accessIdentityProfiles)
+        .where(and(eq(schema.accessIdentityProfiles.productionId, production.id), isNull(schema.accessIdentityProfiles.deletedAt)))
+        .orderBy(schema.accessIdentityProfiles.assignedAt),
+      db
+        .select()
+        .from(schema.accessGrants)
+        .where(and(eq(schema.accessGrants.productionId, production.id), isNull(schema.accessGrants.deletedAt)))
+        .orderBy(schema.accessGrants.createdAt),
+      db
+        .select()
+        .from(schema.accessRestrictions)
+        .where(and(eq(schema.accessRestrictions.productionId, production.id), isNull(schema.accessRestrictions.deletedAt)))
+        .orderBy(schema.accessRestrictions.createdAt),
+      db
+        .select()
+        .from(schema.accessTemporaryGrants)
+        .where(and(eq(schema.accessTemporaryGrants.productionId, production.id), isNull(schema.accessTemporaryGrants.deletedAt)))
+        .orderBy(schema.accessTemporaryGrants.createdAt),
     ]);
     return {
       identities: identityRows as unknown as IdentityRow[],
@@ -90,6 +135,7 @@ export default async function SecurityAccessPage() {
   const locationOptions: PersonOption[] = snapshot.locations.map((l) => ({ id: l.id, label: l.name }));
   const resourceOptions: PersonOption[] = resources.map((r) => ({ id: r.id, label: r.name }));
   const checkpointOptions: PersonOption[] = checkpoints.map((c) => ({ id: c.id, label: c.name }));
+  const deviceOptions: PersonOption[] = devices.map((d) => ({ id: d.id, label: d.name }));
   const profileOptions: PersonOption[] = profiles.map((p) => ({ id: p.id, label: p.name }));
 
   const castById = new Map(snapshot.castMembers.map((c) => [c.id, c.actorName]));
@@ -116,9 +162,10 @@ export default async function SecurityAccessPage() {
           </p>
         </div>
 
-        <Tabs defaultValue="identities">
+        <Tabs defaultValue="scan">
           <div className="overflow-x-auto">
             <TabsList className="w-max">
+              <TabsTrigger value="scan">Scan</TabsTrigger>
               <TabsTrigger value="identities">Identities</TabsTrigger>
               <TabsTrigger value="credentials">Credentials</TabsTrigger>
               <TabsTrigger value="resources">Resources</TabsTrigger>
@@ -132,6 +179,9 @@ export default async function SecurityAccessPage() {
               <TabsTrigger value="temporary-grants">Temporary Grants</TabsTrigger>
             </TabsList>
           </div>
+          <TabsContent value="scan" className="pt-[var(--fs-space-16)]">
+            <ScanSection productionId={production.id} checkpointOptions={checkpointOptions} deviceOptions={deviceOptions} />
+          </TabsContent>
           <TabsContent value="identities" className="pt-[var(--fs-space-16)]">
             <IdentitiesSection productionId={production.id} identities={identities} castOptions={castOptions} crewOptions={crewOptions} canManage={canManage} />
           </TabsContent>

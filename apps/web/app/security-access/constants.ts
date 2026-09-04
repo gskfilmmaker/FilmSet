@@ -12,7 +12,7 @@ export const PERSON_CATEGORIES = ["CAST", "CREW", "EXTERNAL"] as const;
 export type PersonCategory = (typeof PERSON_CATEGORIES)[number];
 
 export const SECURITY_CLASSES = [
-  "CREW", "CAST", "HOD", "DIRECTOR_PRODUCER", "BACKGROUND", "DAY_PLAYER", "VENDOR", "CONTRACTOR",
+  "CREW", "CAST", "HOD", "DIRECTOR", "PRODUCER", "BACKGROUND", "DAY_PLAYER", "VENDOR", "CONTRACTOR",
   "VISITOR", "MEDIA", "SECURITY", "DRIVER", "VIP", "TEMPORARY", "LOCATION_STAFF", "CUSTOM",
 ] as const;
 export type SecurityClass = (typeof SECURITY_CLASSES)[number];
