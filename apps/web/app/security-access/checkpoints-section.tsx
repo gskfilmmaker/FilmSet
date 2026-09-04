@@ -183,9 +183,11 @@ export function CheckpointsSection({
           icon={<DoorOpen className="size-full" />}
           title="No checkpoints yet"
           description={
-            canManage
-              ? "Add a checkpoint — a physical gate or entrance where verification actually happens — for one of your resources."
-              : "No checkpoints have been added for this production yet."
+            !canManage
+              ? "No checkpoints have been added for this production yet."
+              : resourceOptions.length === 0
+                ? "Add a resource on the Resources tab first — a checkpoint always guards one."
+                : "Add a checkpoint — a physical gate or entrance where verification actually happens — for one of your resources."
           }
           action={canManage ? <Button onClick={() => setAdding(true)} disabled={resourceOptions.length === 0}>Add checkpoint</Button> : undefined}
         />

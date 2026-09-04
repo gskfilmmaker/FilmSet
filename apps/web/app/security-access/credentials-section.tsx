@@ -243,9 +243,11 @@ export function CredentialsSection({
           icon={<CreditCard className="size-full" />}
           title="No credentials yet"
           description={
-            canManage
-              ? "Issue a credential to an identity. The QR value itself is generated automatically and never shown here — see docs/security/QR_SECURITY_ACCESS_CONTROL.md."
-              : "No credentials have been issued for this production yet."
+            !canManage
+              ? "No credentials have been issued for this production yet."
+              : identityOptions.length === 0
+                ? "Add an identity on the Identities tab first — a credential is always issued to one."
+                : "Issue a credential to an identity. The QR value itself is generated automatically and never shown here — see docs/security/QR_SECURITY_ACCESS_CONTROL.md."
           }
           action={canManage ? <Button onClick={() => setAdding(true)} disabled={identityOptions.length === 0}>Add credential</Button> : undefined}
         />
