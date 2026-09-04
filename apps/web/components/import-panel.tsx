@@ -31,6 +31,7 @@ const ENTITY_LABEL: Record<ImportEntityType, string> = {
   vendor: "vendors",
   equipmentVendor: "equipment vendors",
   equipmentCatalogItem: "equipment",
+  cateringMenuItem: "menu items",
 };
 const DOCUMENT_CAPABLE: ImportEntityType[] = ["cast", "crew", "location", "vehicle", "driver", "property", "vendor", "equipmentVendor", "equipmentCatalogItem"];
 

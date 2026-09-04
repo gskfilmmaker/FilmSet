@@ -778,6 +778,11 @@ export const dietaryProfiles = pgTable(
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /** VEGETARIAN | NON_VEGETARIAN | VEGAN | EGGETARIAN | JAIN | HALAL | KOSHER — a standing preference, distinct from dietaryRequirements' graded allergy severities (0024). */
+    dietType: text("diet_type"),
+    beveragePreference: text("beverage_preference"),
+    /** MILD | MEDIUM | HOT. */
+    spicePreference: text("spice_preference"),
   },
   (t) => [
     index("dietary_profiles_production_idx").on(t.productionId),
@@ -833,6 +838,14 @@ export const mealServices = pgTable(
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    /** BUFFET | PLATED | PACKED_BOXES | FAMILY_STYLE (0024). */
+    serviceStyle: text("service_style"),
+    /** DISPOSABLE_ECO | DISPOSABLE_STANDARD | REUSABLE | PLATED. */
+    packagingType: text("packaging_type"),
+    /** Free-text clock time (e.g. "12:30 PM") — `date` already carries the day. */
+    serviceTime: text("service_time"),
+    headcountConfirmed: integer("headcount_confirmed"),
+    hospitalityNotes: text("hospitality_notes"),
   },
   (t) => [index("meal_services_production_idx").on(t.productionId)],
 );
@@ -876,6 +889,52 @@ export const cateringOrders = pgTable(
     index("catering_orders_vendor_idx").on(t.vendorId),
     index("catering_orders_booking_idx").on(t.bookingId),
   ],
+);
+
+/** A production's approved menu catalog (0024) — same shape/role as equipmentCatalogItems, optionally linked to a cateringVendors row. */
+export const menuItems = pgTable(
+  "menu_items",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    vendorId: text("vendor_id").references(() => cateringVendors.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    /** STARTER | MAIN | DESSERT | BEVERAGE | SNACK | BREAD | SIDE. */
+    category: text("category"),
+    cuisine: text("cuisine"),
+    /** VEGETARIAN | NON_VEGETARIAN | VEGAN | EGGETARIAN | JAIN. */
+    dietType: text("diet_type"),
+    /** MILD | MEDIUM | HOT. */
+    spiceLevel: text("spice_level"),
+    /** DISPOSABLE_ECO | DISPOSABLE_STANDARD | REUSABLE | PLATED. */
+    packagingType: text("packaging_type"),
+    price: numeric("price", { precision: 12, scale: 2 }),
+    /** USD | INR | CAD | EUR | AED — same explicit list as equipmentCatalogItems (0023). */
+    currency: text("currency"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("menu_items_production_idx").on(t.productionId), index("menu_items_vendor_idx").on(t.vendorId)],
+);
+
+/** Itemizes a cateringOrders row against the menu catalog (0024) — an order can still exist with zero items (vendor-only, details TBD). */
+export const cateringOrderItems = pgTable(
+  "catering_order_items",
+  {
+    id: text("id").primaryKey(),
+    orderId: text("order_id")
+      .notNull()
+      .references(() => cateringOrders.id, { onDelete: "cascade" }),
+    menuItemId: text("menu_item_id")
+      .notNull()
+      .references(() => menuItems.id, { onDelete: "restrict" }),
+    quantity: integer("quantity").notNull().default(1),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("catering_order_items_order_idx").on(t.orderId), index("catering_order_items_menu_item_idx").on(t.menuItemId)],
 );
 
 /** Equipment domain (0023) — Camera / Grip & Electric / Sound. Same shape as cateringVendors. */
