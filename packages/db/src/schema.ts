@@ -117,6 +117,8 @@ export const productions = pgTable("productions", {
   logoPath: text("logo_path"),
   /** Hex color, e.g. "#1A2B3C" — the credential badge's header band. Null falls back to a default in the badge component, not a DB default. */
   brandColor: text("brand_color"),
+  /** The ID-numbering prefix, e.g. "VMPA" — see apps/web/lib/id-registry.ts. Null falls back to a derived default (production name initials), not a DB default. */
+  shortCode: text("short_code"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -1537,6 +1539,26 @@ export const aiSuggestionLog = pgTable(
     decidedAt: timestamp("decided_at", { withTimezone: true }),
   },
   (t) => [index("ai_suggestion_log_production_idx").on(t.productionId)],
+);
+
+/**
+ * P19 — one atomic counter per (production, entity_type), backing the
+ * human-readable ID-numbering system (apps/web/lib/id-registry.ts). Issuing
+ * a number is a single insert-on-conflict-update statement against this
+ * table's primary key, which Postgres executes atomically — no explicit
+ * row locking needed. See migration 0028's header comment.
+ */
+export const idSequences = pgTable(
+  "id_sequences",
+  {
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    entityType: text("entity_type").notNull(),
+    currentValue: integer("current_value").notNull().default(0),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.productionId, t.entityType] })],
 );
 
 /**

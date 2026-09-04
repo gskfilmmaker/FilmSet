@@ -5,7 +5,7 @@ import { CreditCard, IdCard, Pencil, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { createCredential, deleteCredential, updateCredential, type CredentialInput } from "./actions";
+import { createCredential, deleteCredential, previewNextCredentialNumber, updateCredential, type CredentialInput } from "./actions";
 import {
   ASSURANCE_LEVELS,
   CREDENTIAL_STATUSES,
@@ -53,7 +53,18 @@ const statusTone: Record<CredentialStatus, "success" | "warning" | "danger" | "n
   REPLACED: "neutral",
 };
 
-function CredentialForm({ value, onChange, identityOptions }: { value: CredentialInput; onChange: (next: CredentialInput) => void; identityOptions: PersonOption[] }) {
+function CredentialForm({
+  value,
+  onChange,
+  identityOptions,
+  numberPreview,
+}: {
+  value: CredentialInput;
+  onChange: (next: CredentialInput) => void;
+  identityOptions: PersonOption[];
+  /** Next auto-assignable number, shown as a placeholder — null while editing an existing credential (which already has one) or still loading. */
+  numberPreview: string | null;
+}) {
   return (
     <div className="flex flex-1 flex-wrap items-end gap-[var(--fs-space-8)]">
       <div className="flex flex-col gap-[4px]">
@@ -73,7 +84,8 @@ function CredentialForm({ value, onChange, identityOptions }: { value: Credentia
       </div>
       <Input
         label="Credential number"
-        placeholder="e.g. VMPA-CR-000482"
+        placeholder={numberPreview ? `Auto: ${numberPreview}` : "e.g. VMPA-CR-000482"}
+        description={numberPreview ? "Leave blank to auto-assign, or enter a custom number." : undefined}
         value={value.credentialNumber}
         onChange={(e) => onChange({ ...value, credentialNumber: e.target.value })}
         containerClassName="min-w-[160px]"
@@ -175,9 +187,28 @@ export function CredentialsSection({
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editForm, setEditForm] = React.useState<CredentialInput>(emptyForm);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [numberPreview, setNumberPreview] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!adding) {
+      setNumberPreview(null);
+      return;
+    }
+    let cancelled = false;
+    previewNextCredentialNumber(productionId).then((preview) => {
+      if (!cancelled) setNumberPreview(preview);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [adding, productionId]);
 
   async function onAdd(e: React.FormEvent) {
     e.preventDefault();
+    if (!addForm.identityId) {
+      toast({ tone: "danger", title: "Choose an identity", description: "Pick who this credential is issued to before adding it." });
+      return;
+    }
     setSaving(true);
     try {
       await createCredential(productionId, addForm);
@@ -208,6 +239,10 @@ export function CredentialsSection({
 
   async function onSaveEdit(e: React.FormEvent, id: string) {
     e.preventDefault();
+    if (!editForm.credentialNumber.trim()) {
+      toast({ tone: "danger", title: "Credential number is required", description: "Enter a badge number, e.g. VMPA-CR-000482." });
+      return;
+    }
     setPendingId(id);
     try {
       await updateCredential(productionId, id, editForm);
@@ -248,7 +283,7 @@ export function CredentialsSection({
               ? "No credentials have been issued for this production yet."
               : identityOptions.length === 0
                 ? "Add an identity on the Identities tab first — a credential is always issued to one."
-                : "Issue a credential to an identity. The QR value itself is generated automatically and never shown here — see docs/security/QR_SECURITY_ACCESS_CONTROL.md."
+                : "Issue a credential to an identity. Its number and QR value are both generated automatically — the QR value is never shown here, see docs/security/QR_SECURITY_ACCESS_CONTROL.md."
           }
           action={canManage ? <Button onClick={() => setAdding(true)} disabled={identityOptions.length === 0}>Add credential</Button> : undefined}
         />
@@ -261,7 +296,7 @@ export function CredentialsSection({
               {canManage && editingId === credential.id ? (
                 <li className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
                   <form onSubmit={(e) => onSaveEdit(e, credential.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
-                    <CredentialForm value={editForm} onChange={setEditForm} identityOptions={identityOptions} />
+                    <CredentialForm value={editForm} onChange={setEditForm} identityOptions={identityOptions} numberPreview={null} />
                     <Button type="submit" loading={pendingId === credential.id} disabled={pendingId !== null}>
                       Save
                     </Button>
@@ -330,7 +365,7 @@ export function CredentialsSection({
           onSubmit={onAdd}
           className="flex flex-col items-end gap-[var(--fs-space-8)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-12)] sm:flex-row sm:flex-wrap"
         >
-          <CredentialForm value={addForm} onChange={setAddForm} identityOptions={identityOptions} />
+          <CredentialForm value={addForm} onChange={setAddForm} identityOptions={identityOptions} numberPreview={numberPreview} />
           <Button type="submit" loading={saving} disabled={saving}>
             Add
           </Button>

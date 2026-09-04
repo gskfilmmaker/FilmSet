@@ -4,7 +4,7 @@ import { Button, Checkbox, EmptyState, Input, Select, SelectContent, SelectItem,
 import { DoorOpen, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { createCheckpoint, deleteCheckpoint, updateCheckpoint, type CheckpointInput } from "./actions";
+import { createCheckpoint, deleteCheckpoint, previewNextCheckpointCode, updateCheckpoint, type CheckpointInput } from "./actions";
 import { ANTI_PASSBACK_MODES, DIRECTION_MODES, type AntiPassbackMode, type DirectionMode } from "./constants";
 import { humanizeEnum } from "./format";
 import type { PersonOption } from "./identities-section";
@@ -30,7 +30,18 @@ const emptyForm: CheckpointInput = {
   requiresOperatorConfirmation: false,
 };
 
-function CheckpointForm({ value, onChange, resourceOptions }: { value: CheckpointInput; onChange: (next: CheckpointInput) => void; resourceOptions: PersonOption[] }) {
+function CheckpointForm({
+  value,
+  onChange,
+  resourceOptions,
+  codePreview,
+}: {
+  value: CheckpointInput;
+  onChange: (next: CheckpointInput) => void;
+  resourceOptions: PersonOption[];
+  /** Next auto-assignable code, shown as a placeholder — null while editing an existing checkpoint or still loading. */
+  codePreview: string | null;
+}) {
   return (
     <div className="flex flex-1 flex-wrap items-end gap-[var(--fs-space-8)]">
       <Input label="Name" value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} containerClassName="min-w-[140px] flex-1" />
@@ -49,7 +60,13 @@ function CheckpointForm({ value, onChange, resourceOptions }: { value: Checkpoin
           </SelectContent>
         </Select>
       </div>
-      <Input label="Code" placeholder="Optional" value={value.code ?? ""} onChange={(e) => onChange({ ...value, code: e.target.value })} containerClassName="w-[110px]" />
+      <Input
+        label="Code"
+        placeholder={codePreview ? `Auto: ${codePreview}` : "Optional"}
+        value={value.code ?? ""}
+        onChange={(e) => onChange({ ...value, code: e.target.value })}
+        containerClassName="w-[130px]"
+      />
       <div className="flex flex-col gap-[4px]">
         <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Direction</label>
         <Select value={value.directionMode} onValueChange={(v) => onChange({ ...value, directionMode: v as DirectionMode })}>
@@ -119,6 +136,21 @@ export function CheckpointsSection({
   const [editingId, setEditingId] = React.useState<string | null>(null);
   const [editForm, setEditForm] = React.useState<CheckpointInput>(emptyForm);
   const [pendingId, setPendingId] = React.useState<string | null>(null);
+  const [codePreview, setCodePreview] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (!adding) {
+      setCodePreview(null);
+      return;
+    }
+    let cancelled = false;
+    previewNextCheckpointCode(productionId).then((preview) => {
+      if (!cancelled) setCodePreview(preview);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [adding, productionId]);
 
   async function onAdd(e: React.FormEvent) {
     e.preventDefault();
@@ -200,7 +232,7 @@ export function CheckpointsSection({
               {canManage && editingId === checkpoint.id ? (
                 <li className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
                   <form onSubmit={(e) => onSaveEdit(e, checkpoint.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
-                    <CheckpointForm value={editForm} onChange={setEditForm} resourceOptions={resourceOptions} />
+                    <CheckpointForm value={editForm} onChange={setEditForm} resourceOptions={resourceOptions} codePreview={null} />
                     <Button type="submit" loading={pendingId === checkpoint.id} disabled={pendingId !== null}>
                       Save
                     </Button>
@@ -262,7 +294,7 @@ export function CheckpointsSection({
           onSubmit={onAdd}
           className="flex flex-col items-end gap-[var(--fs-space-8)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-12)] sm:flex-row sm:flex-wrap"
         >
-          <CheckpointForm value={addForm} onChange={setAddForm} resourceOptions={resourceOptions} />
+          <CheckpointForm value={addForm} onChange={setAddForm} resourceOptions={resourceOptions} codePreview={codePreview} />
           <Button type="submit" loading={saving} disabled={saving}>
             Add
           </Button>

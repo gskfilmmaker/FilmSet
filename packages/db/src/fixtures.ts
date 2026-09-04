@@ -35,6 +35,7 @@ export const theBandProduction: Production = {
   scriptRevisionColor: "White",
   logoPath: null,
   brandColor: null,
+  shortCode: null,
 };
 
 // --- People ---
