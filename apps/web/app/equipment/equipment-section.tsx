@@ -30,6 +30,7 @@ import {
   createEquipmentVendor,
   deleteCatalogItem,
   deleteEquipmentVendor,
+  EQUIPMENT_CURRENCIES,
   setCatalogItemDopApproval,
   setDirectorApproval,
   setDopApproval,
@@ -217,7 +218,21 @@ function CatalogItemForm({ value, onChange, vendors }: { value: EquipmentCatalog
       <Input label="Category" placeholder="Camera body, lens, dolly..." value={value.category} onChange={(e) => onChange({ ...value, category: e.target.value })} containerClassName="min-w-[140px] flex-1" />
       <Input label="Item" placeholder="ARRI Alexa 35" value={value.name} onChange={(e) => onChange({ ...value, name: e.target.value })} containerClassName="min-w-[160px] flex-1" />
       <Input label="Daily rate" placeholder="Optional" value={value.dailyRate} onChange={(e) => onChange({ ...value, dailyRate: e.target.value })} containerClassName="w-[110px]" />
-      <Input label="Currency" placeholder="USD" value={value.currency} onChange={(e) => onChange({ ...value, currency: e.target.value })} containerClassName="w-[80px]" />
+      <div className="flex flex-col gap-[4px]">
+        <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Currency</label>
+        <Select value={value.currency || undefined} onValueChange={(v) => onChange({ ...value, currency: v })}>
+          <SelectTrigger className="w-[100px]">
+            <SelectValue placeholder="—" />
+          </SelectTrigger>
+          <SelectContent>
+            {EQUIPMENT_CURRENCIES.map((c) => (
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
       <Input label="Notes" placeholder="Optional" value={value.notes} onChange={(e) => onChange({ ...value, notes: e.target.value })} containerClassName="min-w-[160px] flex-1" />
     </div>
   );

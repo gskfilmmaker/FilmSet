@@ -12,6 +12,8 @@ A real Equipment section (now in the left sidebar, covering Camera, Grip & Elect
 
 **Note on the DOP gate:** there is no dedicated "DOP" role in this app's role vocabulary (`packages/auth/src/index.ts` only has Producer/Director/1st AD/UPM/Production Accountant/Department Head/Crew), so the DOP sign-off checks the real Camera department's Head of Department record (`department_head_assignments`, from the P1b authorization migration) instead of inventing a role. A production that hasn't assigned a Camera department head yet (Settings → Departments) simply can't record a DOP approval until it does — this is an honest, intentional gap, not a bug.
 
+**Note on currency:** every rate (catalog item and booking) picks a currency from a real, explicit choice — USD, INR, CAD, EUR, or AED — never hard-coded to one. This lets an Indian equipment supplier's INR quote sit next to a US vendor's USD quote on the same production. The app also accepts common real-world spellings when parsing a price list (e.g. "Rs" or "₹" for INR, "Dirham" for AED) and normalizes them to the canonical code before saving.
+
 ## Before you run anything
 
 1. **Confirm you are connected to the correct Supabase project.**
@@ -95,7 +97,10 @@ end $preflight$;
 
 -- ============================================================================
 -- P14 -- Equipment domain. Fourth real Logistics subdomain built on the
--- Booking Engine, covering Camera, Grip & Electric, and Sound.
+-- Booking Engine (0018), covering the three departments the owner asked
+-- for: Camera, Grip & Electric, Sound (packages/core's STANDARD_DEPARTMENTS
+-- names, reused verbatim as this migration's `department` check values so
+-- a catalog item's department always matches a real crew department name).
 --
 -- The point of this domain (per the owner's own framing): know what
 -- equipment is booked, at what price, in what quantity, for which shoot
@@ -150,6 +155,12 @@ create index equipment_vendors_production_idx on public.equipment_vendors (produ
 
 -- ============================================================================
 -- equipment_catalog_items -- a vendor's approved equipment list.
+-- currency is a real, explicit choice among the five the owner named
+-- (USD/INR/CAD/EUR/AED) -- not hard-coded to one, and not a free-text
+-- field either, so an Indian supplier's INR quote and a US vendor's USD
+-- quote sit side by side on the same production without silently
+-- picking a currency for either. Nullable: a line item can exist before
+-- its currency is known (e.g. before a quote comes in).
 -- ============================================================================
 create table public.equipment_catalog_items (
   id text primary key,
@@ -166,7 +177,8 @@ create table public.equipment_catalog_items (
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint equipment_catalog_items_department_valid check (department in ('Camera', 'Grip & Electric', 'Sound'))
+  constraint equipment_catalog_items_department_valid check (department in ('Camera', 'Grip & Electric', 'Sound')),
+  constraint equipment_catalog_items_currency_valid check (currency is null or currency in ('USD', 'INR', 'CAD', 'EUR', 'AED'))
 );
 create index equipment_catalog_items_production_idx on public.equipment_catalog_items (production_id);
 create index equipment_catalog_items_vendor_idx on public.equipment_catalog_items (vendor_id);
@@ -198,7 +210,8 @@ create table public.equipment_bookings (
   notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  constraint equipment_bookings_quantity_positive check (quantity > 0)
+  constraint equipment_bookings_quantity_positive check (quantity > 0),
+  constraint equipment_bookings_currency_valid check (currency is null or currency in ('USD', 'INR', 'CAD', 'EUR', 'AED'))
 );
 create index equipment_bookings_production_idx on public.equipment_bookings (production_id);
 create index equipment_bookings_shoot_day_idx on public.equipment_bookings (shoot_day_id);
