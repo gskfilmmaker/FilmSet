@@ -100,15 +100,15 @@ export function Sidebar({
     <nav
       aria-label="Primary"
       className={cn(
-        "flex h-full flex-col justify-between border-r border-[var(--color-border-subtle)] bg-[var(--color-background-canvas)]",
+        "flex h-full flex-col border-r border-[var(--color-border-subtle)] bg-[var(--color-background-canvas)]",
         "transition-[width] duration-[var(--fs-motion-duration-base)] ease-[var(--fs-motion-easing-standard)]",
         "p-[var(--fs-space-8)]",
         className,
       )}
       style={{ width: expanded ? "var(--fs-panel-sidebar-expanded)" : "var(--fs-panel-sidebar-collapsed)" }}
     >
-      <div className="flex flex-col gap-[var(--fs-space-4)]">{items.map(renderItem)}</div>
-      <div className="flex flex-col gap-[var(--fs-space-4)] border-t border-[var(--color-border-subtle)] pt-[var(--fs-space-8)]">
+      <div className="flex min-h-0 flex-1 flex-col gap-[var(--fs-space-4)] overflow-y-auto">{items.map(renderItem)}</div>
+      <div className="flex shrink-0 flex-col gap-[var(--fs-space-4)] border-t border-[var(--color-border-subtle)] pt-[var(--fs-space-8)]">
         {renderItem(aiItem)}
         {renderItem(settingsItem)}
         <button
