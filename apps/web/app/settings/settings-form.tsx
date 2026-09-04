@@ -1,28 +1,37 @@
 "use client";
 
+import { PhotoAvatar } from "@/components/photo-avatar";
 import { Shell } from "@/components/shell";
 import type { Production, Scene } from "@filmset/core";
 import { Button, Input, useToast } from "@filmset/ui";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { updateFullName } from "./actions";
+import { updateBrandColor, updateFullName, uploadProductionLogo } from "./actions";
+
+const DEFAULT_BRAND_COLOR = "#111318";
 
 export function SettingsForm({
   production,
   scenes,
   userEmail,
   fullName,
+  logoUrl,
+  canManageBranding,
 }: {
-  production: Pick<Production, "id" | "name" | "phase">;
+  production: Pick<Production, "id" | "name" | "phase" | "logoPath" | "brandColor">;
   scenes: Pick<Scene, "id" | "number" | "setName" | "dayNight" | "intExt" | "shootDayId">[];
   userEmail: string | null;
   fullName: string;
+  logoUrl: string | null;
+  canManageBranding: boolean;
 }) {
   const router = useRouter();
   const { toast } = useToast();
   const [name, setName] = React.useState(fullName);
   const [saving, setSaving] = React.useState(false);
+  const [brandColor, setBrandColor] = React.useState(production.brandColor ?? DEFAULT_BRAND_COLOR);
+  const [savingColor, setSavingColor] = React.useState(false);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -35,6 +44,19 @@ export function SettingsForm({
       toast({ tone: "danger", title: "Couldn't save", description: "Please try again." });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function onSaveBrandColor() {
+    setSavingColor(true);
+    try {
+      await updateBrandColor(production.id, brandColor);
+      toast({ tone: "success", title: "Brand color saved" });
+      router.refresh();
+    } catch (err) {
+      toast({ tone: "danger", title: "Couldn't save brand color", description: err instanceof Error ? err.message : "Please try again." });
+    } finally {
+      setSavingColor(false);
     }
   }
 
@@ -54,6 +76,54 @@ export function SettingsForm({
           <a href="/forgot-password" className="text-[13px] text-[var(--color-action-primary)] hover:underline">
             Change password →
           </a>
+        </section>
+
+        <section className="flex flex-col gap-[var(--fs-space-12)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
+          <div>
+            <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Production branding</h2>
+            <p className="text-[13px] text-[var(--color-text-secondary)]">The logo and accent color shown on this production&apos;s Security &amp; Access credential badges.</p>
+          </div>
+          {canManageBranding ? (
+            <>
+              <div className="flex items-center gap-[var(--fs-space-12)]">
+                <PhotoAvatar
+                  photoUrl={logoUrl}
+                  fallbackLabel={production.name}
+                  alt={`${production.name} logo`}
+                  size={56}
+                  onUpload={(file) => {
+                    const formData = new FormData();
+                    formData.set("logo", file);
+                    return uploadProductionLogo(production.id, formData).then(() => {});
+                  }}
+                />
+                <p className="text-[12px] text-[var(--color-text-tertiary)]">Click to upload a logo (JPEG, PNG, WebP, or GIF, up to 5MB).</p>
+              </div>
+              <div className="flex items-end gap-[var(--fs-space-8)]">
+                <div className="flex flex-col gap-[4px]">
+                  <label htmlFor="brand-color" className="text-[12px] font-medium text-[var(--color-text-secondary)]">
+                    Brand color
+                  </label>
+                  <div className="flex items-center gap-[var(--fs-space-8)]">
+                    <input
+                      id="brand-color"
+                      type="color"
+                      value={brandColor}
+                      onChange={(e) => setBrandColor(e.target.value)}
+                      className="size-[var(--fs-control-height)] cursor-pointer rounded-[4px] border border-[var(--color-border-subtle)] bg-transparent p-[2px]"
+                      aria-label="Brand color"
+                    />
+                    <Input value={brandColor} onChange={(e) => setBrandColor(e.target.value)} containerClassName="w-[110px]" />
+                  </div>
+                </div>
+                <Button onClick={onSaveBrandColor} loading={savingColor} disabled={savingColor}>
+                  Save color
+                </Button>
+              </div>
+            </>
+          ) : (
+            <p className="text-[13px] text-[var(--color-text-tertiary)]">Only a Producer can change production branding.</p>
+          )}
         </section>
 
         <section className="flex flex-col gap-[var(--fs-space-8)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">

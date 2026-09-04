@@ -310,6 +310,8 @@ export async function getProductionSnapshot(userId: string, productionId: string
       name: production.name,
       phase: production.phase as Production["phase"],
       scriptRevisionColor: production.scriptRevisionColor,
+      logoPath: production.logoPath,
+      brandColor: production.brandColor,
     },
     members: memberRows.map((m) => ({ userId: m.userId, role: m.role as ProductionRole, email: m.email, fullName: m.fullName })),
     characters: characterRows.map((c) => ({ id: c.id, name: c.name })),
@@ -348,6 +350,7 @@ export async function getProductionSnapshot(userId: string, productionId: string
       agentName: c.agentName,
       agentPhone: c.agentPhone,
       agentEmail: c.agentEmail,
+      photoPath: c.photoPath,
     })),
     locations: locationRows.map((l) => ({
       id: l.id,

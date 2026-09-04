@@ -39,6 +39,10 @@ export const productionSchema = z.object({
   phase: productionPhaseSchema,
   /** The script's current revision color — advances only when a re-imported script actually changes/adds a scene. */
   scriptRevisionColor: z.string(),
+  /** Storage object path (production-photos bucket) — resolved to a signed URL server-side. Used on the Security & Access credential badge. */
+  logoPath: z.string().nullable(),
+  /** Hex color (e.g. "#1A2B3C") — the credential badge's header band. Null falls back to a default in the badge component. */
+  brandColor: z.string().nullable(),
 });
 export type Production = z.infer<typeof productionSchema>;
 
@@ -101,6 +105,8 @@ export const crewMemberSchema = z
     contract: z.enum(["Signed", "Pending", "Missing"]),
     /** Radio/walkie channel assignment — printed on the call sheet's Radio Plan so departments know which channel to monitor. */
     walkieChannel: z.string().nullable(),
+    /** Storage object path (production-photos bucket) — resolved to a signed URL server-side, never a public URL. Same convention as CastMember.photoPath. */
+    photoPath: z.string().nullable(),
   })
   .extend(contactInfoSchema.shape);
 export type CrewMember = z.infer<typeof crewMemberSchema>;

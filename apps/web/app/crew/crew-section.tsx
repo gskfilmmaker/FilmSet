@@ -1,5 +1,6 @@
 "use client";
 
+import { PhotoAvatar } from "@/components/photo-avatar";
 import { STANDARD_DEPARTMENTS, type CrewMember } from "@filmset/core";
 import {
   Button,
@@ -18,7 +19,7 @@ import {
 import { ChevronDown, ChevronRight, HardHat, Pencil, TriangleAlert, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { createCrewMember, deleteCrewMember, updateCrewMember, type CrewMemberInput } from "./actions";
+import { createCrewMember, deleteCrewMember, updateCrewMember, uploadCrewPhoto, type CrewMemberInput } from "./actions";
 
 const CONTRACTS: CrewMember["contract"][] = ["Signed", "Pending", "Missing"];
 const contractTone: Record<CrewMember["contract"], "success" | "warning" | "danger"> = {
@@ -200,7 +201,15 @@ function CrewForm({ value, onChange }: { value: CrewMemberInput; onChange: (next
   );
 }
 
-export function CrewSection({ productionId, crewMembers }: { productionId: string; crewMembers: CrewMember[] }) {
+export function CrewSection({
+  productionId,
+  crewMembers,
+  photoUrls,
+}: {
+  productionId: string;
+  crewMembers: CrewMember[];
+  photoUrls: Record<string, string>;
+}) {
   const router = useRouter();
   const { toast } = useToast();
   const [adding, setAdding] = React.useState(false);
@@ -363,15 +372,27 @@ export function CrewSection({ productionId, crewMembers }: { productionId: strin
                 </li>
               ) : (
                 <li key={member.id} className="flex items-center justify-between gap-[var(--fs-space-16)] p-[var(--fs-space-12)]">
-                  <div className="min-w-0">
-                    <p className="flex items-center gap-[6px] truncate text-[13px] font-medium text-[var(--color-text-primary)]">
-                      {member.name}
-                      {member.isHod && <StatusBadge tone="info">HOD</StatusBadge>}
-                    </p>
-                    <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
-                      {member.role}
-                      {(member.phone || member.email) && ` · ${[member.phone, member.email].filter(Boolean).join(" · ")}`}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-[var(--fs-space-12)]">
+                    <PhotoAvatar
+                      photoUrl={photoUrls[member.photoPath ?? ""] ?? null}
+                      fallbackLabel={member.name}
+                      alt={member.name}
+                      onUpload={(file) => {
+                        const formData = new FormData();
+                        formData.set("photo", file);
+                        return uploadCrewPhoto(productionId, member.id, formData);
+                      }}
+                    />
+                    <div className="min-w-0">
+                      <p className="flex items-center gap-[6px] truncate text-[13px] font-medium text-[var(--color-text-primary)]">
+                        {member.name}
+                        {member.isHod && <StatusBadge tone="info">HOD</StatusBadge>}
+                      </p>
+                      <p className="truncate text-[12px] text-[var(--color-text-tertiary)]">
+                        {member.role}
+                        {(member.phone || member.email) && ` · ${[member.phone, member.email].filter(Boolean).join(" · ")}`}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex shrink-0 items-center gap-[var(--fs-space-8)]">
                     {member.walkieChannel && <StatusBadge tone="neutral">Ch {member.walkieChannel}</StatusBadge>}
