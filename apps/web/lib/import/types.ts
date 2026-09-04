@@ -1,9 +1,10 @@
 /**
  * Shared types for the file-import pipeline (CSV/XLSX contact lists,
  * PDF/text production documents) — one flow reused across /cast, /crew,
- * /locations, and /money instead of a bespoke importer per page.
+ * /locations, /money, /transport, /accommodation, and /catering instead
+ * of a bespoke importer per page.
  */
-export type ImportEntityType = "cast" | "crew" | "location" | "expense";
+export type ImportEntityType = "cast" | "crew" | "location" | "expense" | "vehicle" | "driver" | "property" | "vendor";
 
 export interface ImportFieldSpec {
   key: string;
@@ -38,6 +39,27 @@ export const IMPORT_FIELDS: Record<ImportEntityType, ImportFieldSpec[]> = {
     { key: "date", label: "Date", aliases: ["date", "invoice date"] },
     { key: "invoiceNumber", label: "Invoice #", aliases: ["invoice #", "invoice number", "invoice no", "invoice"] },
     { key: "status", label: "Status", aliases: ["status"] },
+  ],
+  vehicle: [
+    { key: "identifier", label: "Identifier", required: true, aliases: ["identifier", "vehicle", "vehicle name", "plate", "name"] },
+    { key: "type", label: "Type", aliases: ["type", "vehicle type"] },
+    { key: "capacity", label: "Capacity", aliases: ["capacity", "seats", "seating"] },
+    { key: "notes", label: "Notes", aliases: ["notes", "comment", "comments"] },
+  ],
+  driver: [
+    { key: "name", label: "Name", required: true, aliases: ["name", "driver", "driver name", "full name"] },
+    { key: "notes", label: "Notes", aliases: ["notes", "comment", "comments"] },
+  ],
+  property: [
+    { key: "name", label: "Name", required: true, aliases: ["name", "property", "property name", "hotel", "hotel name"] },
+    { key: "type", label: "Type", aliases: ["type", "property type"] },
+    { key: "address", label: "Address", aliases: ["address"] },
+    { key: "notes", label: "Notes", aliases: ["notes", "comment", "comments"] },
+  ],
+  vendor: [
+    { key: "name", label: "Name", required: true, aliases: ["name", "vendor", "vendor name", "company"] },
+    { key: "contact", label: "Contact", aliases: ["contact", "phone", "email", "contact info"] },
+    { key: "contractTerms", label: "Contract terms", aliases: ["contract", "contract terms", "terms"] },
   ],
 };
 

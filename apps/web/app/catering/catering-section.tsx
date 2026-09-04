@@ -1,5 +1,6 @@
 "use client";
 
+import { ImportPanel } from "@/components/import-panel";
 import { Shell } from "@/components/shell";
 import type { Production, Scene } from "@filmset/core";
 import {
@@ -787,7 +788,10 @@ export function CateringSection({
         )}
 
         <section className="flex flex-col gap-[var(--fs-space-12)]">
-          <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Vendors</h2>
+          <div className="flex items-center justify-between gap-[var(--fs-space-16)]">
+            <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Vendors</h2>
+            <ImportPanel productionId={productionId} entityType="vendor" />
+          </div>
           <VendorsSection productionId={productionId} vendors={vendors} onChanged={onChanged} />
         </section>
 

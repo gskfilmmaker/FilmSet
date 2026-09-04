@@ -337,6 +337,200 @@ export async function extractCrewCandidates(rawText: string): Promise<ExtractedC
   return (toolUse.input as { records: ExtractedCrewCandidate[] }).records;
 }
 
+export interface ExtractedVehicleCandidate {
+  identifier: string;
+  type: string;
+  capacity: string;
+  notes: string;
+}
+
+const vehicleExtractionTool: Anthropic.Tool = {
+  name: "extract_vehicle_candidates",
+  description: "Extract every vehicle found in this document.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            identifier: { type: "string", description: "The vehicle's name, plate, or other identifier" },
+            type: {
+              type: "string",
+              description:
+                "The vehicle type if stated (e.g. Production Vehicle, Cast Car, VIP Vehicle, Shuttle, Bus, Van, Equipment Vehicle, Picture Vehicle, External Taxi/Chauffeur), otherwise an empty string",
+            },
+            capacity: { type: "string", description: "Seating capacity if stated, otherwise an empty string" },
+            notes: { type: "string", description: "Any other short context stated (empty string if none)" },
+          },
+          required: ["identifier", "type", "capacity", "notes"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/** Same Suggest-step pattern as extractCastCandidates, for a vehicle fleet list document. */
+export async function extractVehicleCandidates(rawText: string): Promise<ExtractedVehicleCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured vehicle data from film production documents (fleet lists, transport plans). " +
+      "Only extract vehicles actually named in the text — never invent one.",
+    messages: [{ role: "user", content: `Extract every vehicle from this document:\n\n${rawText}` }],
+    tools: [vehicleExtractionTool],
+    tool_choice: { type: "tool", name: "extract_vehicle_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any vehicle candidates.");
+  return (toolUse.input as { records: ExtractedVehicleCandidate[] }).records;
+}
+
+export interface ExtractedDriverCandidate {
+  name: string;
+  notes: string;
+}
+
+const driverExtractionTool: Anthropic.Tool = {
+  name: "extract_driver_candidates",
+  description: "Extract every driver found in this document.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The driver's name" },
+            notes: { type: "string", description: "Any other short context stated, e.g. a license/qualification note (empty string if none)" },
+          },
+          required: ["name", "notes"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/** Same Suggest-step pattern as extractCastCandidates, for a driver roster document. */
+export async function extractDriverCandidates(rawText: string): Promise<ExtractedDriverCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured driver data from film production documents (driver rosters, transport plans). " +
+      "Only extract drivers actually named in the text — never invent one.",
+    messages: [{ role: "user", content: `Extract every driver from this document:\n\n${rawText}` }],
+    tools: [driverExtractionTool],
+    tool_choice: { type: "tool", name: "extract_driver_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any driver candidates.");
+  return (toolUse.input as { records: ExtractedDriverCandidate[] }).records;
+}
+
+export interface ExtractedPropertyCandidate {
+  name: string;
+  type: string;
+  address: string;
+  notes: string;
+}
+
+const propertyExtractionTool: Anthropic.Tool = {
+  name: "extract_property_candidates",
+  description: "Extract every accommodation property found in this document.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The property's name" },
+            type: { type: "string", description: "HOTEL, APARTMENT, HOUSE, TRAILER, or OTHER if stated, otherwise an empty string" },
+            address: { type: "string", description: "The property's address if stated, otherwise an empty string" },
+            notes: { type: "string", description: "Any other short context stated (empty string if none)" },
+          },
+          required: ["name", "type", "address", "notes"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/** Same Suggest-step pattern as extractCastCandidates, for a hotel/property list document. */
+export async function extractPropertyCandidates(rawText: string): Promise<ExtractedPropertyCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured accommodation-property data from film production documents (hotel lists, booking confirmations). " +
+      "Only extract properties actually named in the text — never invent one.",
+    messages: [{ role: "user", content: `Extract every accommodation property from this document:\n\n${rawText}` }],
+    tools: [propertyExtractionTool],
+    tool_choice: { type: "tool", name: "extract_property_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any property candidates.");
+  return (toolUse.input as { records: ExtractedPropertyCandidate[] }).records;
+}
+
+export interface ExtractedVendorCandidate {
+  name: string;
+  contact: string;
+  contractTerms: string;
+}
+
+const vendorExtractionTool: Anthropic.Tool = {
+  name: "extract_vendor_candidates",
+  description: "Extract every catering vendor found in this document.",
+  input_schema: {
+    type: "object",
+    properties: {
+      records: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string", description: "The vendor's name" },
+            contact: { type: "string", description: "Phone, email, or other contact info if stated, otherwise an empty string" },
+            contractTerms: { type: "string", description: "Contract terms if stated, otherwise an empty string" },
+          },
+          required: ["name", "contact", "contractTerms"],
+        },
+      },
+    },
+    required: ["records"],
+  },
+};
+
+/** Same Suggest-step pattern as extractCastCandidates, for a catering vendor list document. */
+export async function extractVendorCandidates(rawText: string): Promise<ExtractedVendorCandidate[]> {
+  const message = await getClient().messages.create({
+    model: MODEL,
+    max_tokens: 4096,
+    system:
+      "You extract structured catering-vendor data from film production documents (vendor lists, catering contracts). " +
+      "Only extract vendors actually named in the text — never invent one.",
+    messages: [{ role: "user", content: `Extract every catering vendor from this document:\n\n${rawText}` }],
+    tools: [vendorExtractionTool],
+    tool_choice: { type: "tool", name: "extract_vendor_candidates" },
+  });
+
+  const toolUse = message.content.find((block): block is Anthropic.ToolUseBlock => block.type === "tool_use");
+  if (!toolUse) throw new Error("FilmSet AI did not return any vendor candidates.");
+  return (toolUse.input as { records: ExtractedVendorCandidate[] }).records;
+}
+
 export async function answerQuestion(snapshot: ProductionSnapshot, question: string): Promise<string> {
   const message = await getClient().messages.create({
     model: MODEL,

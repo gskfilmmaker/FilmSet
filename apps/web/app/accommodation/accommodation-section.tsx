@@ -1,5 +1,6 @@
 "use client";
 
+import { ImportPanel } from "@/components/import-panel";
 import { Shell } from "@/components/shell";
 import type { Production, Scene } from "@filmset/core";
 import {
@@ -738,7 +739,10 @@ export function AccommodationSection({
         <h1 className="text-[22px] font-semibold leading-[28px] text-[var(--color-text-primary)]">Accommodation</h1>
 
         <section className="flex flex-col gap-[var(--fs-space-12)]">
-          <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Properties</h2>
+          <div className="flex items-center justify-between gap-[var(--fs-space-16)]">
+            <h2 className="text-[13px] font-semibold text-[var(--color-text-primary)]">Properties</h2>
+            <ImportPanel productionId={productionId} entityType="property" />
+          </div>
           <PropertiesList productionId={productionId} properties={properties} onChanged={onChanged} />
         </section>
 
