@@ -6,7 +6,7 @@
 
 Security & Access, Phase B, Part 1 — opens write access (INSERT/UPDATE/DELETE) on 11 of the 15 tables P16 (migration 0025) created empty and read-only. This is what makes the new **Security & Access** admin screens (Identities, Credentials, Resources, Checkpoints, Devices tabs) actually able to save changes; until this runs, that screen will load and display correctly, but every add/edit/delete action will fail with a permissions error.
 
-**This is purely additive: 30 new `CREATE POLICY` statements, zero table changes.** No table is created, altered, or dropped. No existing row anywhere — in this domain or any other — is read, changed, or deleted by this script.
+**This is purely additive: 32 new `CREATE POLICY` statements, zero table changes.** No table is created, altered, or dropped. No existing row anywhere — in this domain or any other — is read, changed, or deleted by this script.
 
 ## What this adds
 
@@ -70,7 +70,7 @@ Reply with confirmation that you saw the exact success `NOTICE` message above. N
 -- Applies migration 0026_access_control_write_policies.sql against live
 -- Supabase.
 --
--- This is purely additive: 30 new CREATE POLICY statements across 11
+-- This is purely additive: 32 new CREATE POLICY statements across 11
 -- existing tables (shipped empty and read-only by P16/0025). No table is
 -- created, altered, or dropped; no existing row anywhere is touched.
 --

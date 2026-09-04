@@ -5,7 +5,7 @@
 -- Applies migration 0026_access_control_write_policies.sql against live
 -- Supabase.
 --
--- This is purely additive: 30 new CREATE POLICY statements across 11
+-- This is purely additive: 32 new CREATE POLICY statements across 11
 -- existing tables (shipped empty and read-only by P16/0025). No table is
 -- created, altered, or dropped; no existing row anywhere is touched.
 --
