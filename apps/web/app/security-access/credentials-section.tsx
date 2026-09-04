@@ -77,6 +77,7 @@ function CredentialForm({ value, onChange, identityOptions }: { value: Credentia
         value={value.credentialNumber}
         onChange={(e) => onChange({ ...value, credentialNumber: e.target.value })}
         containerClassName="min-w-[160px]"
+        required
       />
       <div className="flex flex-col gap-[4px]">
         <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Type</label>
@@ -178,6 +179,14 @@ export function CredentialsSection({
 
   async function onAdd(e: React.FormEvent) {
     e.preventDefault();
+    if (!addForm.identityId) {
+      toast({ tone: "danger", title: "Choose an identity", description: "Pick who this credential is issued to before adding it." });
+      return;
+    }
+    if (!addForm.credentialNumber.trim()) {
+      toast({ tone: "danger", title: "Credential number is required", description: "Enter a badge number, e.g. VMPA-CR-000482." });
+      return;
+    }
     setSaving(true);
     try {
       await createCredential(productionId, addForm);
@@ -208,6 +217,10 @@ export function CredentialsSection({
 
   async function onSaveEdit(e: React.FormEvent, id: string) {
     e.preventDefault();
+    if (!editForm.credentialNumber.trim()) {
+      toast({ tone: "danger", title: "Credential number is required", description: "Enter a badge number, e.g. VMPA-CR-000482." });
+      return;
+    }
     setPendingId(id);
     try {
       await updateCredential(productionId, id, editForm);
