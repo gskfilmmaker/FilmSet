@@ -11,6 +11,7 @@ import type {
   AntiPassbackMode,
   CredentialStatus,
   CredentialType,
+  DayOfWeek,
   DeviceStatus,
   DeviceType,
   DirectionMode,
@@ -20,6 +21,7 @@ import type {
   ResourceType,
   SecurityClass,
   SecurityLevel,
+  TemporaryGrantStatus,
 } from "./constants";
 
 /** Every write in this domain is Producer-gated (owner's spec: "no implicit superuser based merely on being production crew") — the RLS write policies (0026) are the membership backstop, this is the actual authorization check. */
@@ -398,5 +400,323 @@ export async function deleteDevice(productionId: string, id: string) {
   await requireSecurityAdmin(productionId);
   await runAsUser(user.id, (db) =>
     db.delete(schema.accessDevices).where(and(eq(schema.accessDevices.id, id), eq(schema.accessDevices.productionId, productionId))),
+  );
+}
+
+// ============================================================================
+// Access Profiles (Phase B, Part 2) — named, reusable templates. §9.
+// ============================================================================
+
+export interface ProfileInput {
+  name: string;
+  description: string | null;
+}
+
+function validateProfile(input: ProfileInput) {
+  const name = input.name.trim();
+  if (!name) throw new Error("Name is required.");
+  return { name, description: input.description?.trim() || null };
+}
+
+export async function createProfile(productionId: string, input: ProfileInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateProfile(input);
+  const id = crypto.randomUUID();
+  await runAsUser(user.id, (db) => db.insert(schema.accessProfiles).values({ id, productionId, ...values }));
+  return id;
+}
+
+export async function updateProfile(productionId: string, id: string, input: ProfileInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateProfile(input);
+  await runAsUser(user.id, (db) =>
+    db.update(schema.accessProfiles).set(values).where(and(eq(schema.accessProfiles.id, id), eq(schema.accessProfiles.productionId, productionId))),
+  );
+}
+
+export async function deleteProfile(productionId: string, id: string) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  await runAsUser(user.id, (db) =>
+    db.delete(schema.accessProfiles).where(and(eq(schema.accessProfiles.id, id), eq(schema.accessProfiles.productionId, productionId))),
+  );
+}
+
+// ============================================================================
+// Access Profile Rules — one allowed-resource rule within a profile.
+// ============================================================================
+
+export interface ProfileRuleInput {
+  profileId: string;
+  resourceId: string;
+  daysOfWeek: DayOfWeek[] | null;
+  timeStart: string | null;
+  timeEnd: string | null;
+  minimumAssuranceLevel: AssuranceLevel | null;
+  escortRequired: boolean;
+}
+
+function validateProfileRule(input: ProfileRuleInput) {
+  if (!input.profileId) throw new Error("Choose which profile this rule belongs to.");
+  if (!input.resourceId) throw new Error("Choose which resource this rule allows.");
+  const timeStart = input.timeStart?.trim() || null;
+  const timeEnd = input.timeEnd?.trim() || null;
+  if (timeStart && timeEnd && timeStart > timeEnd) throw new Error("Time start must be before time end.");
+  return {
+    profileId: input.profileId,
+    resourceId: input.resourceId,
+    daysOfWeek: input.daysOfWeek && input.daysOfWeek.length > 0 ? input.daysOfWeek : null,
+    timeStart,
+    timeEnd,
+    minimumAssuranceLevel: input.minimumAssuranceLevel,
+    escortRequired: input.escortRequired,
+  };
+}
+
+export async function createProfileRule(productionId: string, input: ProfileRuleInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateProfileRule(input);
+  const id = crypto.randomUUID();
+  await runAsUser(user.id, (db) => db.insert(schema.accessProfileRules).values({ id, productionId, ...values }));
+  return id;
+}
+
+export async function updateProfileRule(productionId: string, id: string, input: ProfileRuleInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateProfileRule(input);
+  await runAsUser(user.id, (db) =>
+    db.update(schema.accessProfileRules).set(values).where(and(eq(schema.accessProfileRules.id, id), eq(schema.accessProfileRules.productionId, productionId))),
+  );
+}
+
+export async function deleteProfileRule(productionId: string, id: string) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  await runAsUser(user.id, (db) =>
+    db.delete(schema.accessProfileRules).where(and(eq(schema.accessProfileRules.id, id), eq(schema.accessProfileRules.productionId, productionId))),
+  );
+}
+
+// ============================================================================
+// Access Identity Profiles — assign/unassign only, never edited in place
+// (matches migration 0026's own header comment).
+// ============================================================================
+
+export interface IdentityProfileInput {
+  identityId: string;
+  profileId: string;
+}
+
+export async function assignProfile(productionId: string, input: IdentityProfileInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  if (!input.identityId) throw new Error("Choose which identity to assign.");
+  if (!input.profileId) throw new Error("Choose which profile to assign.");
+  const id = crypto.randomUUID();
+  await runAsUser(user.id, (db) =>
+    db.insert(schema.accessIdentityProfiles).values({ id, productionId, identityId: input.identityId, profileId: input.profileId, assignedBy: user.id }),
+  );
+  return id;
+}
+
+export async function unassignProfile(productionId: string, id: string) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  await runAsUser(user.id, (db) =>
+    db.delete(schema.accessIdentityProfiles).where(and(eq(schema.accessIdentityProfiles.id, id), eq(schema.accessIdentityProfiles.productionId, productionId))),
+  );
+}
+
+// ============================================================================
+// Access Grants — direct, individual resource overrides. §9.
+// ============================================================================
+
+export interface GrantInput {
+  identityId: string;
+  resourceId: string;
+  validFrom: string | null;
+  validUntil: string | null;
+  daysOfWeek: DayOfWeek[] | null;
+  timeStart: string | null;
+  timeEnd: string | null;
+  reason: string | null;
+}
+
+function validateGrant(input: GrantInput) {
+  if (!input.identityId) throw new Error("Choose which identity this grant is for.");
+  if (!input.resourceId) throw new Error("Choose which resource this grant allows.");
+  const validFrom = input.validFrom?.trim() ? new Date(input.validFrom) : null;
+  const validUntil = input.validUntil?.trim() ? new Date(input.validUntil) : null;
+  if (validFrom && validUntil && validFrom > validUntil) throw new Error("Valid-from must be before valid-until.");
+  const timeStart = input.timeStart?.trim() || null;
+  const timeEnd = input.timeEnd?.trim() || null;
+  if (timeStart && timeEnd && timeStart > timeEnd) throw new Error("Time start must be before time end.");
+  return {
+    identityId: input.identityId,
+    resourceId: input.resourceId,
+    validFrom,
+    validUntil,
+    daysOfWeek: input.daysOfWeek && input.daysOfWeek.length > 0 ? input.daysOfWeek : null,
+    timeStart,
+    timeEnd,
+    reason: input.reason?.trim() || null,
+  };
+}
+
+export async function createGrant(productionId: string, input: GrantInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateGrant(input);
+  const id = crypto.randomUUID();
+  await runAsUser(user.id, (db) => db.insert(schema.accessGrants).values({ id, productionId, grantedBy: user.id, ...values }));
+  return id;
+}
+
+export async function updateGrant(productionId: string, id: string, input: GrantInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateGrant(input);
+  await runAsUser(user.id, (db) =>
+    db.update(schema.accessGrants).set(values).where(and(eq(schema.accessGrants.id, id), eq(schema.accessGrants.productionId, productionId))),
+  );
+}
+
+export async function deleteGrant(productionId: string, id: string) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  await runAsUser(user.id, (db) =>
+    db.delete(schema.accessGrants).where(and(eq(schema.accessGrants.id, id), eq(schema.accessGrants.productionId, productionId))),
+  );
+}
+
+// ============================================================================
+// Access Restrictions — explicit blocks, override grants. §31.
+// ============================================================================
+
+export interface RestrictionInput {
+  identityId: string;
+  resourceId: string | null;
+  reason: string;
+  validFrom: string | null;
+  validUntil: string | null;
+}
+
+function validateRestriction(input: RestrictionInput) {
+  if (!input.identityId) throw new Error("Choose which identity this restriction applies to.");
+  const reason = input.reason.trim();
+  if (!reason) throw new Error("A reason is required for a restriction.");
+  const validFrom = input.validFrom?.trim() ? new Date(input.validFrom) : null;
+  const validUntil = input.validUntil?.trim() ? new Date(input.validUntil) : null;
+  if (validFrom && validUntil && validFrom > validUntil) throw new Error("Valid-from must be before valid-until.");
+  return {
+    identityId: input.identityId,
+    resourceId: input.resourceId || null,
+    reason,
+    validFrom,
+    validUntil,
+  };
+}
+
+export async function createRestriction(productionId: string, input: RestrictionInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateRestriction(input);
+  const id = crypto.randomUUID();
+  await runAsUser(user.id, (db) => db.insert(schema.accessRestrictions).values({ id, productionId, createdBy: user.id, ...values }));
+  return id;
+}
+
+export async function updateRestriction(productionId: string, id: string, input: RestrictionInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateRestriction(input);
+  await runAsUser(user.id, (db) =>
+    db.update(schema.accessRestrictions).set(values).where(and(eq(schema.accessRestrictions.id, id), eq(schema.accessRestrictions.productionId, productionId))),
+  );
+}
+
+export async function deleteRestriction(productionId: string, id: string) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  await runAsUser(user.id, (db) =>
+    db.delete(schema.accessRestrictions).where(and(eq(schema.accessRestrictions.id, id), eq(schema.accessRestrictions.productionId, productionId))),
+  );
+}
+
+// ============================================================================
+// Access Temporary Grants — time-boxed requests with a request/approve
+// workflow (requestedBy stamped at create; approvedBy stamped the first
+// time status moves to APPROVED, mirroring stampStatusTransition above).
+// ============================================================================
+
+export interface TemporaryGrantInput {
+  identityId: string;
+  resourceId: string;
+  validFrom: string;
+  validUntil: string;
+  reason: string | null;
+  status: TemporaryGrantStatus;
+}
+
+function validateTemporaryGrant(input: TemporaryGrantInput) {
+  if (!input.identityId) throw new Error("Choose which identity this request is for.");
+  if (!input.resourceId) throw new Error("Choose which resource this request is for.");
+  if (!input.validFrom?.trim()) throw new Error("Valid-from is required.");
+  if (!input.validUntil?.trim()) throw new Error("Valid-until is required.");
+  const validFrom = new Date(input.validFrom);
+  const validUntil = new Date(input.validUntil);
+  if (validFrom > validUntil) throw new Error("Valid-from must be before valid-until.");
+  return {
+    identityId: input.identityId,
+    resourceId: input.resourceId,
+    validFrom,
+    validUntil,
+    reason: input.reason?.trim() || null,
+    status: input.status,
+  };
+}
+
+function stampApproval(user: { id: string }, previousStatus: TemporaryGrantStatus | null, nextStatus: TemporaryGrantStatus): { approvedBy?: string } {
+  if (nextStatus === "APPROVED" && previousStatus !== "APPROVED") return { approvedBy: user.id };
+  return {};
+}
+
+export async function createTemporaryGrant(productionId: string, input: TemporaryGrantInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateTemporaryGrant(input);
+  const id = crypto.randomUUID();
+  const stamps = stampApproval(user, null, values.status);
+  await runAsUser(user.id, (db) => db.insert(schema.accessTemporaryGrants).values({ id, productionId, requestedBy: user.id, ...values, ...stamps }));
+  return id;
+}
+
+export async function updateTemporaryGrant(productionId: string, id: string, input: TemporaryGrantInput) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  const values = validateTemporaryGrant(input);
+  await runAsUser(user.id, async (db) => {
+    const [existing] = await db
+      .select({ status: schema.accessTemporaryGrants.status })
+      .from(schema.accessTemporaryGrants)
+      .where(and(eq(schema.accessTemporaryGrants.id, id), eq(schema.accessTemporaryGrants.productionId, productionId)))
+      .limit(1);
+    const stamps = stampApproval(user, (existing?.status as TemporaryGrantStatus) ?? null, values.status);
+    await db
+      .update(schema.accessTemporaryGrants)
+      .set({ ...values, ...stamps })
+      .where(and(eq(schema.accessTemporaryGrants.id, id), eq(schema.accessTemporaryGrants.productionId, productionId)));
+  });
+}
+
+export async function deleteTemporaryGrant(productionId: string, id: string) {
+  const user = await requireUser();
+  await requireSecurityAdmin(productionId);
+  await runAsUser(user.id, (db) =>
+    db.delete(schema.accessTemporaryGrants).where(and(eq(schema.accessTemporaryGrants.id, id), eq(schema.accessTemporaryGrants.productionId, productionId))),
   );
 }

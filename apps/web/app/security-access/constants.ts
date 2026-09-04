@@ -54,3 +54,9 @@ export type DeviceType = (typeof DEVICE_TYPES)[number];
 
 export const DEVICE_STATUSES = ["PENDING", "TRUSTED", "SUSPENDED", "REVOKED"] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
+
+export const DAYS_OF_WEEK = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
+export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+export const TEMPORARY_GRANT_STATUSES = ["PENDING", "APPROVED", "DENIED", "EXPIRED", "REVOKED"] as const;
+export type TemporaryGrantStatus = (typeof TEMPORARY_GRANT_STATUSES)[number];
