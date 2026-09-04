@@ -4,6 +4,16 @@ import { requireProductionMember } from "@/lib/authz";
 import { requireUser } from "@filmset/auth/server";
 import { runAsUser, schema } from "@filmset/db/server";
 import { and, eq } from "drizzle-orm";
+import {
+  parseOptionalPrice,
+  validateCateringCurrency,
+  validateMenuCategory,
+  validateMenuDietType,
+  validatePackagingType,
+  validateProfileDietType,
+  validateServiceStyle,
+  validateSpiceLevel,
+} from "./constants";
 
 /**
  * Real, data-backed Server Actions for the Catering domain
@@ -28,10 +38,21 @@ function validatePerson(personType: "CAST" | "CREW", personId: string) {
   return personType;
 }
 
-export async function createDietaryProfile(productionId: string, personType: "CAST" | "CREW", personId: string, notes: string) {
+export interface DietaryPreferencesInput {
+  notes: string;
+  /** VEGETARIAN | NON_VEGETARIAN | VEGAN | EGGETARIAN | JAIN | HALAL | KOSHER — a standing preference, distinct from the graded allergy severities in dietary_requirements. */
+  dietType: string;
+  beveragePreference: string;
+  /** MILD | MEDIUM | HOT. */
+  spicePreference: string;
+}
+
+export async function createDietaryProfile(productionId: string, personType: "CAST" | "CREW", personId: string, input: DietaryPreferencesInput) {
   const user = await requireUser();
   await requireProductionMember(productionId, ["Producer"]);
   validatePerson(personType, personId);
+  const dietType = validateProfileDietType(input.dietType);
+  const spicePreference = validateSpiceLevel(input.spicePreference);
 
   const id = crypto.randomUUID();
   await runAsUser(user.id, (db) =>
@@ -41,19 +62,30 @@ export async function createDietaryProfile(productionId: string, personType: "CA
       personType,
       castMemberId: personType === "CAST" ? personId : null,
       crewMemberId: personType === "CREW" ? personId : null,
-      notes: notes.trim() || null,
+      notes: input.notes.trim() || null,
+      dietType,
+      beveragePreference: input.beveragePreference.trim() || null,
+      spicePreference,
     }),
   );
   return id;
 }
 
-export async function updateDietaryProfileNotes(productionId: string, profileId: string, notes: string) {
+export async function updateDietaryProfile(productionId: string, profileId: string, input: DietaryPreferencesInput) {
   const user = await requireUser();
   await requireProductionMember(productionId, ["Producer"]);
+  const dietType = validateProfileDietType(input.dietType);
+  const spicePreference = validateSpiceLevel(input.spicePreference);
   await runAsUser(user.id, (db) =>
     db
       .update(schema.dietaryProfiles)
-      .set({ notes: notes.trim() || null, updatedAt: new Date() })
+      .set({
+        notes: input.notes.trim() || null,
+        dietType,
+        beveragePreference: input.beveragePreference.trim() || null,
+        spicePreference,
+        updatedAt: new Date(),
+      })
       .where(and(eq(schema.dietaryProfiles.id, profileId), eq(schema.dietaryProfiles.productionId, productionId))),
   );
 }
@@ -138,15 +170,78 @@ export async function deleteVendor(productionId: string, id: string) {
   });
 }
 
-export async function createMealService(productionId: string, date: string, mealType: "BREAKFAST" | "LUNCH" | "DINNER" | "CRAFT", locationId: string | null) {
+export interface HospitalityDetailsInput {
+  /** BUFFET | PLATED | PACKED_BOXES | FAMILY_STYLE. */
+  serviceStyle: string;
+  /** DISPOSABLE_ECO | DISPOSABLE_STANDARD | REUSABLE | PLATED. */
+  packagingType: string;
+  /** Free-text clock time (e.g. "12:30 PM") — the service's own `date` already carries the day. */
+  serviceTime: string;
+  headcountConfirmed: string;
+  hospitalityNotes: string;
+}
+
+function parseOptionalHeadcount(value: string): number | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  if (!Number.isInteger(parsed) || parsed < 0) throw new Error("Confirmed headcount must be a non-negative whole number.");
+  return parsed;
+}
+
+export async function createMealService(
+  productionId: string,
+  date: string,
+  mealType: "BREAKFAST" | "LUNCH" | "DINNER" | "CRAFT",
+  locationId: string | null,
+  hospitality?: HospitalityDetailsInput,
+) {
   const user = await requireUser();
   await requireProductionMember(productionId);
   const parsedDate = new Date(date);
   if (Number.isNaN(parsedDate.getTime())) throw new Error("A valid date is required.");
+  const serviceStyle = hospitality ? validateServiceStyle(hospitality.serviceStyle) : null;
+  const packagingType = hospitality ? validatePackagingType(hospitality.packagingType) : null;
+  const headcountConfirmed = hospitality ? parseOptionalHeadcount(hospitality.headcountConfirmed) : null;
 
   const id = crypto.randomUUID();
-  await runAsUser(user.id, (db) => db.insert(schema.mealServices).values({ id, productionId, date: parsedDate, mealType, locationId }));
+  await runAsUser(user.id, (db) =>
+    db.insert(schema.mealServices).values({
+      id,
+      productionId,
+      date: parsedDate,
+      mealType,
+      locationId,
+      serviceStyle,
+      packagingType,
+      serviceTime: hospitality?.serviceTime.trim() || null,
+      headcountConfirmed,
+      hospitalityNotes: hospitality?.hospitalityNotes.trim() || null,
+    }),
+  );
   return id;
+}
+
+export async function updateMealServiceDetails(productionId: string, serviceId: string, hospitality: HospitalityDetailsInput) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const serviceStyle = validateServiceStyle(hospitality.serviceStyle);
+  const packagingType = validatePackagingType(hospitality.packagingType);
+  const headcountConfirmed = parseOptionalHeadcount(hospitality.headcountConfirmed);
+
+  await runAsUser(user.id, (db) =>
+    db
+      .update(schema.mealServices)
+      .set({
+        serviceStyle,
+        packagingType,
+        serviceTime: hospitality.serviceTime.trim() || null,
+        headcountConfirmed,
+        hospitalityNotes: hospitality.hospitalityNotes.trim() || null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(schema.mealServices.id, serviceId), eq(schema.mealServices.productionId, productionId))),
+  );
 }
 
 export async function deleteMealService(productionId: string, id: string) {
@@ -195,10 +290,19 @@ export async function removeServiceAssignment(productionId: string, serviceId: s
   });
 }
 
-/** Creates a catering order: one `bookings` row (type "CATERING", subject pointing back at the new order) plus the `catering_orders` row itself, in a single transaction — mirrors bookStay()/createMovement() exactly. */
-export async function createCateringOrder(productionId: string, serviceId: string, vendorId: string | null, notes: string) {
+export interface CateringOrderItemInput {
+  menuItemId: string;
+  quantity: number;
+}
+
+/** Creates a catering order: one `bookings` row (type "CATERING", subject pointing back at the new order), the `catering_orders` row, and optionally one `catering_order_items` row per selected menu item, all in a single transaction — mirrors bookStay()/createMovement() exactly. Items are optional (a vendor-only order with details TBD is still valid). */
+export async function createCateringOrder(productionId: string, serviceId: string, vendorId: string | null, notes: string, items: CateringOrderItemInput[] = []) {
   const user = await requireUser();
   await requireProductionMember(productionId);
+  for (const item of items) {
+    if (!item.menuItemId) throw new Error("Choose a menu item for each order line.");
+    if (!Number.isInteger(item.quantity) || item.quantity < 1) throw new Error("Quantity must be a positive whole number.");
+  }
 
   const orderId = crypto.randomUUID();
   const bookingId = crypto.randomUUID();
@@ -212,6 +316,20 @@ export async function createCateringOrder(productionId: string, serviceId: strin
         .limit(1);
       if (!service) throw new Error("Meal service not found in this production.");
 
+      if (items.length > 0) {
+        const menuItemIds = new Set(
+          (
+            await tx
+              .select({ id: schema.menuItems.id })
+              .from(schema.menuItems)
+              .where(eq(schema.menuItems.productionId, productionId))
+          ).map((r) => r.id),
+        );
+        for (const item of items) {
+          if (!menuItemIds.has(item.menuItemId)) throw new Error("Menu item not found in this production.");
+        }
+      }
+
       await tx.insert(schema.bookings).values({
         id: bookingId,
         productionId,
@@ -222,6 +340,9 @@ export async function createCateringOrder(productionId: string, serviceId: strin
         subjectId: orderId,
       });
       await tx.insert(schema.cateringOrders).values({ id: orderId, serviceId, vendorId, bookingId, notes: notes.trim() || null });
+      if (items.length > 0) {
+        await tx.insert(schema.cateringOrderItems).values(items.map((item) => ({ id: crypto.randomUUID(), orderId, menuItemId: item.menuItemId, quantity: item.quantity })));
+      }
     }),
   );
 
@@ -249,4 +370,112 @@ export async function cancelCateringOrder(productionId: string, orderId: string,
       await tx.insert(schema.bookingCancellations).values({ bookingId: order.bookingId, reason: trimmedReason });
     }),
   );
+}
+
+export interface MenuItemInput {
+  vendorId: string;
+  name: string;
+  category: string;
+  cuisine: string;
+  dietType: string;
+  spiceLevel: string;
+  packagingType: string;
+  price: string;
+  currency: string;
+  notes: string;
+}
+
+/** Creates a menu catalog item — vendorId is optional (a dish can exist before it's tied to a specific vendor). */
+export async function createMenuItem(productionId: string, input: MenuItemInput) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const name = input.name.trim();
+  if (!name) throw new Error("Item name is required.");
+  const category = validateMenuCategory(input.category);
+  const dietType = validateMenuDietType(input.dietType);
+  const spiceLevel = validateSpiceLevel(input.spiceLevel);
+  const packagingType = validatePackagingType(input.packagingType);
+  const price = parseOptionalPrice(input.price);
+  const currency = validateCateringCurrency(input.currency);
+
+  const id = crypto.randomUUID();
+  await runAsUser(user.id, async (db) => {
+    if (input.vendorId) {
+      const [vendor] = await db
+        .select({ id: schema.cateringVendors.id })
+        .from(schema.cateringVendors)
+        .where(and(eq(schema.cateringVendors.id, input.vendorId), eq(schema.cateringVendors.productionId, productionId)))
+        .limit(1);
+      if (!vendor) throw new Error("Vendor not found in this production.");
+    }
+    await db.insert(schema.menuItems).values({
+      id,
+      productionId,
+      vendorId: input.vendorId || null,
+      name,
+      category,
+      cuisine: input.cuisine.trim() || null,
+      dietType,
+      spiceLevel,
+      packagingType,
+      price,
+      currency,
+      notes: input.notes.trim() || null,
+    });
+  });
+  return id;
+}
+
+export async function updateMenuItem(productionId: string, itemId: string, input: MenuItemInput) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  const name = input.name.trim();
+  if (!name) throw new Error("Item name is required.");
+  const category = validateMenuCategory(input.category);
+  const dietType = validateMenuDietType(input.dietType);
+  const spiceLevel = validateSpiceLevel(input.spiceLevel);
+  const packagingType = validatePackagingType(input.packagingType);
+  const price = parseOptionalPrice(input.price);
+  const currency = validateCateringCurrency(input.currency);
+
+  await runAsUser(user.id, async (db) => {
+    if (input.vendorId) {
+      const [vendor] = await db
+        .select({ id: schema.cateringVendors.id })
+        .from(schema.cateringVendors)
+        .where(and(eq(schema.cateringVendors.id, input.vendorId), eq(schema.cateringVendors.productionId, productionId)))
+        .limit(1);
+      if (!vendor) throw new Error("Vendor not found in this production.");
+    }
+    await db
+      .update(schema.menuItems)
+      .set({
+        vendorId: input.vendorId || null,
+        name,
+        category,
+        cuisine: input.cuisine.trim() || null,
+        dietType,
+        spiceLevel,
+        packagingType,
+        price,
+        currency,
+        notes: input.notes.trim() || null,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(schema.menuItems.id, itemId), eq(schema.menuItems.productionId, productionId)));
+  });
+}
+
+export async function deleteMenuItem(productionId: string, itemId: string) {
+  const user = await requireUser();
+  await requireProductionMember(productionId);
+  await runAsUser(user.id, async (db) => {
+    const orderItemRows = await db
+      .select({ id: schema.cateringOrderItems.id })
+      .from(schema.cateringOrderItems)
+      .where(eq(schema.cateringOrderItems.menuItemId, itemId))
+      .limit(1);
+    if (orderItemRows.length > 0) throw new Error("This item is used on a catering order — remove it from that order before deleting the item.");
+    await db.delete(schema.menuItems).where(and(eq(schema.menuItems.id, itemId), eq(schema.menuItems.productionId, productionId)));
+  });
 }

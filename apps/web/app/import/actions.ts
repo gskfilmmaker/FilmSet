@@ -2,7 +2,7 @@
 
 import { createProperty, updateProperty, type PropertyInput } from "@/app/accommodation/actions";
 import { createCastMember, updateCastMember, type CastMemberInput } from "@/app/cast/actions";
-import { createVendor, type VendorInput } from "@/app/catering/actions";
+import { createMenuItem, createVendor, updateMenuItem, type MenuItemInput, type VendorInput } from "@/app/catering/actions";
 import { createCrewMember, updateCrewMember, type CrewMemberInput } from "@/app/crew/actions";
 import { createCatalogItem, createEquipmentVendor, updateCatalogItem, type EquipmentCatalogItemInput, type EquipmentVendorInput } from "@/app/equipment/actions";
 import { createLocation, updateLocation, type LocationInput } from "@/app/locations/actions";
@@ -90,6 +90,11 @@ async function existingKeysFor(entityType: ImportEntityType, productionId: strin
   } else if (entityType === "equipmentCatalogItem") {
     const rows = await runAsUser(userId, (db) =>
       db.select({ id: schema.equipmentCatalogItems.id, name: schema.equipmentCatalogItems.name }).from(schema.equipmentCatalogItems).where(eq(schema.equipmentCatalogItems.productionId, productionId)),
+    );
+    for (const i of rows) map.set(i.name.toLowerCase(), i.id);
+  } else if (entityType === "cateringMenuItem") {
+    const rows = await runAsUser(userId, (db) =>
+      db.select({ id: schema.menuItems.id, name: schema.menuItems.name }).from(schema.menuItems).where(eq(schema.menuItems.productionId, productionId)),
     );
     for (const i of rows) map.set(i.name.toLowerCase(), i.id);
   }
@@ -191,6 +196,15 @@ export async function commitImport(productionId: string, entityType: ImportEntit
   if (entityType === "equipmentCatalogItem") {
     const rows = await runAsUser(user.id, (db) => db.select().from(schema.equipmentVendors).where(eq(schema.equipmentVendors.productionId, productionId)));
     for (const v of rows) equipmentVendorIdByName.set(v.name.toLowerCase(), v.id);
+  }
+  const existingMenuItems =
+    entityType === "cateringMenuItem"
+      ? await runAsUser(user.id, (db) => db.select().from(schema.menuItems).where(eq(schema.menuItems.productionId, productionId)))
+      : [];
+  const cateringVendorIdByName = new Map<string, string>();
+  if (entityType === "cateringMenuItem") {
+    const rows = await runAsUser(user.id, (db) => db.select().from(schema.cateringVendors).where(eq(schema.cateringVendors.productionId, productionId)));
+    for (const v of rows) cateringVendorIdByName.set(v.name.toLowerCase(), v.id);
   }
   let created = 0;
   let updated = 0;
@@ -373,6 +387,37 @@ export async function commitImport(productionId: string, entityType: ImportEntit
         updated++;
       } else {
         await createCatalogItem(productionId, input);
+        created++;
+      }
+    } else if (entityType === "cateringMenuItem") {
+      const existing = candidate.matchedId ? existingMenuItems.find((i) => i.id === candidate.matchedId) : undefined;
+      const name = candidate.fields.name ?? existing?.name;
+      if (!name) continue;
+      // Vendor is optional on a menu item (unlike equipmentCatalogItem) — resolve/auto-create
+      // only when the row actually names one, same auto-linking pattern as equipmentCatalogItem.
+      const vendorText = candidate.fields.vendor?.trim();
+      let vendorId = vendorText ? cateringVendorIdByName.get(vendorText.toLowerCase()) : (existing?.vendorId ?? undefined);
+      if (!vendorId && vendorText) {
+        vendorId = await createVendor(productionId, { name: vendorText, contact: "", contractTerms: "" });
+        cateringVendorIdByName.set(vendorText.toLowerCase(), vendorId);
+      }
+      const input: MenuItemInput = {
+        vendorId: vendorId ?? "",
+        name,
+        category: candidate.fields.category ?? existing?.category ?? "",
+        cuisine: candidate.fields.cuisine ?? existing?.cuisine ?? "",
+        dietType: candidate.fields.dietType ?? existing?.dietType ?? "",
+        spiceLevel: candidate.fields.spiceLevel ?? existing?.spiceLevel ?? "",
+        packagingType: candidate.fields.packagingType ?? existing?.packagingType ?? "",
+        price: candidate.fields.price ?? existing?.price ?? "",
+        currency: candidate.fields.currency ?? existing?.currency ?? "",
+        notes: candidate.fields.notes ?? existing?.notes ?? "",
+      };
+      if (existing) {
+        await updateMenuItem(productionId, existing.id, input);
+        updated++;
+      } else {
+        await createMenuItem(productionId, input);
         created++;
       }
     }

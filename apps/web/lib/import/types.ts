@@ -4,7 +4,7 @@
  * /locations, /money, /transport, /accommodation, /catering, and
  * /equipment instead of a bespoke importer per page.
  */
-export type ImportEntityType = "cast" | "crew" | "location" | "expense" | "vehicle" | "driver" | "property" | "vendor" | "equipmentVendor" | "equipmentCatalogItem";
+export type ImportEntityType = "cast" | "crew" | "location" | "expense" | "vehicle" | "driver" | "property" | "vendor" | "equipmentVendor" | "equipmentCatalogItem" | "cateringMenuItem";
 
 export interface ImportFieldSpec {
   key: string;
@@ -72,6 +72,18 @@ export const IMPORT_FIELDS: Record<ImportEntityType, ImportFieldSpec[]> = {
     { key: "category", label: "Category", aliases: ["category", "type"] },
     { key: "vendor", label: "Vendor", aliases: ["vendor", "vendor name", "rental house", "supplier"] },
     { key: "dailyRate", label: "Daily rate", aliases: ["daily rate", "dailyrate", "rate", "price", "day rate", "cost"] },
+    { key: "currency", label: "Currency", aliases: ["currency"] },
+    { key: "notes", label: "Notes", aliases: ["notes", "comment", "comments"] },
+  ],
+  cateringMenuItem: [
+    { key: "name", label: "Item", required: true, aliases: ["name", "item", "item name", "dish", "dish name"] },
+    { key: "category", label: "Category", aliases: ["category", "type", "course"] },
+    { key: "vendor", label: "Vendor", aliases: ["vendor", "vendor name", "caterer", "supplier"] },
+    { key: "cuisine", label: "Cuisine", aliases: ["cuisine"] },
+    { key: "dietType", label: "Diet", aliases: ["diet", "diet type", "diettype", "dietary type", "veg/non-veg"] },
+    { key: "spiceLevel", label: "Spice level", aliases: ["spice", "spice level", "spicelevel", "spiciness"] },
+    { key: "packagingType", label: "Packaging", aliases: ["packaging", "packaging type", "packagingtype", "package"] },
+    { key: "price", label: "Price", aliases: ["price", "rate", "cost"] },
     { key: "currency", label: "Currency", aliases: ["currency"] },
     { key: "notes", label: "Notes", aliases: ["notes", "comment", "comments"] },
   ],
