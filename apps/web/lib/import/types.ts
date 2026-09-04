@@ -71,7 +71,7 @@ export const IMPORT_FIELDS: Record<ImportEntityType, ImportFieldSpec[]> = {
     { key: "department", label: "Department", aliases: ["department", "dept"] },
     { key: "category", label: "Category", aliases: ["category", "type"] },
     { key: "vendor", label: "Vendor", aliases: ["vendor", "vendor name", "rental house", "supplier"] },
-    { key: "dailyRate", label: "Daily rate", aliases: ["daily rate", "rate", "price", "day rate", "cost"] },
+    { key: "dailyRate", label: "Daily rate", aliases: ["daily rate", "dailyrate", "rate", "price", "day rate", "cost"] },
     { key: "currency", label: "Currency", aliases: ["currency"] },
     { key: "notes", label: "Notes", aliases: ["notes", "comment", "comments"] },
   ],
