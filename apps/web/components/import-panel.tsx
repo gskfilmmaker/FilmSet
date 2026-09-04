@@ -83,6 +83,11 @@ export function ImportPanel({ productionId, entityType }: { productionId: string
       setCandidates(result.candidates);
       setSkipped(result.skipped);
       setLogId(result.logId);
+      toast({
+        tone: "success",
+        title: "File read",
+        description: `Found ${result.candidates.length} row${result.candidates.length === 1 ? "" : "s"}${result.skipped.length > 0 ? ` (${result.skipped.length} skipped — see below)` : ""}. Review below, then import.`,
+      });
     } catch (err) {
       toast({ tone: "danger", title: "Couldn't read that file", description: err instanceof Error ? err.message : "Please try again." });
       setFileName(null);
