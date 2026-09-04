@@ -4,7 +4,7 @@ import { SuggestionPreviewCard } from "@/components/ai-suggestion-card";
 import { Shell } from "@/components/shell";
 import type { ProductionSnapshot } from "@/lib/queries";
 import type { AIRecommendation, IssueSeverity } from "@filmset/core";
-import { Button, StatusBadge, Toaster, toast } from "@filmset/ui";
+import { Button, StatusBadge, toast } from "@filmset/ui";
 import { Info, Sparkles } from "lucide-react";
 import * as React from "react";
 import { approveRecommendationOption, askFilmSetAI, dismissRecommendation, generateSuggestion } from "./actions";
@@ -273,7 +273,6 @@ function AIPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapshot; 
 
         <QueryPanel askAI={askFilmSetAI} />
       </div>
-      <Toaster />
     </Shell>
   );
 }
