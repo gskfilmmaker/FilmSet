@@ -626,6 +626,132 @@ export const accommodationChanges = pgTable(
   (t) => [index("accommodation_changes_stay_idx").on(t.stayId)],
 );
 
+/**
+ * Transportation domain (LOGISTICS_DOMAIN_MODEL.md §3) — the second real
+ * Logistics subdomain, built on the Booking Engine the same way
+ * Accommodation was. Scoped to Vehicle/Driver/DriverQualification/
+ * Movement/MovementLeg/passenger-manifest for a first working v1;
+ * Route/PickupPoint as first-class entities and a separate
+ * MovementAssignment table are deliberately deferred — see
+ * packages/db/migrations/0021_transportation_domain.sql's header
+ * comment. Today's fixture-era `production_vehicles`/`transport_runs`
+ * fields (packages/core, wired into the shoot-day call sheet) are a
+ * completely separate, untouched thing — this is a parallel real
+ * booking system, not a migration of those free-text fields.
+ */
+export const vehicles = pgTable(
+  "vehicles",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    /** A fixed picklist enforced at the UI layer (Production Vehicle | Cast Car | VIP Vehicle | Shuttle | Bus | Van | Equipment Vehicle | Picture Vehicle | External Taxi/Chauffeur — LOGISTICS_DOMAIN_MODEL.md §3), not a separate VehicleType table. */
+    type: text("type").notNull().default("PRODUCTION_VEHICLE"),
+    identifier: text("identifier").notNull(),
+    capacity: integer("capacity").notNull().default(1),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("vehicles_production_idx").on(t.productionId)],
+);
+
+/** crewMemberId/externalName: most drivers are crew, but an external taxi/chauffeur service has no crew record at all — a nullable pair with a DB check constraint pinning exactly one, not a required either/or. */
+export const drivers = pgTable(
+  "drivers",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    crewMemberId: text("crew_member_id").references((): AnyPgColumn => crewMembers.id, { onDelete: "cascade" }),
+    externalName: text("external_name"),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("drivers_production_idx").on(t.productionId), index("drivers_crew_member_idx").on(t.crewMemberId)],
+);
+
+/** Tracked for reference/display in this v1 — not yet cross-checked against a leg's requirements when assigning a driver (no per-leg "required qualification" field exists yet to check against). */
+export const driverQualifications = pgTable(
+  "driver_qualifications",
+  {
+    id: text("id").primaryKey(),
+    driverId: text("driver_id")
+      .notNull()
+      .references(() => drivers.id, { onDelete: "cascade" }),
+    qualificationType: text("qualification_type").notNull(),
+    expiryDate: timestamp("expiry_date", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("driver_qualifications_driver_idx").on(t.driverId)],
+);
+
+/** Also the VehicleBooking subtype's anchor: a Movement IS the bookings row's subject (subjectType "TRANSPORT_MOVEMENT", subjectId: movements.id), mirroring exactly how a Stay anchors an accommodation booking. */
+export const movements = pgTable(
+  "movements",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    date: timestamp("date", { withTimezone: true }).notNull(),
+    purpose: text("purpose").notNull(),
+    /** PLANNED | CONFIRMED | DRIVER_ASSIGNED | READY | BOARDING | EN_ROUTE | ARRIVED | COMPLETED | CANCELLED (LOGISTICS_DOMAIN_MODEL.md §3). */
+    status: text("status").notNull().default("PLANNED"),
+    bookingId: text("booking_id").references(() => bookings.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("movements_production_idx").on(t.productionId), index("movements_booking_idx").on(t.bookingId)],
+);
+
+/** vehicleId/driverId live directly on the leg for v1 (MovementAssignment deferred). pickup/dropoff reuse the existing `locations` table with a free-text fallback. */
+export const movementLegs = pgTable(
+  "movement_legs",
+  {
+    id: text("id").primaryKey(),
+    movementId: text("movement_id")
+      .notNull()
+      .references(() => movements.id, { onDelete: "cascade" }),
+    pickupLocationId: text("pickup_location_id").references(() => locations.id, { onDelete: "set null" }),
+    pickupNotes: text("pickup_notes"),
+    dropoffLocationId: text("dropoff_location_id").references(() => locations.id, { onDelete: "set null" }),
+    dropoffNotes: text("dropoff_notes"),
+    scheduledTime: timestamp("scheduled_time", { withTimezone: true }).notNull(),
+    vehicleId: text("vehicle_id").references(() => vehicles.id, { onDelete: "set null" }),
+    driverId: text("driver_id").references(() => drivers.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("movement_legs_movement_idx").on(t.movementId),
+    index("movement_legs_vehicle_idx").on(t.vehicleId),
+    index("movement_legs_driver_idx").on(t.driverId),
+  ],
+);
+
+/** LOGISTICS_DOMAIN_MODEL.md §3's PassengerManifest — same polymorphic person pattern as stays.castMemberId/crewMemberId. */
+export const movementLegPassengers = pgTable(
+  "movement_leg_passengers",
+  {
+    id: text("id").primaryKey(),
+    legId: text("leg_id")
+      .notNull()
+      .references(() => movementLegs.id, { onDelete: "cascade" }),
+    personType: text("person_type").notNull(),
+    castMemberId: text("cast_member_id").references((): AnyPgColumn => castMembers.id, { onDelete: "cascade" }),
+    crewMemberId: text("crew_member_id").references((): AnyPgColumn => crewMembers.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("movement_leg_passengers_leg_idx").on(t.legId),
+    index("movement_leg_passengers_cast_member_idx").on(t.castMemberId),
+    index("movement_leg_passengers_crew_member_idx").on(t.crewMemberId),
+  ],
+);
+
 export const characters = pgTable(
   "characters",
   {
