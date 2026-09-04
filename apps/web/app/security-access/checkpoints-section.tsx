@@ -4,16 +4,8 @@ import { Button, Checkbox, EmptyState, Input, Select, SelectContent, SelectItem,
 import { DoorOpen, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import {
-  createCheckpoint,
-  deleteCheckpoint,
-  updateCheckpoint,
-  ANTI_PASSBACK_MODES,
-  DIRECTION_MODES,
-  type AntiPassbackMode,
-  type CheckpointInput,
-  type DirectionMode,
-} from "./actions";
+import { createCheckpoint, deleteCheckpoint, updateCheckpoint, type CheckpointInput } from "./actions";
+import { ANTI_PASSBACK_MODES, DIRECTION_MODES, type AntiPassbackMode, type DirectionMode } from "./constants";
 import { humanizeEnum } from "./format";
 import type { PersonOption } from "./identities-section";
 

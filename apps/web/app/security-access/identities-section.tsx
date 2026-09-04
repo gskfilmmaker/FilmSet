@@ -4,7 +4,8 @@ import { Button, Checkbox, EmptyState, Input, Select, SelectContent, SelectItem,
 import { IdCard, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { createIdentity, deleteIdentity, updateIdentity, PERSON_CATEGORIES, SECURITY_CLASSES, type IdentityInput, type PersonCategory, type SecurityClass } from "./actions";
+import { createIdentity, deleteIdentity, updateIdentity, type IdentityInput } from "./actions";
+import { PERSON_CATEGORIES, SECURITY_CLASSES, type PersonCategory, type SecurityClass } from "./constants";
 import { humanizeEnum } from "./format";
 
 export interface IdentityRow {

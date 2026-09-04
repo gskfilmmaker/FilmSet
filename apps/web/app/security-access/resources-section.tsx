@@ -4,10 +4,8 @@ import { Button, Checkbox, EmptyState, Input, Select, SelectContent, SelectItem,
 import { DoorClosed, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { createResource, deleteResource, updateResource, type ResourceInput } from "./actions";
 import {
-  createResource,
-  deleteResource,
-  updateResource,
   ASSURANCE_LEVELS,
   OCCUPANCY_POLICIES,
   OFFLINE_POLICIES,
@@ -16,10 +14,9 @@ import {
   type AssuranceLevel,
   type OccupancyPolicy,
   type OfflinePolicy,
-  type ResourceInput,
   type ResourceType,
   type SecurityLevel,
-} from "./actions";
+} from "./constants";
 import { humanizeEnum } from "./format";
 import type { PersonOption } from "./identities-section";
 

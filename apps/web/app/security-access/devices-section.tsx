@@ -4,7 +4,8 @@ import { Button, EmptyState, Input, Select, SelectContent, SelectItem, SelectTri
 import { Pencil, Trash2, Smartphone } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
-import { createDevice, deleteDevice, updateDevice, DEVICE_STATUSES, DEVICE_TYPES, type DeviceInput, type DeviceStatus, type DeviceType } from "./actions";
+import { createDevice, deleteDevice, updateDevice, type DeviceInput } from "./actions";
+import { DEVICE_STATUSES, DEVICE_TYPES, type DeviceStatus, type DeviceType } from "./constants";
 import { humanizeEnum } from "./format";
 import type { PersonOption } from "./identities-section";
 
