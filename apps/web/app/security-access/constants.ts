@@ -12,7 +12,7 @@ export const PERSON_CATEGORIES = ["CAST", "CREW", "EXTERNAL"] as const;
 export type PersonCategory = (typeof PERSON_CATEGORIES)[number];
 
 export const SECURITY_CLASSES = [
-  "CREW", "CAST", "HOD", "DIRECTOR_PRODUCER", "BACKGROUND", "DAY_PLAYER", "VENDOR", "CONTRACTOR",
+  "CREW", "CAST", "HOD", "DIRECTOR", "PRODUCER", "BACKGROUND", "DAY_PLAYER", "VENDOR", "CONTRACTOR",
   "VISITOR", "MEDIA", "SECURITY", "DRIVER", "VIP", "TEMPORARY", "LOCATION_STAFF", "CUSTOM",
 ] as const;
 export type SecurityClass = (typeof SECURITY_CLASSES)[number];
@@ -54,3 +54,9 @@ export type DeviceType = (typeof DEVICE_TYPES)[number];
 
 export const DEVICE_STATUSES = ["PENDING", "TRUSTED", "SUSPENDED", "REVOKED"] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
+
+export const DAYS_OF_WEEK = ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] as const;
+export type DayOfWeek = (typeof DAYS_OF_WEEK)[number];
+
+export const TEMPORARY_GRANT_STATUSES = ["PENDING", "APPROVED", "DENIED", "EXPIRED", "REVOKED"] as const;
+export type TemporaryGrantStatus = (typeof TEMPORARY_GRANT_STATUSES)[number];

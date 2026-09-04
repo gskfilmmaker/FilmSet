@@ -32,11 +32,9 @@ Example: `VMPA-CR-000001` (a credential), `VMPA-RS-000014` (a resource), `VMPA-C
 - **Numbers are never reused.** Once issued, a credential number/resource code/checkpoint code stays permanently associated with that record, even after the record is revoked or deleted. This matches real physical-security practice: a retired badge number staying retired is what makes an audit trail trustworthy.
 - **Gaps are normal, not a bug.** A cancelled form, a revoked credential, a deleted resource — all of these can leave a gap in the sequence. Do not attempt to "fill in" gaps or renumber existing records to close them.
 
-## Known gap: hard delete breaks audit continuity
+## Closed gap: delete is now a soft delete
 
-`deleteCredential`, `deleteResource`, and `deleteCheckpoint` (`apps/web/app/security-access/actions.ts`) currently perform a real, permanent database delete. For a numbering system whose entire value proposition is "every number issued is traceable," this is a real tension: once a row is hard-deleted, its number simply vanishes from the record — there's no way to later confirm *why* `VMPA-CR-000047` doesn't exist (was it never issued, or issued and then deleted?).
-
-This was flagged, not fixed, in the PR that shipped this system — changing delete to a soft-delete/archive pattern is a separate, larger decision (it affects existing UI copy, and every other list/count in the Security & Access module) that deserves its own explicit go-ahead rather than being bundled into a numbering-format change.
+As of migration 0029 (P20), `deleteCredential`, `deleteResource`, `deleteCheckpoint`, and every other `delete*`/`unassignProfile` function in `apps/web/app/security-access/actions.ts` no longer perform a real database delete — each sets `deleted_at`/`deleted_by` on the row instead, and every list query filters `deleted_at is null`. A row's number/code is therefore never actually removed, only hidden from the active lists; the row (and its number) remains in the database permanently, and `access_audit_log` records the delete itself (who, when, and the row's full state at the time). See `docs/security/AUDIT_TRAIL_ACCESS_CONTROL.md` for the full design.
 
 ## Extending this to a new entity type
 

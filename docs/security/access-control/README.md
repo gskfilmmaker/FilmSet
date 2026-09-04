@@ -50,12 +50,22 @@ no future phase silently reuses the existing route.
 8. [`OPERATIONS_ACCESS_CONTROL.md`](../OPERATIONS_ACCESS_CONTROL.md) — how
    this ships (phase-by-phase), the cutover convention this migration
    train uses, and what a future on-call runbook needs once writes exist.
+9. [`AUDIT_TRAIL_ACCESS_CONTROL.md`](../AUDIT_TRAIL_ACCESS_CONTROL.md) —
+   the generic, append-only `access_audit_log` table, why every `delete*`
+   Server Action is a soft delete instead of a real one, and how both
+   relate to `access_events`.
 
 ## Current phase
 
-**Phase A only** (database + types + a pure policy engine). No Server
-Action, API route, QR generation/verification endpoint, or UI page exists
-yet for this module — see `packages/db/migrations/0025_access_control_foundation.sql`'s
-header comment and each doc's own "Phase A status" note. Every table's
-write path is RLS-DENIED by default until a later phase adds the narrow
-Server Action that mediates it.
+**Phase A** (database + types + a pure policy engine) **and Phase B**
+(admin UI at `/security-access` for every domain table, soft delete +
+audit trail on every mutation, and the scan-verification endpoint —
+`verifyAccess()` calling `evaluateAccess()` and writing to
+`access_events`) are both live. See
+`packages/db/migrations/0025_access_control_foundation.sql`,
+`0026_access_control_write_policies.sql`, and
+`0029_audit_trail_soft_delete_class_split.sql`'s header comments. Not yet
+built: camera-based QR scanning (the Scan tab uses manual reference entry
+today) and the secure hashed-token device-enrollment flow
+(`DEVICE_TRUST_ACCESS_CONTROL.md`'s §14 — devices can already be marked
+`TRUSTED` directly through the Devices admin tab).
