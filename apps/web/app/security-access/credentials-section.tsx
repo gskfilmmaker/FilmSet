@@ -4,20 +4,17 @@ import { Button, EmptyState, Input, Select, SelectContent, SelectItem, SelectTri
 import { CreditCard, Pencil, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import * as React from "react";
+import { createCredential, deleteCredential, updateCredential, type CredentialInput } from "./actions";
 import {
-  createCredential,
-  deleteCredential,
-  updateCredential,
   ASSURANCE_LEVELS,
   CREDENTIAL_STATUSES,
   CREDENTIAL_TYPES,
   SECURITY_CLASSES,
   type AssuranceLevel,
-  type CredentialInput,
   type CredentialStatus,
   type CredentialType,
   type SecurityClass,
-} from "./actions";
+} from "./constants";
 import { humanizeEnum, toDateTimeLocalValue } from "./format";
 import type { PersonOption } from "./identities-section";
 
