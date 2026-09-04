@@ -26,10 +26,14 @@
     "./authorize": {
       "types": "./dist/authorize.d.ts",
       "default": "./dist/authorize.js"
+    },
+    "./access-control": {
+      "types": "./dist/access-control.d.ts",
+      "default": "./dist/access-control.js"
     }
   },
   "scripts": {
-    "build": "tsup src/index.ts src/browser.ts src/server.ts src/middleware.ts src/authorize.ts --format esm,cjs --dts --clean",
+    "build": "tsup src/index.ts src/browser.ts src/server.ts src/middleware.ts src/authorize.ts src/access-control.ts --format esm,cjs --dts --clean",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "clean": "rm -rf dist"

@@ -1,6 +1,7 @@
 import {
   type AnyPgColumn,
   boolean,
+  foreignKey,
   index,
   integer,
   jsonb,
@@ -9,6 +10,7 @@ import {
   pgTable,
   primaryKey,
   text,
+  time,
   timestamp,
   unique,
   uuid,
@@ -1529,4 +1531,465 @@ export const aiSuggestionLog = pgTable(
     decidedAt: timestamp("decided_at", { withTimezone: true }),
   },
   (t) => [index("ai_suggestion_log_production_idx").on(t.productionId)],
+);
+
+/**
+ * Security & Access (P16), Phase A — a generic physical
+ * identity/credential/access-control domain (0025_access_control_foundation.sql).
+ * Schema only in this phase: no Server Action reads or writes any table
+ * below yet, and RLS grants SELECT only (no write policy anywhere) —
+ * matching 0017/0018's exact "schema-only, unwired" precedent. See that
+ * migration's header comment for the full design rationale: generic,
+ * non-film-specific vocabulary; production_id-only tenancy (no redundant
+ * organization_id); composite (id, production_id) foreign keys enforcing
+ * cross-tenant integrity at the database level, not just RLS/app checks;
+ * one generic accessIdentities table (no separate Crew/Cast/Visitor
+ * identity tables) reusing this codebase's existing polymorphic-pair
+ * pattern (dietaryProfiles, mealServiceAssignments) for CAST/CREW plus a
+ * third EXTERNAL case for people with no existing FilmSet record.
+ */
+export const accessIdentities = pgTable(
+  "access_identities",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    /** CAST | CREW | EXTERNAL. */
+    personCategory: text("person_category").notNull(),
+    castMemberId: text("cast_member_id").references((): AnyPgColumn => castMembers.id, { onDelete: "cascade" }),
+    crewMemberId: text("crew_member_id").references((): AnyPgColumn => crewMembers.id, { onDelete: "cascade" }),
+    displayName: text("display_name"),
+    company: text("company"),
+    photoPath: text("photo_path"),
+    /** Independent from personCategory — see this table's header comment. */
+    securityClass: text("security_class").notNull().default("CREW"),
+    active: boolean("active").notNull().default(true),
+    notes: text("notes"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_identities_production_idx").on(t.productionId),
+    index("access_identities_cast_member_idx").on(t.castMemberId),
+    index("access_identities_crew_member_idx").on(t.crewMemberId),
+    unique("access_identities_id_production_unique").on(t.id, t.productionId),
+  ],
+);
+
+/** The credential domain — status is a real lifecycle, never a boolean. publicReference is the only value ever meant to be encoded in a QR (opaque, high-entropy, zero PII). */
+export const accessCredentials = pgTable(
+  "access_credentials",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    identityId: text("identity_id").notNull(),
+    credentialType: text("credential_type").notNull().default("QR"),
+    credentialClass: text("credential_class").notNull(),
+    /** Human-readable badge number (e.g. "VMPA-CR-000482") — searchable by admins, never the QR secret. */
+    credentialNumber: text("credential_number").notNull(),
+    /** The opaque, high-entropy value a QR actually encodes. Globally unique. */
+    publicReference: text("public_reference").notNull(),
+    status: text("status").notNull().default("DRAFT"),
+    assuranceLevel: text("assurance_level").notNull().default("LEVEL_1_BASIC"),
+    validFrom: timestamp("valid_from", { withTimezone: true }),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    issuedAt: timestamp("issued_at", { withTimezone: true }),
+    issuedBy: uuid("issued_by").references(() => profiles.id, { onDelete: "set null" }),
+    activatedAt: timestamp("activated_at", { withTimezone: true }),
+    suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedBy: uuid("revoked_by").references(() => profiles.id, { onDelete: "set null" }),
+    revocationReason: text("revocation_reason"),
+    replacedByCredentialId: text("replaced_by_credential_id").references((): AnyPgColumn => accessCredentials.id, { onDelete: "set null" }),
+    metadata: jsonb("metadata").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_credentials_production_idx").on(t.productionId),
+    index("access_credentials_identity_idx").on(t.identityId),
+    index("access_credentials_status_idx").on(t.status),
+    unique("access_credentials_number_unique").on(t.productionId, t.credentialNumber),
+    unique("access_credentials_public_reference_unique").on(t.publicReference),
+    unique("access_credentials_id_production_unique").on(t.id, t.productionId),
+    foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_credentials_identity_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** Generic hierarchical resource/zone tree — arbitrary parent/child depth, not hard-coded. locationId optionally roots a tree at an existing FilmSet Location without duplicating it. */
+export const accessResources = pgTable(
+  "access_resources",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    parentResourceId: text("parent_resource_id"),
+    locationId: text("location_id").references(() => locations.id, { onDelete: "set null" }),
+    resourceType: text("resource_type").notNull(),
+    name: text("name").notNull(),
+    code: text("code"),
+    description: text("description"),
+    active: boolean("active").notNull().default(true),
+    securityLevel: text("security_level").notNull().default("STANDARD"),
+    minimumAssuranceLevel: text("minimum_assurance_level").notNull().default("LEVEL_1_BASIC"),
+    capacity: integer("capacity"),
+    occupancyPolicy: text("occupancy_policy").notNull().default("IGNORE"),
+    offlinePolicy: text("offline_policy").notNull().default("DENY"),
+    metadata: jsonb("metadata").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_resources_production_idx").on(t.productionId),
+    index("access_resources_parent_idx").on(t.parentResourceId),
+    index("access_resources_location_idx").on(t.locationId),
+    unique("access_resources_id_production_unique").on(t.id, t.productionId),
+    foreignKey({ columns: [t.parentResourceId, t.productionId], foreignColumns: [t.id, t.productionId], name: "access_resources_parent_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** A named, reusable access template (§9) — assignable to many identities instead of repeating the same rule set per person. */
+export const accessProfiles = pgTable(
+  "access_profiles",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_profiles_production_idx").on(t.productionId),
+    unique("access_profiles_id_production_unique").on(t.id, t.productionId),
+    unique("access_profiles_production_name_unique").on(t.productionId, t.name),
+  ],
+);
+
+/** One allowed-resource rule within a profile. Null days/time window = no restriction on that axis. */
+export const accessProfileRules = pgTable(
+  "access_profile_rules",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    profileId: text("profile_id").notNull(),
+    resourceId: text("resource_id").notNull(),
+    daysOfWeek: text("days_of_week").array(),
+    timeStart: time("time_start"),
+    timeEnd: time("time_end"),
+    /** Overrides the resource's own minimum only when stricter — enforced by the policy engine, not this column. */
+    minimumAssuranceLevel: text("minimum_assurance_level"),
+    escortRequired: boolean("escort_required").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_profile_rules_profile_idx").on(t.profileId),
+    index("access_profile_rules_resource_idx").on(t.resourceId),
+    foreignKey({ columns: [t.profileId, t.productionId], foreignColumns: [accessProfiles.id, accessProfiles.productionId], name: "access_profile_rules_profile_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [t.resourceId, t.productionId], foreignColumns: [accessResources.id, accessResources.productionId], name: "access_profile_rules_resource_fk" }).onDelete("cascade"),
+  ],
+);
+
+export const accessIdentityProfiles = pgTable(
+  "access_identity_profiles",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    identityId: text("identity_id").notNull(),
+    profileId: text("profile_id").notNull(),
+    assignedBy: uuid("assigned_by").references(() => profiles.id, { onDelete: "set null" }),
+    assignedAt: timestamp("assigned_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_identity_profiles_identity_idx").on(t.identityId),
+    index("access_identity_profiles_profile_idx").on(t.profileId),
+    unique("access_identity_profiles_unique").on(t.identityId, t.profileId),
+    foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_identity_profiles_identity_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [t.profileId, t.productionId], foreignColumns: [accessProfiles.id, accessProfiles.productionId], name: "access_identity_profiles_profile_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** Direct, individual resource overrides (§9: "Individual overrides must be possible"). */
+export const accessGrants = pgTable(
+  "access_grants",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    identityId: text("identity_id").notNull(),
+    resourceId: text("resource_id").notNull(),
+    validFrom: timestamp("valid_from", { withTimezone: true }),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    daysOfWeek: text("days_of_week").array(),
+    timeStart: time("time_start"),
+    timeEnd: time("time_end"),
+    grantedBy: uuid("granted_by").references(() => profiles.id, { onDelete: "set null" }),
+    reason: text("reason"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_grants_identity_idx").on(t.identityId),
+    index("access_grants_resource_idx").on(t.resourceId),
+    foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_grants_identity_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [t.resourceId, t.productionId], foreignColumns: [accessResources.id, accessResources.productionId], name: "access_grants_resource_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** Explicit blocks (§31: "Restrictions should override grants"). Null resourceId = restricted from every resource in the production. */
+export const accessRestrictions = pgTable(
+  "access_restrictions",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    identityId: text("identity_id").notNull(),
+    resourceId: text("resource_id"),
+    reason: text("reason").notNull(),
+    validFrom: timestamp("valid_from", { withTimezone: true }),
+    validUntil: timestamp("valid_until", { withTimezone: true }),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_restrictions_identity_idx").on(t.identityId),
+    index("access_restrictions_resource_idx").on(t.resourceId),
+    foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_restrictions_identity_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [t.resourceId, t.productionId], foreignColumns: [accessResources.id, accessResources.productionId], name: "access_restrictions_resource_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** A physical gate/door/entrance where verification actually happens. */
+export const accessCheckpoints = pgTable(
+  "access_checkpoints",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    resourceId: text("resource_id").notNull(),
+    name: text("name").notNull(),
+    code: text("code"),
+    directionMode: text("direction_mode").notNull().default("BOTH"),
+    active: boolean("active").notNull().default(true),
+    antiPassbackMode: text("anti_passback_mode").notNull().default("OFF"),
+    requiresOperatorConfirmation: boolean("requires_operator_confirmation").notNull().default(false),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_checkpoints_production_idx").on(t.productionId),
+    index("access_checkpoints_resource_idx").on(t.resourceId),
+    unique("access_checkpoints_id_production_unique").on(t.id, t.productionId),
+    foreignKey({ columns: [t.resourceId, t.productionId], foreignColumns: [accessResources.id, accessResources.productionId], name: "access_checkpoints_resource_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** Every scanner is a first-class, individually trusted security identity — device trust and operator authentication are two separate axes, never conflated. */
+export const accessDevices = pgTable(
+  "access_devices",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    checkpointId: text("checkpoint_id"),
+    name: text("name").notNull(),
+    deviceType: text("device_type").notNull().default("MOBILE_SCANNER"),
+    deviceIdentifier: text("device_identifier").notNull(),
+    status: text("status").notNull().default("PENDING"),
+    trustedAt: timestamp("trusted_at", { withTimezone: true }),
+    trustedBy: uuid("trusted_by").references(() => profiles.id, { onDelete: "set null" }),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+    revokedBy: uuid("revoked_by").references(() => profiles.id, { onDelete: "set null" }),
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }),
+    lastSyncAt: timestamp("last_sync_at", { withTimezone: true }),
+    appVersion: text("app_version"),
+    capabilities: jsonb("capabilities").notNull().default({}),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_devices_production_idx").on(t.productionId),
+    index("access_devices_checkpoint_idx").on(t.checkpointId),
+    unique("access_devices_identifier_unique").on(t.productionId, t.deviceIdentifier),
+    unique("access_devices_id_production_unique").on(t.id, t.productionId),
+    foreignKey({ columns: [t.checkpointId, t.productionId], foreignColumns: [accessCheckpoints.id, accessCheckpoints.productionId], name: "access_devices_checkpoint_fk" }).onDelete("set null"),
+  ],
+);
+
+/** Short-lived, one-time, HASHED enrollment tokens backing secure scanner enrollment (§14). The raw token is never stored — only its hash. */
+export const accessDeviceEnrollments = pgTable(
+  "access_device_enrollments",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull(),
+    status: text("status").notNull().default("PENDING"),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    createdBy: uuid("created_by").references(() => profiles.id, { onDelete: "set null" }),
+    consumedByDeviceId: text("consumed_by_device_id"),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_device_enrollments_production_idx").on(t.productionId),
+    unique("access_device_enrollments_token_hash_unique").on(t.tokenHash),
+    foreignKey({ columns: [t.consumedByDeviceId, t.productionId], foreignColumns: [accessDevices.id, accessDevices.productionId], name: "access_device_enrollments_device_fk" }).onDelete("set null"),
+  ],
+);
+
+/** The append-only verification ledger — "ordinary operators cannot alter historical events." No write RLS policy exists yet (see migration header); this table only grows once a later phase adds the real scan-writing Server Action. */
+export const accessEvents = pgTable(
+  "access_events",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    identityId: text("identity_id"),
+    credentialId: text("credential_id"),
+    deviceId: text("device_id").notNull(),
+    checkpointId: text("checkpoint_id").notNull(),
+    resourceId: text("resource_id").notNull(),
+    operatorUserId: uuid("operator_user_id").references(() => profiles.id, { onDelete: "set null" }),
+    eventType: text("event_type").notNull(),
+    direction: text("direction"),
+    decision: text("decision").notNull(),
+    reasonCode: text("reason_code").notNull(),
+    /** Compact snapshot of the policy/profile ids that produced this decision (§49). */
+    policySnapshot: jsonb("policy_snapshot").notNull().default({}),
+    verificationMode: text("verification_mode").notNull().default("ONLINE"),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    serverReceivedAt: timestamp("server_received_at", { withTimezone: true }).notNull().defaultNow(),
+    clientOccurredAt: timestamp("client_occurred_at", { withTimezone: true }),
+    metadata: jsonb("metadata").notNull().default({}),
+    correlationId: text("correlation_id"),
+  },
+  (t) => [
+    index("access_events_production_idx").on(t.productionId),
+    index("access_events_identity_idx").on(t.identityId),
+    index("access_events_credential_idx").on(t.credentialId),
+    index("access_events_device_idx").on(t.deviceId),
+    index("access_events_checkpoint_idx").on(t.checkpointId),
+    index("access_events_resource_idx").on(t.resourceId),
+    index("access_events_occurred_at_idx").on(t.occurredAt),
+    index("access_events_decision_idx").on(t.decision),
+    index("access_events_reason_code_idx").on(t.reasonCode),
+    unique("access_events_id_production_unique").on(t.id, t.productionId),
+    foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_events_identity_fk" }).onDelete("set null"),
+    foreignKey({ columns: [t.credentialId, t.productionId], foreignColumns: [accessCredentials.id, accessCredentials.productionId], name: "access_events_credential_fk" }).onDelete("set null"),
+    foreignKey({ columns: [t.deviceId, t.productionId], foreignColumns: [accessDevices.id, accessDevices.productionId], name: "access_events_device_fk" }).onDelete("restrict"),
+    foreignKey({ columns: [t.checkpointId, t.productionId], foreignColumns: [accessCheckpoints.id, accessCheckpoints.productionId], name: "access_events_checkpoint_fk" }).onDelete("restrict"),
+    foreignKey({ columns: [t.resourceId, t.productionId], foreignColumns: [accessResources.id, accessResources.productionId], name: "access_events_resource_fk" }).onDelete("restrict"),
+  ],
+);
+
+/** Time-boxed grants that stop applying on their own after validUntil (§30) — enforced by the policy engine reading validUntil directly against server time, not a cleanup job. */
+export const accessTemporaryGrants = pgTable(
+  "access_temporary_grants",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    identityId: text("identity_id").notNull(),
+    resourceId: text("resource_id").notNull(),
+    validFrom: timestamp("valid_from", { withTimezone: true }).notNull(),
+    validUntil: timestamp("valid_until", { withTimezone: true }).notNull(),
+    reason: text("reason"),
+    requestedBy: uuid("requested_by").references(() => profiles.id, { onDelete: "set null" }),
+    approvedBy: uuid("approved_by").references(() => profiles.id, { onDelete: "set null" }),
+    status: text("status").notNull().default("PENDING"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_temporary_grants_identity_idx").on(t.identityId),
+    index("access_temporary_grants_resource_idx").on(t.resourceId),
+    index("access_temporary_grants_status_idx").on(t.status),
+    foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_temporary_grants_identity_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [t.resourceId, t.productionId], foreignColumns: [accessResources.id, accessResources.productionId], name: "access_temporary_grants_resource_fk" }).onDelete("cascade"),
+  ],
+);
+
+/** 1:1 extension of an EXTERNAL-category identity with visitor-specific fields (§28). */
+export const accessVisitorDetails = pgTable(
+  "access_visitor_details",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    identityId: text("identity_id").notNull(),
+    hostIdentityId: text("host_identity_id"),
+    purpose: text("purpose"),
+    escortRequired: boolean("escort_required").notNull().default(false),
+    vehicleInfo: text("vehicle_info"),
+    status: text("status").notNull().default("PRE_REGISTERED"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("access_visitor_details_identity_idx").on(t.identityId),
+    index("access_visitor_details_host_idx").on(t.hostIdentityId),
+    index("access_visitor_details_status_idx").on(t.status),
+    unique("access_visitor_details_identity_unique").on(t.identityId),
+    foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_visitor_details_identity_fk" }).onDelete("cascade"),
+    foreignKey({ columns: [t.hostIdentityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_visitor_details_host_fk" }).onDelete("set null"),
+  ],
+);
+
+/** Security incident management (§32). */
+export const accessIncidents = pgTable(
+  "access_incidents",
+  {
+    id: text("id").primaryKey(),
+    productionId: text("production_id")
+      .notNull()
+      .references(() => productions.id, { onDelete: "cascade" }),
+    incidentNumber: text("incident_number").notNull(),
+    category: text("category").notNull(),
+    severity: text("severity").notNull().default("LOW"),
+    status: text("status").notNull().default("OPEN"),
+    title: text("title").notNull(),
+    description: text("description"),
+    resourceId: text("resource_id"),
+    checkpointId: text("checkpoint_id"),
+    identityId: text("identity_id"),
+    credentialId: text("credential_id"),
+    accessEventId: text("access_event_id"),
+    reportedBy: uuid("reported_by")
+      .notNull()
+      .references(() => profiles.id, { onDelete: "restrict" }),
+    assignedTo: uuid("assigned_to").references(() => profiles.id, { onDelete: "set null" }),
+    occurredAt: timestamp("occurred_at", { withTimezone: true }).notNull().defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+  },
+  (t) => [
+    index("access_incidents_production_idx").on(t.productionId),
+    index("access_incidents_status_idx").on(t.status),
+    index("access_incidents_severity_idx").on(t.severity),
+    unique("access_incidents_number_unique").on(t.productionId, t.incidentNumber),
+    foreignKey({ columns: [t.resourceId, t.productionId], foreignColumns: [accessResources.id, accessResources.productionId], name: "access_incidents_resource_fk" }).onDelete("set null"),
+    foreignKey({ columns: [t.checkpointId, t.productionId], foreignColumns: [accessCheckpoints.id, accessCheckpoints.productionId], name: "access_incidents_checkpoint_fk" }).onDelete("set null"),
+    foreignKey({ columns: [t.identityId, t.productionId], foreignColumns: [accessIdentities.id, accessIdentities.productionId], name: "access_incidents_identity_fk" }).onDelete("set null"),
+    foreignKey({ columns: [t.credentialId, t.productionId], foreignColumns: [accessCredentials.id, accessCredentials.productionId], name: "access_incidents_credential_fk" }).onDelete("set null"),
+    foreignKey({ columns: [t.accessEventId, t.productionId], foreignColumns: [accessEvents.id, accessEvents.productionId], name: "access_incidents_access_event_fk" }).onDelete("set null"),
+  ],
 );
