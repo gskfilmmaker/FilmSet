@@ -130,10 +130,10 @@ function PrototypeControls() {
 /** FilmSet is the hero brand; GSK Productions Inc. is credited subtly as builder/owner — shown wherever the app has a persistent footer strip (here, and the auth screens). */
 export function BrandFooter({ className }: { className?: string }) {
   return (
-    <p className={cn("flex items-center gap-[6px] text-[12px] text-[var(--color-text-tertiary)]", className)}>
+    <p className={cn("flex items-start gap-[8px] text-[12px] text-[var(--color-text-tertiary)]", className)}>
       {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no benefit from next/image here */}
-      <img src="/brand/gsk-productions-logo.png" alt="" aria-hidden="true" className="h-[13px] w-auto shrink-0 opacity-70" />
-      <span>
+      <img src="/brand/gsk-logo.png" alt="" aria-hidden="true" className="size-[20px] shrink-0" />
+      <span className="pt-[2px]">
         Built by{" "}
         <a href="https://www.gskproductions.ca" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-text-secondary)] hover:underline">
           GSK Productions Inc.

@@ -1,7 +1,7 @@
 "use client";
 
 import { PhotoAvatar } from "@/components/photo-avatar";
-import { Shell } from "@/components/shell";
+import { BrandFooter, Shell } from "@/components/shell";
 import type { Production, Scene } from "@filmset/core";
 import { Button, Input, useToast } from "@filmset/ui";
 import Link from "next/link";
@@ -171,20 +171,7 @@ export function SettingsForm({
           </Link>
         </section>
 
-        <p className="flex items-center justify-center gap-[6px] text-[12px] text-[var(--color-text-tertiary)]">
-          {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no benefit from next/image here */}
-          <img src="/brand/gsk-productions-logo.png" alt="" aria-hidden="true" className="h-[13px] w-auto shrink-0 opacity-70" />
-          <span>
-            Built by{" "}
-            <a href="https://www.gskproductions.ca" target="_blank" rel="noopener noreferrer" className="hover:text-[var(--color-text-secondary)] hover:underline">
-              GSK Productions Inc.
-            </a>{" "}
-            ·{" "}
-            <a href="mailto:info@gskproductions.ca" className="hover:text-[var(--color-text-secondary)] hover:underline">
-              info@gskproductions.ca
-            </a>
-          </span>
-        </p>
+        <BrandFooter className="justify-center" />
       </div>
     </Shell>
   );
