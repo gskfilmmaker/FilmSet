@@ -3,7 +3,7 @@ import { getProductionSnapshot } from "@/lib/queries";
 import { Shell } from "@/components/shell";
 import { runAsUser, schema } from "@filmset/db/server";
 import { and, eq, isNull } from "drizzle-orm";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@filmset/ui";
+import { DesktopRecommendedBanner, Tabs, TabsContent, TabsList, TabsTrigger } from "@filmset/ui";
 import type { CheckpointRow } from "./checkpoints-section";
 import { CheckpointsSection } from "./checkpoints-section";
 import type { CredentialRow } from "./credentials-section";
@@ -161,6 +161,11 @@ export default async function SecurityAccessPage() {
             {!canManage && " You have view access — only a Producer can add or change entries."}
           </p>
         </div>
+
+        <DesktopRecommendedBanner>
+          Scan works great on a phone at a checkpoint. The configuration tabs below (Identities, Credentials,
+          Profiles, and the rest) are easier to work through on a larger screen.
+        </DesktopRecommendedBanner>
 
         <Tabs defaultValue="scan">
           <div className="overflow-x-auto">

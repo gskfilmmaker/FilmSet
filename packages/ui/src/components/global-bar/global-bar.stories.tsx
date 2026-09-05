@@ -27,3 +27,11 @@ export const NoNotifications: Story = {
     notificationCount: 0,
   },
 };
+
+/** The mobile nav entry point — only rendered (lg:hidden) when `onOpenMobileNav` is passed, since the persistent Sidebar is desktop-only. View this story at a narrow viewport. */
+export const MobileWithHamburger: Story = {
+  args: {
+    ...Default.args,
+    onOpenMobileNav: () => {},
+  },
+};

@@ -256,7 +256,7 @@ export function MoneySection({
 
   return (
     <div className="flex flex-col gap-[var(--fs-space-24)]">
-      <div className="grid grid-cols-3 gap-[var(--fs-space-16)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
+      <div className="grid grid-cols-1 gap-[var(--fs-space-16)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)] sm:grid-cols-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">Total Budgeted</p>
           <p className="text-[18px] font-semibold text-[var(--color-text-primary)]">{currency(totals.budgeted)}</p>

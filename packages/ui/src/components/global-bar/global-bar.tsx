@@ -1,4 +1,4 @@
-import { Bell, ChevronDown, Search } from "lucide-react";
+import { Bell, ChevronDown, Menu, Search } from "lucide-react";
 import * as React from "react";
 import { cn } from "../../lib/cn";
 import { FilmSetWordmark } from "../frame-mark/filmset-wordmark";
@@ -15,6 +15,8 @@ export interface GlobalBarProps {
   onOpenNotifications?: () => void;
   onOpenProductionSwitcher?: () => void;
   onOpenUserMenu?: () => void;
+  /** Only rendered (as a lg:hidden hamburger, leftmost) when provided — the persistent Sidebar is desktop-only, this is its mobile replacement. */
+  onOpenMobileNav?: () => void;
   className?: string;
 }
 
@@ -33,6 +35,7 @@ export function GlobalBar({
   onOpenNotifications,
   onOpenProductionSwitcher,
   onOpenUserMenu,
+  onOpenMobileNav,
   className,
 }: GlobalBarProps) {
   return (
@@ -44,43 +47,59 @@ export function GlobalBar({
         className,
       )}
     >
-      <div className="flex items-center gap-[var(--fs-space-16)]">
-        <div className="flex items-center gap-[var(--fs-space-4)]" aria-hidden="true">
+      <div className="flex min-w-0 items-center gap-[var(--fs-space-16)]">
+        {onOpenMobileNav && (
+          <button
+            type="button"
+            onClick={onOpenMobileNav}
+            aria-label="Open navigation menu"
+            className={cn(
+              "flex size-[28px] shrink-0 items-center justify-center rounded-md lg:hidden",
+              "text-[var(--color-text-secondary)] hover:bg-[var(--color-background-elevated)] hover:text-[var(--color-text-primary)]",
+              "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
+            )}
+          >
+            <Menu className="size-[18px]" aria-hidden="true" />
+          </button>
+        )}
+        <div className="flex shrink-0 items-center gap-[var(--fs-space-4)]" aria-hidden="true">
           <FrameMark className="size-[18px] text-[var(--color-action-primary)]" />
-          <FilmSetWordmark className="text-[14px] text-[var(--color-text-primary)]" />
+          <FilmSetWordmark className="hidden text-[14px] text-[var(--color-text-primary)] sm:block" />
         </div>
-        <span className="h-[16px] w-px bg-[var(--color-border-subtle)]" aria-hidden="true" />
+        <span className="hidden h-[16px] w-px bg-[var(--color-border-subtle)] sm:block" aria-hidden="true" />
         <button
           type="button"
           onClick={onOpenProductionSwitcher}
           className={cn(
-            "flex items-center gap-[var(--fs-space-4)] rounded-md px-[var(--fs-space-8)] py-[var(--fs-space-4)] text-[13px] font-medium",
+            "flex min-w-0 items-center gap-[var(--fs-space-4)] rounded-md px-[var(--fs-space-8)] py-[var(--fs-space-4)] text-[13px] font-medium",
             "text-[var(--color-text-primary)] hover:bg-[var(--color-background-elevated)]",
             "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
           )}
         >
-          {productionName}
+          <span className="max-w-[120px] truncate sm:max-w-[240px]">{productionName}</span>
           {phase && (
-            <span className="ml-[var(--fs-space-4)] rounded-sm bg-[var(--color-background-elevated)] px-[6px] py-[1px] text-[11px] font-medium text-[var(--color-text-tertiary)]">
+            <span className="ml-[var(--fs-space-4)] hidden shrink-0 rounded-sm bg-[var(--color-background-elevated)] px-[6px] py-[1px] text-[11px] font-medium text-[var(--color-text-tertiary)] sm:block">
               {phase}
             </span>
           )}
-          <ChevronDown className="size-[14px] text-[var(--color-text-tertiary)]" aria-hidden="true" />
+          <ChevronDown className="size-[14px] shrink-0 text-[var(--color-text-tertiary)]" aria-hidden="true" />
         </button>
       </div>
 
       <button
         type="button"
         onClick={onOpenCommandPalette}
+        aria-label="Search or run a command"
         className={cn(
-          "flex w-full max-w-[420px] items-center gap-[var(--fs-space-8)] rounded-md border border-[var(--color-border-standard)]",
-          "bg-[var(--color-background-surface)] px-[var(--fs-space-12)] py-[6px] text-[13px] text-[var(--color-text-tertiary)]",
+          "flex w-[36px] shrink-0 items-center justify-center gap-[var(--fs-space-8)] rounded-md border border-[var(--color-border-standard)]",
+          "bg-[var(--color-background-surface)] px-[var(--fs-space-8)] py-[6px] text-[13px] text-[var(--color-text-tertiary)]",
           "hover:border-[var(--color-border-strong)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
+          "sm:w-full sm:max-w-[420px] sm:justify-start sm:px-[var(--fs-space-12)]",
         )}
       >
-        <Search className="size-[14px]" aria-hidden="true" />
-        <span className="flex-1 text-left">Search or run a command</span>
-        <kbd className="rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] px-[6px] py-[1px] text-[11px] font-medium tabular-nums">
+        <Search className="size-[14px] shrink-0" aria-hidden="true" />
+        <span className="hidden flex-1 text-left sm:block">Search or run a command</span>
+        <kbd className="hidden rounded-sm border border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] px-[6px] py-[1px] text-[11px] font-medium tabular-nums sm:block">
           ⌘K
         </kbd>
       </button>

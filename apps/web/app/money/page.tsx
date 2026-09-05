@@ -3,6 +3,7 @@ import { getProductionSnapshot } from "@/lib/queries";
 import { resolveFileUrls } from "@/lib/file-storage";
 import { Shell } from "@/components/shell";
 import { ImportPanel } from "@/components/import-panel";
+import { DesktopRecommendedBanner } from "@filmset/ui";
 import { MoneySection } from "./money-section";
 
 export default async function MoneyPage() {
@@ -20,6 +21,9 @@ export default async function MoneyPage() {
           </div>
           <ImportPanel productionId={snapshot.production.id} entityType="expense" />
         </div>
+        <DesktopRecommendedBanner>
+          Budget review and approval works best on a larger screen — there&rsquo;s a lot of detail to compare at once.
+        </DesktopRecommendedBanner>
         <MoneySection productionId={snapshot.production.id} expenses={snapshot.expenses} budgetLines={snapshot.budgetLines} fileUrls={fileUrls} />
       </div>
     </Shell>
