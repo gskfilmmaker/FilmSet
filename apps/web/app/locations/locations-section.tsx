@@ -248,8 +248,11 @@ export function LocationsSection({
           {locations.map((location) => (
             <React.Fragment key={location.id}>
               {editingId === location.id ? (
-                <li className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
-                  <form onSubmit={(e) => onSaveEdit(e, location.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
+                <li className="flex flex-col items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)] sm:flex-row">
+                  <form
+                    onSubmit={(e) => onSaveEdit(e, location.id)}
+                    className="flex w-full flex-1 flex-col items-end gap-[var(--fs-space-8)] sm:w-auto sm:flex-row"
+                  >
                     <LocationForm value={editForm} onChange={setEditForm} />
                     <Button type="submit" loading={pendingId === location.id} disabled={pendingId !== null}>
                       Save

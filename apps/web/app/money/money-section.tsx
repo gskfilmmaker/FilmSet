@@ -278,7 +278,8 @@ export function MoneySection({
         {departments.length === 0 ? (
           <p className="text-[13px] text-[var(--color-text-tertiary)]">No budget set yet — add an invoice below, or set a budget for a department.</p>
         ) : (
-          <table className="w-full border-collapse text-[13px]">
+          <div className="overflow-x-auto">
+          <table className="w-full min-w-[480px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-[var(--color-border-standard)] text-left text-[12px] text-[var(--color-text-tertiary)]">
                 <th className="py-[6px] pr-[var(--fs-space-8)] font-medium">Department</th>
@@ -322,6 +323,7 @@ export function MoneySection({
               })}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 

@@ -67,6 +67,7 @@ export const DrawerContent = React.forwardRef<React.ElementRef<typeof DialogPrim
             "absolute right-[16px] top-[16px] flex size-[28px] items-center justify-center rounded-md",
             "text-[var(--color-text-tertiary)] outline-none hover:bg-[var(--color-background-surface)] hover:text-[var(--color-text-primary)]",
             "focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
+            "[@media(pointer:coarse)]:size-[44px]",
           )}
           aria-label="Close panel"
         >
@@ -82,7 +83,11 @@ DrawerContent.displayName = "DrawerContent";
 export function DrawerHeader({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={cn("flex flex-col gap-[var(--fs-space-4)] border-b border-[var(--color-border-subtle)] p-[var(--fs-space-16)] pr-[48px]", className)}
+      className={cn(
+        "flex flex-col gap-[var(--fs-space-4)] border-b border-[var(--color-border-subtle)] p-[var(--fs-space-16)] pr-[48px]",
+        "[@media(pointer:coarse)]:pr-[64px]",
+        className,
+      )}
       {...props}
     />
   );

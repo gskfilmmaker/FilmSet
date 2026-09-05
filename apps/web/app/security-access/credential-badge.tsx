@@ -83,7 +83,7 @@ export function CredentialBadge({
       </div>
 
       <div
-        className="relative flex w-[384px] shrink-0 flex-col overflow-hidden rounded-[14px] shadow-[0_8px_30px_rgba(0,0,0,0.25)] print:shadow-none"
+        className="relative flex w-[min(384px,calc(100vw-64px))] shrink-0 flex-col overflow-hidden rounded-[14px] shadow-[0_8px_30px_rgba(0,0,0,0.25)] print:w-[384px] print:shadow-none"
         style={{
           aspectRatio: "1.5882",
           backgroundColor: "#FFFFFF",

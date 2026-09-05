@@ -7,6 +7,8 @@ import { revisionColorSwatch, type BreakdownElement, type Scene } from "@filmset
 import {
   Button,
   Checkbox,
+  Drawer,
+  DrawerContent,
   Inspector,
   InspectorSection,
   Input,
@@ -22,7 +24,7 @@ import {
   Textarea,
   useToast,
 } from "@filmset/ui";
-import { Check, FileUp, Pencil, Plus, Trash2, X } from "lucide-react";
+import { Check, ChevronDown, FileUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import * as React from "react";
 import { addBreakdownTag, confirmAllBreakdownElements, confirmBreakdownElement, rejectBreakdownElement } from "./actions";
@@ -64,15 +66,25 @@ function SceneNav({
   onSelect,
   onNewScene,
   onImportRevision,
+  mode = "sidebar",
 }: {
   scenes: ProductionSnapshot["scenes"];
   activeSceneId: string;
   onSelect: (id: string) => void;
   onNewScene: () => void;
   onImportRevision: () => void;
+  /** "sidebar" (default): the persistent desktop column, hidden below `lg`. "drawer": fills a mobile Drawer, always visible. */
+  mode?: "sidebar" | "drawer";
 }) {
   return (
-    <nav aria-label="Scenes" className="flex h-full w-[220px] shrink-0 flex-col overflow-y-auto border-r border-[var(--color-border-subtle)]">
+    <nav
+      aria-label="Scenes"
+      className={
+        mode === "drawer"
+          ? "flex h-full w-full flex-col overflow-y-auto"
+          : "hidden h-full w-[220px] shrink-0 flex-col overflow-y-auto border-r border-[var(--color-border-subtle)] lg:flex"
+      }
+    >
       <button
         type="button"
         onClick={onNewScene}
@@ -190,15 +202,19 @@ function Screenplay({
   }
 
   return (
-    <div ref={containerRef} className="relative flex-1 overflow-y-auto bg-[var(--color-background-surface)] px-[var(--fs-space-48)] py-[var(--fs-space-32)]" onMouseUp={handleMouseUp}>
+    <div
+      ref={containerRef}
+      className="relative flex-1 overflow-y-auto bg-[var(--color-background-surface)] px-[var(--fs-space-16)] py-[var(--fs-space-24)] sm:px-[var(--fs-space-48)] sm:py-[var(--fs-space-32)]"
+      onMouseUp={handleMouseUp}
+    >
       <div className="mx-auto max-w-[560px] select-text font-mono text-[13px] leading-[22px] text-[var(--color-text-primary)]">
         {scenePages.map((page) =>
           page.elements.map((el, i) => {
             if (el.type === "slugline") return <p key={i} className="mb-[12px] mt-[20px] font-semibold uppercase first:mt-0">{el.text}</p>;
             if (el.type === "action") return <p key={i} className="mb-[12px]">{el.text}</p>;
-            if (el.type === "character") return <p key={i} className="mb-[2px] ml-[140px] uppercase">{el.text}</p>;
-            if (el.type === "parenthetical") return <p key={i} className="mb-[2px] ml-[110px] text-[var(--color-text-secondary)]">{el.text}</p>;
-            if (el.type === "dialogue") return <p key={i} className="mb-[12px] ml-[80px] max-w-[280px]">{el.text}</p>;
+            if (el.type === "character") return <p key={i} className="mb-[2px] ml-[24px] uppercase sm:ml-[140px]">{el.text}</p>;
+            if (el.type === "parenthetical") return <p key={i} className="mb-[2px] ml-[24px] text-[var(--color-text-secondary)] sm:ml-[110px]">{el.text}</p>;
+            if (el.type === "dialogue") return <p key={i} className="mb-[12px] ml-[24px] max-w-none sm:ml-[80px] sm:max-w-[280px]">{el.text}</p>;
             return <p key={i} className="mb-[12px] text-right uppercase">{el.text}</p>;
           }),
         )}
@@ -367,6 +383,7 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
   const [sceneFormValue, setSceneFormValue] = React.useState<SceneInput>(blankSceneInput());
   const [savingScene, setSavingScene] = React.useState(false);
   const [showRevisionImport, setShowRevisionImport] = React.useState(false);
+  const [sceneNavOpen, setSceneNavOpen] = React.useState(false);
   const [deletingScene, setDeletingScene] = React.useState(false);
   const [deletingSceneBusy, setDeletingSceneBusy] = React.useState(false);
   const { toast } = useToast();
@@ -611,16 +628,54 @@ function ScriptPageContent({ snapshot, userEmail }: { snapshot: ProductionSnapsh
         )
       }
     >
-      <div className="flex h-full min-h-0">
-        <SceneNav
-          scenes={scenes}
-          activeSceneId={activeSceneId}
-          onSelect={setActiveSceneId}
-          onNewScene={startCreateScene}
-          onImportRevision={() => setShowRevisionImport(true)}
-        />
-        <Screenplay sceneId={activeSceneId} pages={scriptPages} onTagSelection={addTag} />
+      <div className="flex h-full min-h-0 flex-col">
+        <div className="flex shrink-0 items-center border-b border-[var(--color-border-subtle)] p-[var(--fs-space-12)] lg:hidden">
+          <button
+            type="button"
+            onClick={() => setSceneNavOpen(true)}
+            className={
+              "flex min-h-[var(--fs-control-height)] flex-1 items-center gap-[var(--fs-space-8)] rounded-md border border-[var(--color-border-standard)] " +
+              "px-[var(--fs-space-12)] text-left outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+            }
+          >
+            <span className="tabular-nums text-[13px] font-medium text-[var(--color-text-tertiary)]">{scene.number}</span>
+            <span className="flex-1 truncate text-[13px] font-medium text-[var(--color-text-primary)]">{scene.setName}</span>
+            <span className="shrink-0 text-[12px] text-[var(--color-text-tertiary)]">{scenes.length} scenes</span>
+            <ChevronDown className="size-[14px] shrink-0 text-[var(--color-text-tertiary)]" aria-hidden="true" />
+          </button>
+        </div>
+        <div className="flex min-h-0 flex-1">
+          <SceneNav
+            scenes={scenes}
+            activeSceneId={activeSceneId}
+            onSelect={setActiveSceneId}
+            onNewScene={startCreateScene}
+            onImportRevision={() => setShowRevisionImport(true)}
+          />
+          <Screenplay sceneId={activeSceneId} pages={scriptPages} onTagSelection={addTag} />
+        </div>
       </div>
+      <Drawer open={sceneNavOpen} onOpenChange={setSceneNavOpen}>
+        <DrawerContent side="left" className="w-[280px] p-0 lg:hidden" aria-label="Scenes">
+          <SceneNav
+            mode="drawer"
+            scenes={scenes}
+            activeSceneId={activeSceneId}
+            onSelect={(id) => {
+              setActiveSceneId(id);
+              setSceneNavOpen(false);
+            }}
+            onNewScene={() => {
+              setSceneNavOpen(false);
+              startCreateScene();
+            }}
+            onImportRevision={() => {
+              setSceneNavOpen(false);
+              setShowRevisionImport(true);
+            }}
+          />
+        </DrawerContent>
+      </Drawer>
       <ConfirmDeleteDialog
         open={deletingScene}
         onOpenChange={setDeletingScene}

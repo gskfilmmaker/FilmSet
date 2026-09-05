@@ -65,7 +65,7 @@ export function DayColumn({
               type="button"
               onClick={() => onEdit(day)}
               aria-label={`Edit Day ${day.dayNumber}`}
-              className="flex size-[24px] items-center justify-center rounded-md text-[var(--color-text-tertiary)] outline-none hover:bg-[var(--color-background-surface)] hover:text-[var(--color-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+              className="flex size-[24px] items-center justify-center rounded-md text-[var(--color-text-tertiary)] outline-none hover:bg-[var(--color-background-surface)] hover:text-[var(--color-text-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)] [@media(pointer:coarse)]:size-[40px]"
             >
               <Pencil className="size-[13px]" aria-hidden="true" />
             </button>
