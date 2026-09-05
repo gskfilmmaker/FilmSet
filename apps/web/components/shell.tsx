@@ -42,6 +42,7 @@ import {
   LayoutDashboard,
   ListTree,
   MapPin,
+  Menu,
   Plus,
   Settings,
   ShieldCheck,
@@ -163,7 +164,10 @@ function MobileNavList({
 }) {
   const allItems = [...navItems, aiItem, settingsItem];
   return (
-    <nav aria-label="Primary" className="flex flex-1 flex-col gap-[2px] overflow-y-auto p-[var(--fs-space-8)]">
+    <nav
+      aria-label="Primary"
+      className="flex flex-1 flex-col gap-[2px] overflow-y-auto p-[var(--fs-space-8)] [padding-bottom:calc(var(--fs-space-8)_+_var(--fs-safe-bottom))]"
+    >
       {allItems.map((item) => {
         const isActive = item.id === activeId;
         return (
@@ -196,6 +200,81 @@ function MobileNavList({
   );
 }
 
+const mobileTabItems: { id: string; label: string; href: string; icon: React.ReactNode }[] = [
+  { id: "overview", label: "Overview", href: "/overview", icon: <LayoutDashboard className="size-full" /> },
+  { id: "schedule", label: "Schedule", href: "/schedule", icon: <CalendarDays className="size-full" /> },
+  { id: "set", label: "Call Sheet", href: "/shoot-day", icon: <Building2 className="size-full" /> },
+  { id: "cast", label: "Cast", href: "/cast", icon: <Users className="size-full" /> },
+];
+
+/**
+ * The 4 destinations a mobile user reaches for constantly during an active
+ * shoot day, always one tap away — everything else lives behind "More"
+ * (the same drawer the GlobalBar hamburger opens). Desktop already has the
+ * full Sidebar, so this never renders at `lg` and up.
+ */
+function BottomTabBar({
+  activeId,
+  onNavigate,
+  onMore,
+}: {
+  activeId: string;
+  onNavigate: (href: string) => void;
+  onMore: () => void;
+}) {
+  return (
+    <nav
+      aria-label="Primary"
+      data-print-hide
+      className={cn(
+        "fixed inset-x-0 bottom-0 z-[var(--fs-z-sticky)] flex items-stretch",
+        "border-t border-[var(--color-border-subtle)] bg-[var(--color-background-canvas)] lg:hidden",
+        "[padding-bottom:var(--fs-safe-bottom)] [padding-left:var(--fs-safe-left)] [padding-right:var(--fs-safe-right)]",
+      )}
+    >
+      {mobileTabItems.map((item) => {
+        const isActive = item.id === activeId;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-current={isActive ? "page" : undefined}
+            onClick={() => onNavigate(item.href)}
+            className={cn(
+              "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-[2px] outline-none",
+              "focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-action-primary)]",
+              isActive ? "text-[var(--color-action-primary)]" : "text-[var(--color-text-tertiary)]",
+            )}
+          >
+            <span className="flex size-[20px] items-center justify-center" aria-hidden="true">
+              {item.icon}
+            </span>
+            <span className="text-[10px] font-medium leading-none">{item.label}</span>
+          </button>
+        );
+      })}
+      <button
+        type="button"
+        onClick={onMore}
+        className={cn(
+          "flex min-h-[56px] flex-1 flex-col items-center justify-center gap-[2px] outline-none",
+          "text-[var(--color-text-tertiary)] focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-action-primary)]",
+        )}
+      >
+        <span className="flex size-[20px] items-center justify-center" aria-hidden="true">
+          <Menu className="size-full" />
+        </span>
+        <span className="text-[10px] font-medium leading-none">More</span>
+      </button>
+    </nav>
+  );
+}
+
+/** Small visual affordance that a mobile sheet is a draggable-feeling surface, distinct from a desktop popover. Purely decorative. */
+function SheetGrabber() {
+  return <div aria-hidden="true" className="mx-auto mb-[var(--fs-space-8)] h-[4px] w-[36px] shrink-0 rounded-full bg-[var(--color-border-standard)] lg:hidden" />;
+}
+
 /**
  * A subtle fade + rise on every route change, keyed by pathname so React
  * remounts (and thus replays the CSS animation) on each navigation.
@@ -205,7 +284,14 @@ function MobileNavList({
  */
 function PageTransition({ pathname, children }: { pathname: string; children: React.ReactNode }) {
   return (
-    <div key={pathname} className="[animation:fs-page-enter_var(--fs-motion-duration-slow)_var(--fs-motion-easing-enter)_both]">
+    <div
+      key={pathname}
+      className={cn(
+        "[animation:fs-page-enter_var(--fs-motion-duration-slow)_var(--fs-motion-easing-enter)_both]",
+        // Clears the fixed mobile BottomTabBar so the last row of content is never hidden behind it.
+        "[padding-bottom:calc(56px_+_var(--fs-safe-bottom))] lg:pb-0",
+      )}
+    >
       {children}
     </div>
   );
@@ -339,7 +425,10 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
       <div className="min-h-0 flex-1">
         <AppShell
           globalBar={
-            <div data-print-hide>
+            <div
+              data-print-hide
+              className="bg-[var(--color-background-canvas)] [padding-top:var(--fs-safe-top)] [padding-left:var(--fs-safe-left)] [padding-right:var(--fs-safe-right)]"
+            >
               <GlobalBar
                 productionName={production.name}
                 phase={production.phase}
@@ -375,11 +464,17 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
           <PageTransition pathname={pathname}>{children}</PageTransition>
         </AppShell>
       </div>
-      <div data-print-hide>
+      <div data-print-hide className="hidden lg:block">
         <PrototypeControls />
       </div>
 
       <AppSplash />
+
+      <BottomTabBar
+        activeId={routeForActiveId(pathname)}
+        onNavigate={(href) => router.push(href)}
+        onMore={() => setMobileNavOpen(true)}
+      />
 
       <Drawer open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
         <DrawerContent side="left" className="flex w-[260px] flex-col p-0 lg:hidden" aria-label="Navigation">
@@ -402,13 +497,23 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
           <button
             type="button"
             aria-label="Close production switcher"
-            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default"
+            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default max-lg:bg-[var(--color-background-overlay)]"
             onClick={() => {
               setSwitcherOpen(false);
               setCreatingOpen(false);
             }}
           />
-          <div className="fixed left-[var(--fs-space-16)] top-[52px] z-[var(--fs-z-dropdown)] w-[280px] rounded-md border border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] p-[var(--fs-space-8)] shadow-[var(--fs-shadow-md)]">
+          <div
+            className={cn(
+              "fixed inset-x-0 bottom-0 z-[var(--fs-z-dropdown)] max-h-[75vh] overflow-y-auto rounded-t-xl border-t p-[var(--fs-space-8)]",
+              "border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] shadow-[var(--fs-shadow-lg)]",
+              "[padding-bottom:calc(var(--fs-space-16)_+_var(--fs-safe-bottom))]",
+              "[animation:fs-sheet-in_var(--fs-motion-duration-base)_var(--fs-motion-easing-enter)]",
+              "lg:left-[var(--fs-space-16)] lg:top-[52px] lg:bottom-auto lg:inset-x-auto lg:w-[280px] lg:max-h-none",
+              "lg:overflow-visible lg:rounded-md lg:border lg:pb-[var(--fs-space-8)] lg:shadow-[var(--fs-shadow-md)] lg:animate-none",
+            )}
+          >
+            <SheetGrabber />
             <p className="px-[var(--fs-space-8)] py-[4px] text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
               Productions
             </p>
@@ -424,7 +529,7 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
                       onClick={() => onSwitch(p.id)}
                       disabled={switching !== null}
                       className={cn(
-                        "flex w-full items-center justify-between gap-[var(--fs-space-8)] rounded-[4px] px-[var(--fs-space-8)] py-[6px] text-left text-[13px] outline-none",
+                        "flex min-h-[var(--fs-control-height)] w-full items-center justify-between gap-[var(--fs-space-8)] rounded-[4px] px-[var(--fs-space-8)] py-[6px] text-left text-[13px] outline-none",
                         "hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
                         p.id === production.id ? "text-[var(--color-text-primary)]" : "text-[var(--color-text-secondary)]",
                       )}
@@ -449,7 +554,7 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Production name"
-                    className="h-[28px] rounded-[4px] border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-8)] text-[13px] text-[var(--color-text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+                    className="h-[var(--fs-control-height)] rounded-[4px] border border-[var(--color-border-standard)] bg-[var(--color-background-surface)] px-[var(--fs-space-8)] text-[13px] text-[var(--color-text-primary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
                   />
                   <Button type="submit" loading={creating} disabled={creating || !newName.trim()}>
                     Create
@@ -459,7 +564,7 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
                 <button
                   type="button"
                   onClick={() => setCreatingOpen(true)}
-                  className="flex h-[32px] w-full items-center gap-[var(--fs-space-8)] rounded-[4px] px-[var(--fs-space-8)] text-left text-[13px] text-[var(--color-action-primary)] outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+                  className="flex h-[var(--fs-control-height)] w-full items-center gap-[var(--fs-space-8)] rounded-[4px] px-[var(--fs-space-8)] text-left text-[13px] text-[var(--color-action-primary)] outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
                 >
                   <Plus className="size-[14px]" aria-hidden="true" />
                   New production
@@ -475,10 +580,20 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
           <button
             type="button"
             aria-label="Close notifications"
-            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default"
+            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default max-lg:bg-[var(--color-background-overlay)]"
             onClick={() => setNotifOpen(false)}
           />
-          <div className="fixed right-[56px] top-[52px] z-[var(--fs-z-dropdown)] w-[280px] rounded-md border border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] p-[var(--fs-space-8)] shadow-[var(--fs-shadow-md)]">
+          <div
+            className={cn(
+              "fixed inset-x-0 bottom-0 z-[var(--fs-z-dropdown)] max-h-[75vh] overflow-y-auto rounded-t-xl border-t p-[var(--fs-space-8)]",
+              "border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] shadow-[var(--fs-shadow-lg)]",
+              "[padding-bottom:calc(var(--fs-space-16)_+_var(--fs-safe-bottom))]",
+              "[animation:fs-sheet-in_var(--fs-motion-duration-base)_var(--fs-motion-easing-enter)]",
+              "lg:right-[56px] lg:top-[52px] lg:left-auto lg:bottom-auto lg:inset-x-auto lg:w-[280px] lg:max-h-none",
+              "lg:overflow-visible lg:rounded-md lg:border lg:pb-[var(--fs-space-8)] lg:shadow-[var(--fs-shadow-md)] lg:animate-none",
+            )}
+          >
+            <SheetGrabber />
             <p className="px-[var(--fs-space-8)] py-[4px] text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
               Notifications
             </p>
@@ -498,7 +613,7 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
                         setNotifOpen(false);
                         router.push(n.href);
                       }}
-                      className="flex w-full flex-col items-start gap-[2px] rounded-[4px] px-[var(--fs-space-8)] py-[6px] text-left outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+                      className="flex min-h-[var(--fs-control-height)] w-full flex-col items-start justify-center gap-[2px] rounded-[4px] px-[var(--fs-space-8)] py-[6px] text-left outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
                     >
                       <span className="truncate text-[13px] font-medium text-[var(--color-text-primary)]">{n.title}</span>
                       <span className="truncate text-[12px] text-[var(--color-text-tertiary)]">{n.description}</span>
@@ -516,17 +631,27 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
           <button
             type="button"
             aria-label="Close user menu"
-            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default"
+            className="fixed inset-0 z-[var(--fs-z-dropdown)] cursor-default max-lg:bg-[var(--color-background-overlay)]"
             onClick={() => setUserMenuOpen(false)}
           />
-          <div className="fixed right-[var(--fs-space-16)] top-[52px] z-[var(--fs-z-dropdown)] w-[220px] rounded-md border border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] p-[var(--fs-space-8)] shadow-[var(--fs-shadow-md)]">
+          <div
+            className={cn(
+              "fixed inset-x-0 bottom-0 z-[var(--fs-z-dropdown)] rounded-t-xl border-t p-[var(--fs-space-8)]",
+              "border-[var(--color-border-standard)] bg-[var(--color-background-elevated)] shadow-[var(--fs-shadow-lg)]",
+              "[padding-bottom:calc(var(--fs-space-16)_+_var(--fs-safe-bottom))]",
+              "[animation:fs-sheet-in_var(--fs-motion-duration-base)_var(--fs-motion-easing-enter)]",
+              "lg:right-[var(--fs-space-16)] lg:top-[52px] lg:left-auto lg:bottom-auto lg:inset-x-auto lg:w-[220px]",
+              "lg:rounded-md lg:border lg:pb-[var(--fs-space-8)] lg:shadow-[var(--fs-shadow-md)] lg:animate-none",
+            )}
+          >
+            <SheetGrabber />
             {userEmail && (
               <p className="truncate px-[var(--fs-space-8)] py-[4px] text-[12px] text-[var(--color-text-tertiary)]">{userEmail}</p>
             )}
             <button
               type="button"
               onClick={handleSignOut}
-              className="flex h-[32px] w-full items-center rounded-[4px] px-[var(--fs-space-8)] text-left text-[13px] text-[var(--color-status-danger)] outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
+              className="flex h-[var(--fs-control-height)] w-full items-center rounded-[4px] px-[var(--fs-space-8)] text-left text-[13px] text-[var(--color-status-danger)] outline-none hover:bg-[var(--color-background-surface)] focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]"
             >
               Sign out
             </button>

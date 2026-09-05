@@ -368,8 +368,11 @@ export function CastSection({
         <ul className="flex flex-col divide-y divide-[var(--color-border-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
           {castMembers.map((member) =>
             editingId === member.id ? (
-              <li key={member.id} className="flex items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)]">
-                <form onSubmit={(e) => onSaveEdit(e, member.id)} className="flex flex-1 items-end gap-[var(--fs-space-8)]">
+              <li key={member.id} className="flex flex-col items-end gap-[var(--fs-space-8)] p-[var(--fs-space-12)] sm:flex-row">
+                <form
+                  onSubmit={(e) => onSaveEdit(e, member.id)}
+                  className="flex w-full flex-1 flex-col items-end gap-[var(--fs-space-8)] sm:w-auto sm:flex-row"
+                >
                   <CastForm value={editForm} onChange={setEditForm} />
                   <Button type="submit" loading={pendingId === member.id} disabled={pendingId !== null}>
                     Save

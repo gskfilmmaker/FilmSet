@@ -54,12 +54,12 @@ export function GlobalBar({
             onClick={onOpenMobileNav}
             aria-label="Open navigation menu"
             className={cn(
-              "flex size-[28px] shrink-0 items-center justify-center rounded-md lg:hidden",
+              "flex size-[44px] shrink-0 items-center justify-center rounded-md lg:hidden",
               "text-[var(--color-text-secondary)] hover:bg-[var(--color-background-elevated)] hover:text-[var(--color-text-primary)]",
               "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
             )}
           >
-            <Menu className="size-[18px]" aria-hidden="true" />
+            <Menu className="size-[20px]" aria-hidden="true" />
           </button>
         )}
         <div className="flex shrink-0 items-center gap-[var(--fs-space-4)]" aria-hidden="true">
@@ -131,6 +131,7 @@ export function GlobalBar({
             "flex size-[28px] items-center justify-center rounded-full bg-[var(--color-background-elevated)]",
             "text-[12px] font-semibold text-[var(--color-text-primary)] border border-[var(--color-border-standard)]",
             "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
+            "[@media(pointer:coarse)]:size-[40px]",
           )}
         >
           {userInitials}

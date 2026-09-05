@@ -3,6 +3,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import type { Character, Scene } from "@filmset/core";
+import { cn } from "@filmset/ui";
 import { GripVertical, TriangleAlert } from "lucide-react";
 
 /** "Character — Actor" once cast, falling back to just the character name before casting is finalized. */
@@ -62,15 +63,19 @@ export function Strip({ scene, castLabel, selected, hasConflict, onSelect, dragg
         {...attributes}
         {...listeners}
         aria-label={`Reorder Scene ${scene.number}`}
-        className="flex shrink-0 cursor-grab items-center text-[var(--color-text-tertiary)] outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)] active:cursor-grabbing"
+        className={cn(
+          "flex shrink-0 cursor-grab items-center justify-center rounded-sm p-[5px] text-[var(--color-text-tertiary)] outline-none",
+          "focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)] active:cursor-grabbing",
+          "[@media(pointer:coarse)]:size-[44px]",
+        )}
       >
         <GripVertical className="size-[14px]" aria-hidden="true" />
       </button>
       <span className="w-[28px] shrink-0 text-right font-medium tabular-nums text-[var(--color-text-primary)]">{scene.number}</span>
-      <span className="w-[36px] shrink-0 text-[11px] font-semibold text-[var(--color-text-tertiary)]">{scene.intExt}</span>
+      <span className="hidden w-[36px] shrink-0 text-[11px] font-semibold text-[var(--color-text-tertiary)] sm:block">{scene.intExt}</span>
       <span className="min-w-0 flex-1 truncate text-[var(--color-text-primary)]">{scene.setName}</span>
       <span className="w-[44px] shrink-0 text-[11px] font-semibold text-[var(--color-text-tertiary)]">{scene.dayNight}</span>
-      <span className="w-[48px] shrink-0 text-right tabular-nums text-[var(--color-text-secondary)]">{scene.pageCount}</span>
+      <span className="hidden w-[48px] shrink-0 text-right tabular-nums text-[var(--color-text-secondary)] sm:block">{scene.pageCount}</span>
       <span className="hidden w-[160px] shrink-0 truncate text-[12px] text-[var(--color-text-tertiary)] lg:block" title={castLabel}>{castLabel}</span>
       <span className="flex w-[16px] shrink-0 justify-center">
         {hasConflict && <TriangleAlert className="size-[14px] text-[var(--color-status-warning)]" aria-label="Conflict" />}

@@ -109,7 +109,8 @@ export function ContactSheetView({
 
       <section className="flex flex-col gap-[var(--fs-space-8)]">
         <h2 className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)] print:text-black">Cast</h2>
-        <table className="w-full border-collapse text-[13px]">
+        <div className="overflow-x-auto print:overflow-visible">
+        <table className="w-full min-w-[560px] border-collapse text-[13px]">
           <thead>
             <tr className="border-b border-[var(--color-border-standard)] text-left text-[12px] text-[var(--color-text-tertiary)] print:text-black">
               <th className="py-[6px] pr-[var(--fs-space-8)] font-medium print:hidden"></th>
@@ -146,12 +147,14 @@ export function ContactSheetView({
             ))}
           </tbody>
         </table>
+        </div>
       </section>
 
       {departments.map(([department, members]) => (
         <section key={department} className="flex flex-col gap-[var(--fs-space-8)]">
           <h2 className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)] print:text-black">{department}</h2>
-          <table className="w-full border-collapse text-[13px]">
+          <div className="overflow-x-auto print:overflow-visible">
+          <table className="w-full min-w-[440px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-[var(--color-border-standard)] text-left text-[12px] text-[var(--color-text-tertiary)] print:text-black">
                 <th className="py-[6px] pr-[var(--fs-space-8)] font-medium">Name</th>
@@ -179,6 +182,7 @@ export function ContactSheetView({
               ))}
             </tbody>
           </table>
+          </div>
         </section>
       ))}
     </div>

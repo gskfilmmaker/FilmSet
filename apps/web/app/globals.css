@@ -13,6 +13,27 @@
   --font-sans: var(--fs-font-family-ui);
 }
 
+:root {
+  --fs-safe-top: env(safe-area-inset-top, 0px);
+  --fs-safe-bottom: env(safe-area-inset-bottom, 0px);
+  --fs-safe-left: env(safe-area-inset-left, 0px);
+  --fs-safe-right: env(safe-area-inset-right, 0px);
+}
+
+/*
+ * Touch-target floor. pointer:coarse (touchscreens, independent of viewport
+ * width) is the correct signal here — a touch-only laptop at desktop width
+ * still needs 44px targets, while a mouse-driven window resized narrow for
+ * testing should not. This alone raises every Button/Input/Select built on
+ * --fs-control-height to the iOS/Material minimum on real mobile devices.
+ */
+@media (pointer: coarse) {
+  :root {
+    --fs-control-height-comfortable: 44px;
+    --fs-control-height-compact: 40px;
+  }
+}
+
 html,
 body {
   height: 100%;

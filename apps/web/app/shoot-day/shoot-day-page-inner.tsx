@@ -144,13 +144,13 @@ function CallTimesEditor({
   return (
     <div className="flex flex-col gap-[var(--fs-space-8)]">
       {people.map((person) => (
-        <div key={person.id} className="flex items-center gap-[var(--fs-space-8)]">
+        <div key={person.id} className="flex flex-col gap-[6px] sm:flex-row sm:items-center sm:gap-[var(--fs-space-8)]">
           <span className="flex-1 truncate text-[13px] text-[var(--color-text-secondary)]">{person.label}</span>
           <Input
             placeholder={dayCallTime || "06:00"}
             value={overrideFor(overrides, person.id)}
             onChange={(e) => onChange(setOverride(overrides, person.id, e.target.value))}
-            containerClassName="w-[80px]"
+            containerClassName="w-full sm:w-[80px]"
           />
         </div>
       ))}
@@ -174,32 +174,34 @@ function CastCallRow({
   );
   return (
     <div className="flex flex-col gap-[6px] rounded-md border border-[var(--color-border-subtle)] p-[var(--fs-space-8)]">
-      <div className="flex items-center gap-[var(--fs-space-8)]">
+      <div className="flex flex-col gap-[6px] sm:flex-row sm:items-center sm:gap-[var(--fs-space-8)]">
         <span className="flex-1 truncate text-[13px] text-[var(--color-text-secondary)]">{person.label}</span>
-        <Select value={entry.status ?? "none"} onValueChange={(v) => onChange({ status: v === "none" ? null : (v as CastCallStatus) })}>
-          <SelectTrigger className="w-[92px]">
-            <SelectValue placeholder="Status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">—</SelectItem>
-            {CAST_CALL_STATUSES.map((s) => (
-              <SelectItem key={s} value={s}>
-                {s}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <label className="flex items-center gap-[4px] text-[11px] text-[var(--color-text-tertiary)]">
-          <Checkbox checked={entry.onCall} onCheckedChange={(checked) => onChange({ onCall: checked === true })} />
-          O/C
-        </label>
-        <Input
-          placeholder={dayCallTime || "06:00"}
-          value={entry.callTime}
-          onChange={(e) => onChange({ callTime: e.target.value })}
-          containerClassName="w-[72px]"
-          disabled={entry.onCall}
-        />
+        <div className="flex items-center gap-[var(--fs-space-8)]">
+          <Select value={entry.status ?? "none"} onValueChange={(v) => onChange({ status: v === "none" ? null : (v as CastCallStatus) })}>
+            <SelectTrigger className="w-full sm:w-[92px]">
+              <SelectValue placeholder="Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">—</SelectItem>
+              {CAST_CALL_STATUSES.map((s) => (
+                <SelectItem key={s} value={s}>
+                  {s}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <label className="flex shrink-0 items-center gap-[4px] text-[11px] text-[var(--color-text-tertiary)]">
+            <Checkbox checked={entry.onCall} onCheckedChange={(checked) => onChange({ onCall: checked === true })} />
+            O/C
+          </label>
+          <Input
+            placeholder={dayCallTime || "06:00"}
+            value={entry.callTime}
+            onChange={(e) => onChange({ callTime: e.target.value })}
+            containerClassName="w-[72px] shrink-0"
+            disabled={entry.onCall}
+          />
+        </div>
       </div>
       <button
         type="button"
@@ -210,7 +212,7 @@ function CastCallRow({
         Pickup / Makeup / Hair / Wardrobe / Rehearsal
       </button>
       {expanded && (
-        <div className="grid grid-cols-3 gap-[6px]">
+        <div className="grid grid-cols-2 gap-[6px] sm:grid-cols-3">
           <Input label="Pickup" value={entry.pickupTime ?? ""} onChange={(e) => onChange({ pickupTime: e.target.value || null })} />
           <Input label="Makeup" value={entry.makeupCallTime ?? ""} onChange={(e) => onChange({ makeupCallTime: e.target.value || null })} />
           <Input label="Hair" value={entry.hairCallTime ?? ""} onChange={(e) => onChange({ hairCallTime: e.target.value || null })} />
@@ -265,22 +267,29 @@ function BackgroundExtrasEditor({ value, onChange }: { value: CallSheetInput["ba
       <div className="flex flex-col gap-[var(--fs-space-8)]">
         {value.map((extra, i) => (
           <div key={extra.id} className="flex flex-col gap-[6px] rounded-md border border-[var(--color-border-subtle)] p-[var(--fs-space-8)]">
-            <div className="flex items-center gap-[var(--fs-space-8)]">
+            <div className="flex flex-col gap-[6px] sm:flex-row sm:items-center sm:gap-[var(--fs-space-8)]">
               <Input
                 placeholder="e.g. Restaurant Patrons"
                 value={extra.description}
                 onChange={(e) => update(i, { description: e.target.value })}
                 containerClassName="flex-1"
               />
-              <Input
-                type="number"
-                placeholder="#"
-                value={extra.headcount || ""}
-                onChange={(e) => update(i, { headcount: Number(e.target.value) || 0 })}
-                containerClassName="w-[64px]"
-              />
-              <Input placeholder="Call" value={extra.callTime ?? ""} onChange={(e) => update(i, { callTime: e.target.value || null })} containerClassName="w-[72px]" />
-              <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+              <div className="flex items-center gap-[var(--fs-space-8)]">
+                <Input
+                  type="number"
+                  placeholder="#"
+                  value={extra.headcount || ""}
+                  onChange={(e) => update(i, { headcount: Number(e.target.value) || 0 })}
+                  containerClassName="w-[64px]"
+                />
+                <Input
+                  placeholder="Call"
+                  value={extra.callTime ?? ""}
+                  onChange={(e) => update(i, { callTime: e.target.value || null })}
+                  containerClassName="w-[72px]"
+                />
+                <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+              </div>
             </div>
             <Input
               placeholder="Instructions (wardrobe, department notes...)"
@@ -320,26 +329,28 @@ function StandInsEditor({
       <label className="text-[13px] font-medium text-[var(--color-text-secondary)]">Stand-ins</label>
       <div className="flex flex-col gap-[var(--fs-space-8)]">
         {value.map((standIn, i) => (
-          <div key={standIn.id} className="flex items-center gap-[var(--fs-space-8)]">
+          <div key={standIn.id} className="flex flex-col gap-[6px] sm:flex-row sm:items-center sm:gap-[var(--fs-space-8)]">
             <Input placeholder="Name" value={standIn.name} onChange={(e) => update(i, { name: e.target.value })} containerClassName="flex-1" />
-            <Select
-              value={standIn.standsInForCastMemberId ?? "none"}
-              onValueChange={(v) => update(i, { standsInForCastMemberId: v === "none" ? null : v })}
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="Stands in for…" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">—</SelectItem>
-                {castOnDay.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input placeholder="Call" value={standIn.callTime ?? ""} onChange={(e) => update(i, { callTime: e.target.value || null })} containerClassName="w-[72px]" />
-            <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+            <div className="flex items-center gap-[var(--fs-space-8)]">
+              <Select
+                value={standIn.standsInForCastMemberId ?? "none"}
+                onValueChange={(v) => update(i, { standsInForCastMemberId: v === "none" ? null : v })}
+              >
+                <SelectTrigger className="w-[160px] sm:w-[140px]">
+                  <SelectValue placeholder="Stands in for…" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">—</SelectItem>
+                  {castOnDay.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Input placeholder="Call" value={standIn.callTime ?? ""} onChange={(e) => update(i, { callTime: e.target.value || null })} containerClassName="w-[72px]" />
+              <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+            </div>
           </div>
         ))}
       </div>
@@ -366,9 +377,9 @@ function VehiclesEditor({ value, onChange }: { value: CallSheetInput["vehicles"]
       <div className="flex flex-col gap-[var(--fs-space-8)]">
         {value.map((vehicle, i) => (
           <div key={vehicle.id} className="flex flex-col gap-[6px] rounded-md border border-[var(--color-border-subtle)] p-[var(--fs-space-8)]">
-            <div className="flex items-center gap-[var(--fs-space-8)]">
+            <div className="flex flex-col gap-[6px] sm:flex-row sm:items-center sm:gap-[var(--fs-space-8)]">
               <Select value={vehicle.type} onValueChange={(v) => update(i, { type: v })}>
-                <SelectTrigger className="w-[132px]">
+                <SelectTrigger className="w-full sm:w-[132px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -379,15 +390,17 @@ function VehiclesEditor({ value, onChange }: { value: CallSheetInput["vehicles"]
                   ))}
                 </SelectContent>
               </Select>
-              <Input
-                placeholder="Description"
-                value={vehicle.description}
-                onChange={(e) => update(i, { description: e.target.value })}
-                containerClassName="flex-1"
-              />
-              <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+              <div className="flex items-center gap-[var(--fs-space-8)]">
+                <Input
+                  placeholder="Description"
+                  value={vehicle.description}
+                  onChange={(e) => update(i, { description: e.target.value })}
+                  containerClassName="flex-1"
+                />
+                <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+              </div>
             </div>
-            <div className="flex items-center gap-[var(--fs-space-8)]">
+            <div className="flex flex-col gap-[6px] sm:flex-row sm:items-center sm:gap-[var(--fs-space-8)]">
               <Input
                 placeholder="Driver"
                 value={vehicle.driverName ?? ""}
@@ -427,12 +440,24 @@ function TransportRunsEditor({ value, onChange }: { value: CallSheetInput["trans
       <div className="flex flex-col gap-[var(--fs-space-8)]">
         {value.map((run, i) => (
           <div key={run.id} className="flex flex-col gap-[6px] rounded-md border border-[var(--color-border-subtle)] p-[var(--fs-space-8)]">
-            <div className="flex items-center gap-[var(--fs-space-8)]">
-              <Input placeholder="Driver" value={run.driverName ?? ""} onChange={(e) => update(i, { driverName: e.target.value || null })} containerClassName="flex-1" />
-              <Input placeholder="Pickup time" value={run.pickupTime ?? ""} onChange={(e) => update(i, { pickupTime: e.target.value || null })} containerClassName="w-[90px]" />
-              <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+            <div className="flex flex-col gap-[6px] sm:flex-row sm:items-center sm:gap-[var(--fs-space-8)]">
+              <Input
+                placeholder="Driver"
+                value={run.driverName ?? ""}
+                onChange={(e) => update(i, { driverName: e.target.value || null })}
+                containerClassName="flex-1"
+              />
+              <div className="flex items-center gap-[var(--fs-space-8)]">
+                <Input
+                  placeholder="Pickup time"
+                  value={run.pickupTime ?? ""}
+                  onChange={(e) => update(i, { pickupTime: e.target.value || null })}
+                  containerClassName="w-[90px]"
+                />
+                <Button type="button" variant="quiet" iconOnly icon={<Trash2 className="size-[14px]" aria-hidden="true" />} aria-label="Remove" onClick={() => remove(i)} />
+              </div>
             </div>
-            <div className="flex items-center gap-[var(--fs-space-8)]">
+            <div className="flex flex-col gap-[6px] sm:flex-row sm:items-center sm:gap-[var(--fs-space-8)]">
               <Input
                 placeholder="From"
                 value={run.pickupLocation ?? ""}
@@ -687,7 +712,7 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
       }
     >
       <div className="flex h-full flex-col p-[var(--fs-space-24)]">
-        <div className="mb-[var(--fs-space-16)] flex items-center justify-between">
+        <div className="mb-[var(--fs-space-16)] flex flex-col gap-[var(--fs-space-12)] sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-[22px] font-semibold leading-[28px] text-[var(--color-text-primary)]">
               Shoot Day {day.dayNumber} <span className="text-[var(--color-text-tertiary)]">of {day.totalDays}</span>
@@ -696,7 +721,7 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
               {day.date} — {location?.name ?? "No location set"}
             </p>
           </div>
-          <div className="flex items-center gap-[var(--fs-space-8)]">
+          <div className="flex flex-wrap items-center gap-[var(--fs-space-8)]">
             {shootDays.length > 1 && (
               <Select
                 value={day.id}
@@ -706,7 +731,7 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
                   setEditingCallSheet(false);
                 }}
               >
-                <SelectTrigger className="w-[220px]">
+                <SelectTrigger className="w-full sm:w-[220px]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -732,14 +757,14 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
           </TabsList>
 
           <TabsContent value="operational" className="min-h-0 flex-1 overflow-y-auto">
-            <div className="grid grid-cols-4 gap-[var(--fs-space-16)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
+            <div className="grid grid-cols-2 gap-[var(--fs-space-16)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)] sm:grid-cols-4">
               <HeaderStat icon={<Cloud className="size-[14px]" aria-hidden="true" />} label="Weather" value={callSheet.weather} />
               <HeaderStat icon={<Sunrise className="size-[14px]" aria-hidden="true" />} label="Crew Call" value={day.callTime} />
               <HeaderStat icon={<MapPin className="size-[14px]" aria-hidden="true" />} label="Basecamp" value={callSheet.basecamp} />
               <HeaderStat icon={<Sunset className="size-[14px]" aria-hidden="true" />} label="Sunset" value={callSheet.sunset} />
             </div>
 
-            <div className="mt-[var(--fs-space-16)] grid grid-cols-2 gap-[var(--fs-space-16)]">
+            <div className="mt-[var(--fs-space-16)] grid grid-cols-1 gap-[var(--fs-space-16)] md:grid-cols-2">
               <section className="rounded-lg border border-[var(--color-border-subtle)]">
                 <h2 className="border-b border-[var(--color-border-subtle)] px-[var(--fs-space-16)] py-[var(--fs-space-12)] text-[13px] font-semibold text-[var(--color-text-primary)]">
                   Live Timeline
@@ -801,7 +826,7 @@ function ShootDayPageContent({ snapshot, userEmail }: { snapshot: ProductionSnap
             </section>
           </TabsContent>
 
-          <TabsContent value="document" className="min-h-0 flex-1 overflow-y-auto">
+          <TabsContent value="document" className="min-h-0 flex-1 overflow-auto">
             <DocumentView
               production={production}
               day={day}

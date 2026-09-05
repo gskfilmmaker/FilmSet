@@ -229,7 +229,8 @@ export function WardrobeView({
       <section className="flex flex-col gap-[var(--fs-space-8)]">
         <h2 className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)] print:text-black">Wardrobe Sizing</h2>
         {castMembers.length > 0 ? (
-          <table className="w-full border-collapse text-[13px]">
+          <div className="overflow-x-auto print:overflow-visible">
+          <table className="w-full min-w-[640px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-[var(--color-border-standard)] text-left text-[12px] text-[var(--color-text-tertiary)] print:text-black">
                 <th className="py-[6px] pr-[var(--fs-space-8)] font-medium">Character</th>
@@ -248,6 +249,7 @@ export function WardrobeView({
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <p className="text-[13px] text-[var(--color-text-tertiary)]">No cast yet — add cast members on /cast first, then their sizing can be logged here.</p>
         )}
@@ -256,7 +258,8 @@ export function WardrobeView({
       <section className="flex flex-col gap-[var(--fs-space-8)]">
         <h2 className="text-[12px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)] print:text-black">Continuity Notes</h2>
         {scenes.length > 0 ? (
-          <table className="w-full border-collapse text-[13px]">
+          <div className="overflow-x-auto print:overflow-visible">
+          <table className="w-full min-w-[480px] border-collapse text-[13px]">
             <thead>
               <tr className="border-b border-[var(--color-border-standard)] text-left text-[12px] text-[var(--color-text-tertiary)] print:text-black">
                 <th className="py-[6px] pr-[var(--fs-space-8)] font-medium">Scene</th>
@@ -272,6 +275,7 @@ export function WardrobeView({
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <p className="text-[13px] text-[var(--color-text-tertiary)]">No scenes yet — import or add a script on /script first, then continuity can be logged here.</p>
         )}

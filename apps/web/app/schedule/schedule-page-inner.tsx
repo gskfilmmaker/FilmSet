@@ -21,6 +21,7 @@ import { arrayMove, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import type { ShootDay } from "@filmset/core";
 import {
   Button,
+  DesktopRecommendedBanner,
   Input,
   Inspector,
   InspectorSection,
@@ -387,14 +388,14 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
       }
     >
       <div className="flex h-full flex-col gap-[var(--fs-space-16)] overflow-y-auto p-[var(--fs-space-24)]">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-[var(--fs-space-12)] sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-[22px] font-semibold leading-[28px] text-[var(--color-text-primary)]">Stripboard</h1>
             <p className="mt-[4px] text-[13px] text-[var(--color-text-secondary)]">
               Drag the handle to reorder, or focus a strip and use arrow keys. {selectedIds.size > 0 && `${selectedIds.size} selected.`}
             </p>
           </div>
-          <div className="flex items-center gap-[var(--fs-space-8)]">
+          <div className="flex flex-wrap items-center gap-[var(--fs-space-8)]">
             <Button variant="secondary" icon={<Undo2 className="size-[14px]" aria-hidden="true" />} onClick={undo} disabled={history.length === 0}>
               Undo
             </Button>
@@ -412,6 +413,10 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
             </Button>
           </div>
         </div>
+
+        <DesktopRecommendedBanner>
+          Reordering scenes by drag works on a phone, but comparing a full day&rsquo;s stripboard side by side is much easier on a larger screen.
+        </DesktopRecommendedBanner>
 
         <DndContext
           id="stripboard-dnd"
@@ -454,7 +459,7 @@ function StripboardPageContent({ snapshot, userEmail }: { snapshot: ProductionSn
           </div>
           <DragOverlay>
             {activeScene ? (
-              <div className="w-[600px] rounded-md border border-[var(--color-action-primary)]">
+              <div className="w-[min(600px,calc(100vw-32px))] rounded-md border border-[var(--color-action-primary)]">
                 <Strip
                   scene={activeScene}
                   castLabel={castNames(activeScene, castMemberCharacterIds, characters, castMemberActorNames)}

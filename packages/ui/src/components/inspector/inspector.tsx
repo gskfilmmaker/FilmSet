@@ -24,12 +24,18 @@ export function Inspector({ objectType, title, subtitle, onClose, headerActions,
     <aside
       aria-label={`${objectType} inspector: ${title}`}
       className={cn(
-        "flex h-full flex-col border-l border-[var(--color-border-subtle)] bg-[var(--color-background-elevated)]",
+        "fixed inset-0 z-[var(--fs-z-modal)] flex h-full w-full flex-col bg-[var(--color-background-elevated)]",
+        "[animation:fs-slide-in-right_var(--fs-motion-duration-base)_var(--fs-motion-easing-enter)]",
+        "lg:static lg:z-auto lg:w-[var(--fs-panel-inspector-default)] lg:animate-none lg:border-l lg:border-[var(--color-border-subtle)]",
         className,
       )}
-      style={{ width: "var(--fs-panel-inspector-default)" }}
     >
-      <div className="flex items-start justify-between gap-[var(--fs-space-8)] border-b border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
+      <div
+        className={cn(
+          "flex items-start justify-between gap-[var(--fs-space-8)] border-b border-[var(--color-border-subtle)] p-[var(--fs-space-16)]",
+          "[padding-top:calc(var(--fs-space-16)_+_var(--fs-safe-top))] lg:[padding-top:var(--fs-space-16)]",
+        )}
+      >
         <div className="min-w-0">
           <p className="text-[11px] font-semibold uppercase tracking-[0.04em] text-[var(--color-text-tertiary)]">
             {objectType}
@@ -52,6 +58,7 @@ export function Inspector({ objectType, title, subtitle, onClose, headerActions,
                 "flex size-[28px] items-center justify-center rounded-md text-[var(--color-text-tertiary)]",
                 "hover:bg-[var(--color-background-surface)] hover:text-[var(--color-text-primary)]",
                 "outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
+                "[@media(pointer:coarse)]:size-[44px]",
               )}
             >
               <X className="size-[16px]" aria-hidden="true" />

@@ -14,7 +14,7 @@ export default function Loading() {
         <Skeleton className="h-[var(--fs-control-height)] w-[160px]" />
       </div>
       <Skeleton className="h-[96px] w-full" />
-      <div className="grid grid-cols-2 gap-[var(--fs-space-24)]">
+      <div className="grid grid-cols-1 gap-[var(--fs-space-24)] md:grid-cols-2">
         <Skeleton className="h-[160px] w-full" />
         <Skeleton className="h-[160px] w-full" />
       </div>

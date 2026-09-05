@@ -92,7 +92,7 @@ export function OverviewPageInner({
           </Link>
         </div>
 
-        <div className="grid grid-cols-4 gap-[var(--fs-space-24)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
+        <div className="grid grid-cols-2 gap-[var(--fs-space-24)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)] sm:grid-cols-4">
           <StatusItem
             label="Schedule"
             value={scheduleValue}
@@ -115,7 +115,7 @@ export function OverviewPageInner({
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-[var(--fs-space-24)]">
+        <div className="grid grid-cols-1 gap-[var(--fs-space-24)] md:grid-cols-2">
           <SectionCard title="Today" action={<Link href="/shoot-day" className="text-[12px] text-[var(--color-action-primary)]">Open call sheet →</Link>}>
             {today ? (
               <div className="flex flex-col gap-[var(--fs-space-8)]">
@@ -158,7 +158,7 @@ export function OverviewPageInner({
         </div>
 
         <SectionCard title="Needs Attention">
-          <div className="grid grid-cols-4 gap-[var(--fs-space-16)]">
+          <div className="grid grid-cols-2 gap-[var(--fs-space-16)] sm:grid-cols-4">
             <StatusItem label="Documents" value={String(pendingDocs.length)} />
             <StatusItem label="Approvals" value={String(pendingApprovals.length)} />
             <StatusItem label="Location Permits" value={String(pendingPermits)} />
