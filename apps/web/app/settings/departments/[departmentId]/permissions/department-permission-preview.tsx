@@ -2,6 +2,7 @@
 
 import { Shell } from "@/components/shell";
 import type { Production, Scene } from "@filmset/core";
+import { DesktopRecommendedBanner } from "@filmset/ui";
 import { Check } from "lucide-react";
 import Link from "next/link";
 
@@ -54,6 +55,10 @@ export function DepartmentPermissionPreview({
           <h1 className="text-[22px] font-semibold leading-[28px] text-[var(--color-text-primary)]">{departmentName} — Permissions</h1>
           <p className="text-[13px] text-[var(--color-text-secondary)]">What this department&apos;s role structure actually grants, today.</p>
         </div>
+
+        <DesktopRecommendedBanner>
+          Reviewing and changing permission grants works best on a larger screen — there&rsquo;s a lot to compare side by side.
+        </DesktopRecommendedBanner>
 
         <div className="flex flex-col divide-y divide-[var(--color-border-subtle)] rounded-lg border border-[var(--color-border-subtle)]">
           {roleBundles.map((bundle) => (

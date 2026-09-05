@@ -2,6 +2,7 @@
 
 import { createProduction, listMyProductions, switchActiveProduction, type MyProduction } from "@/app/production-actions";
 import { getNotifications, type NotificationItem } from "@/app/notifications-actions";
+import { AppSplash } from "@/components/app-splash";
 import { getBrowserSupabase } from "@filmset/auth/browser";
 import type { Production, Scene } from "@filmset/core";
 import {
@@ -15,6 +16,10 @@ import {
   CommandItem,
   CommandList,
   CommandSeparator,
+  Drawer,
+  DrawerContent,
+  FilmSetWordmark,
+  FrameMark,
   GlobalBar,
   KeyboardShortcutsOverlay,
   Sidebar,
@@ -142,6 +147,70 @@ export function BrandFooter({ className }: { className?: string }) {
   );
 }
 
+/**
+ * The persistent Sidebar (packages/ui) is desktop-only (hidden below `lg`,
+ * see Shell's render below) — this is its mobile replacement, opened from
+ * GlobalBar's hamburger. Deliberately a separate, simpler list rather than
+ * reusing Sidebar itself: Sidebar always renders its own expand/collapse
+ * toggle, which has no meaning inside a Drawer that's either open or closed.
+ */
+function MobileNavList({
+  activeId,
+  onNavigate,
+}: {
+  activeId: string;
+  onNavigate: (id: string) => void;
+}) {
+  const allItems = [...navItems, aiItem, settingsItem];
+  return (
+    <nav aria-label="Primary" className="flex flex-1 flex-col gap-[2px] overflow-y-auto p-[var(--fs-space-8)]">
+      {allItems.map((item) => {
+        const isActive = item.id === activeId;
+        return (
+          <button
+            key={item.id}
+            type="button"
+            aria-current={isActive ? "page" : undefined}
+            onClick={() => onNavigate(item.id)}
+            className={cn(
+              "flex h-[var(--fs-control-height)] items-center gap-[var(--fs-space-8)] rounded-md px-[var(--fs-space-8)]",
+              "text-[13px] font-medium leading-none outline-none",
+              "focus-visible:ring-2 focus-visible:ring-[var(--color-action-primary)]",
+              isActive
+                ? "bg-[var(--color-background-elevated)] text-[var(--color-text-primary)]"
+                : "text-[var(--color-text-secondary)] hover:bg-[var(--color-background-elevated)] hover:text-[var(--color-text-primary)]",
+              item.id === aiItem.id && "mt-[var(--fs-space-8)] border-t border-[var(--color-border-subtle)] pt-[var(--fs-space-16)]",
+            )}
+          >
+            <span
+              className={cn("flex size-[16px] shrink-0 items-center justify-center", isActive ? "text-[var(--color-action-primary)]" : "text-current")}
+              aria-hidden="true"
+            >
+              {item.icon}
+            </span>
+            <span className="truncate">{item.label}</span>
+          </button>
+        );
+      })}
+    </nav>
+  );
+}
+
+/**
+ * A subtle fade + rise on every route change, keyed by pathname so React
+ * remounts (and thus replays the CSS animation) on each navigation.
+ * Deliberately restrained (a short fade/slide, not a spinner or a literal
+ * "swirl") — see globals.css's own reduced-motion override, which already
+ * neutralizes this along with every other animation in the app.
+ */
+function PageTransition({ pathname, children }: { pathname: string; children: React.ReactNode }) {
+  return (
+    <div key={pathname} className="[animation:fs-page-enter_var(--fs-motion-duration-slow)_var(--fs-motion-easing-enter)_both]">
+      {children}
+    </div>
+  );
+}
+
 export interface ShellProps {
   children: React.ReactNode;
   inspector?: React.ReactNode;
@@ -154,6 +223,7 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
   const pathname = usePathname();
   const router = useRouter();
   const [expanded, setExpanded] = React.useState(true);
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
   const [paletteOpen, setPaletteOpen] = React.useState(false);
   const [userMenuOpen, setUserMenuOpen] = React.useState(false);
   const [switcherOpen, setSwitcherOpen] = React.useState(false);
@@ -259,6 +329,11 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
     router.push(href);
   }
 
+  // Close the mobile drawer on route change — otherwise it stays open over the newly-navigated page.
+  React.useEffect(() => {
+    setMobileNavOpen(false);
+  }, [pathname]);
+
   return (
     <div className="relative flex h-screen flex-col">
       <div className="min-h-0 flex-1">
@@ -275,11 +350,12 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
                 onOpenProductionSwitcher={openSwitcher}
                 onOpenNotifications={() => setNotifOpen((open) => !open)}
                 onOpenUserMenu={() => setUserMenuOpen((open) => !open)}
+                onOpenMobileNav={() => setMobileNavOpen(true)}
               />
             </div>
           }
           sidebar={
-            <div data-print-hide>
+            <div data-print-hide className="hidden lg:block">
               <Sidebar
                 items={navItems}
                 activeId={routeForActiveId(pathname)}
@@ -296,12 +372,30 @@ export function Shell({ children, inspector, userEmail, production, scenes }: Sh
           }
           inspector={inspector}
         >
-          {children}
+          <PageTransition pathname={pathname}>{children}</PageTransition>
         </AppShell>
       </div>
       <div data-print-hide>
         <PrototypeControls />
       </div>
+
+      <AppSplash />
+
+      <Drawer open={mobileNavOpen} onOpenChange={setMobileNavOpen}>
+        <DrawerContent side="left" className="flex w-[260px] flex-col p-0 lg:hidden" aria-label="Navigation">
+          <div className="flex h-[var(--fs-control-height)] shrink-0 items-center gap-[var(--fs-space-4)] border-b border-[var(--color-border-subtle)] px-[var(--fs-space-16)]" aria-hidden="true">
+            <FrameMark className="size-[18px] text-[var(--color-action-primary)]" />
+            <FilmSetWordmark className="text-[14px] text-[var(--color-text-primary)]" />
+          </div>
+          <MobileNavList
+            activeId={routeForActiveId(pathname)}
+            onNavigate={(id) => {
+              const item = [...navItems, aiItem, settingsItem].find((i) => i.id === id);
+              if (item) router.push(item.href);
+            }}
+          />
+        </DrawerContent>
+      </Drawer>
 
       {switcherOpen && (
         <>

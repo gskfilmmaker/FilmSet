@@ -83,11 +83,11 @@ export function ScanSection({
       </p>
 
       <form onSubmit={onSubmit} className="flex flex-col gap-[var(--fs-space-12)] rounded-lg border border-[var(--color-border-subtle)] p-[var(--fs-space-16)]">
-        <div className="flex flex-wrap items-end gap-[var(--fs-space-8)]">
-          <div className="flex flex-col gap-[4px]">
+        <div className="flex flex-col gap-[var(--fs-space-8)] sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex w-full flex-col gap-[4px] sm:w-auto">
             <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Checkpoint</label>
             <Select value={checkpointId} onValueChange={setCheckpointId}>
-              <SelectTrigger className="w-[190px]">
+              <SelectTrigger className="w-full sm:w-[190px]">
                 <SelectValue placeholder="Choose…" />
               </SelectTrigger>
               <SelectContent>
@@ -99,10 +99,10 @@ export function ScanSection({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-[4px]">
+          <div className="flex w-full flex-col gap-[4px] sm:w-auto">
             <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Device</label>
             <Select value={deviceId} onValueChange={setDeviceId}>
-              <SelectTrigger className="w-[190px]">
+              <SelectTrigger className="w-full sm:w-[190px]">
                 <SelectValue placeholder="Choose…" />
               </SelectTrigger>
               <SelectContent>
@@ -114,10 +114,10 @@ export function ScanSection({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex flex-col gap-[4px]">
+          <div className="flex w-full flex-col gap-[4px] sm:w-auto">
             <label className="text-[12px] font-medium text-[var(--color-text-secondary)]">Direction</label>
             <Select value={direction || undefined} onValueChange={(v) => setDirection(v as (typeof DIRECTIONS)[number])}>
-              <SelectTrigger className="w-[110px]">
+              <SelectTrigger className="w-full sm:w-[110px]">
                 <SelectValue placeholder="Either" />
               </SelectTrigger>
               <SelectContent>
@@ -131,17 +131,17 @@ export function ScanSection({
           </div>
         </div>
 
-        <div className="flex items-end gap-[var(--fs-space-8)]">
+        <div className="flex flex-col gap-[var(--fs-space-8)] sm:flex-row sm:items-end">
           <Input
             ref={referenceInputRef}
             label="Credential reference"
             placeholder="Scan or paste the badge's QR value"
             value={reference}
             onChange={(e) => setReference(e.target.value)}
-            containerClassName="min-w-[260px] flex-1"
+            containerClassName="w-full sm:min-w-[260px] sm:flex-1"
             autoFocus
           />
-          <Button type="submit" loading={submitting} disabled={submitting}>
+          <Button type="submit" loading={submitting} disabled={submitting} className="w-full sm:w-auto">
             Verify
           </Button>
         </div>

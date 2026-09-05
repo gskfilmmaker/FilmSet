@@ -77,3 +77,9 @@
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* Page-to-page navigation (apps/web/components/shell.tsx's PageTransition) — a short fade/rise, not a spinner, so a route change never reads as a hard cut. */
+@keyframes fs-page-enter {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}

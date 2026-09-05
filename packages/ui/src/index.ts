@@ -3,6 +3,7 @@ export * from "./components/button/button";
 export * from "./components/checkbox/checkbox";
 export * from "./components/command-palette/command-palette";
 export * from "./components/data-table/data-table";
+export * from "./components/desktop-recommended/desktop-recommended-banner";
 export * from "./components/dialog/dialog";
 export * from "./components/drawer/drawer";
 export * from "./components/dropdown-menu/dropdown-menu";
